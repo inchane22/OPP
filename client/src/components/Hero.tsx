@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { useLanguage } from "../hooks/use-language";
 
 export default function Hero() {
+  const { t } = useLanguage();
   return (
     <div className="relative h-[600px] flex items-center justify-center">
       {/* Machu Picchu background */}
@@ -18,14 +20,14 @@ export default function Hero() {
 
       <div className="relative z-10 text-center text-white space-y-6">
         <h1 className="text-5xl font-bold">
-          Orange Pill Peru
+          {t('hero.title')}
         </h1>
         <p className="text-xl max-w-2xl mx-auto">
-          La primera comunidad Bitcoiner del Perú. Únete a nosotros en la revolución financiera.
+          {t('hero.subtitle')}
         </p>
         <Link href="/login" className="inline-block">
           <Button size="lg" className="bg-primary hover:bg-primary/90">
-            Join the Community
+            {t('hero.join')}
           </Button>
         </Link>
       </div>

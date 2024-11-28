@@ -1,40 +1,42 @@
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLanguage } from "../hooks/use-language";
 
 export default function HomePage() {
+  const { t } = useLanguage();
   return (
     <div className="space-y-12">
       <Hero />
 
       <section className="py-12">
         <div className="container">
-          <h2 className="text-3xl font-bold mb-8 text-center">Why Bitcoin Maximalism?</h2>
+          <h2 className="text-3xl font-bold mb-8 text-center">{t('home.why_bitcoin')}</h2>
           
           <div className="grid md:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Sound Money</CardTitle>
+                <CardTitle>{t('home.sound_money.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>Bitcoin is the hardest form of money ever created, immune to inflation and government control.</p>
+                <p>{t('home.sound_money.desc')}</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Financial Freedom</CardTitle>
+                <CardTitle>{t('home.financial_freedom.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>Take control of your financial future with true peer-to-peer digital cash.</p>
+                <p>{t('home.financial_freedom.desc')}</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Community</CardTitle>
+                <CardTitle>{t('home.community.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>Join a growing community of Bitcoiners in Peru and around the world.</p>
+                <p>{t('home.community.desc')}</p>
               </CardContent>
             </Card>
           </div>
@@ -45,9 +47,9 @@ export default function HomePage() {
         <div className="container">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-4">Bitcoin Mining in Peru</h2>
+              <h2 className="text-3xl font-bold mb-4">{t('home.mining.title')}</h2>
               <p className="text-lg mb-6">
-                Learn about Bitcoin mining opportunities in Peru and how you can participate in securing the network.
+                {t('home.mining.desc')}
               </p>
             </div>
             <div>

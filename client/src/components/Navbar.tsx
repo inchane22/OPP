@@ -12,7 +12,7 @@ import LanguageToggle from "./LanguageToggle";
 import { User } from "@db/schema";
 import { useLanguage } from "../hooks/use-language";
 
-export default function Navbar({ user }: { user: User | null }) {
+export default function Navbar({ user }: { user: User | null | undefined }) {
   const { logout } = useUser();
   const { t } = useLanguage();
 

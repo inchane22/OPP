@@ -1,7 +1,9 @@
 import { Link } from "wouter";
 import { Twitter, Github } from "lucide-react";
+import { useLanguage } from "../hooks/use-language";
 
 export default function Footer() {
+  const { t } = useLanguage();
   return (
     <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-12">
       <div className="container py-8">
@@ -9,12 +11,12 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-lg mb-4">Orange Pill Peru</h3>
             <p className="text-sm text-muted-foreground">
-              Building the Bitcoin community in Peru, one satoshi at a time.
+              {t('footer.description')}
             </p>
           </div>
           
           <div>
-            <h3 className="font-bold text-lg mb-4">Quick Links</h3>
+            <h3 className="font-bold text-lg mb-4">{t('footer.quick_links')}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/forum" className="text-muted-foreground hover:text-primary">
@@ -35,7 +37,7 @@ export default function Footer() {
           </div>
           
           <div>
-            <h3 className="font-bold text-lg mb-4">Connect</h3>
+            <h3 className="font-bold text-lg mb-4">{t('footer.connect')}</h3>
             <div className="flex space-x-4">
               <a
                 href="https://twitter.com/orangepillperu"
