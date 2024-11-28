@@ -27,6 +27,8 @@ function CommentSection({ postId }: { postId: number }) {
   const { user } = useUser();
   const { toast } = useToast();
 
+  const queryClient = useQueryClient();
+  
   const { data: comments = [], isLoading } = useQuery<Comment[]>({
     queryKey: ["comments", postId],
     queryFn: () => fetch(`/api/posts/${postId}/comments`).then(res => res.json())
@@ -40,6 +42,7 @@ function CommentSection({ postId }: { postId: number }) {
         body: JSON.stringify({ content: comment, authorName })
       }).then(res => res.json()),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["comments", postId] });
       toast({ title: "Comment added successfully" });
       setComment("");
       setAuthorName("");
