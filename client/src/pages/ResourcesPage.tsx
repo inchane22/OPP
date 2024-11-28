@@ -31,6 +31,7 @@ const RESOURCE_TYPES = ["article", "video", "book", "tool"] as const;
 export default function ResourcesPage() {
   const { user } = useUser();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: resources, isLoading } = useQuery<Resource[]>({
     queryKey: ["resources"],
@@ -98,17 +99,17 @@ export default function ResourcesPage() {
         }}
       >
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">Bitcoin Educational Resources</h1>
+          <h1 className="text-4xl font-bold text-white">{t('resources.title')}</h1>
         </div>
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Approved Resources</h2>
+        <h2 className="text-2xl font-bold">{t('resources.approved')}</h2>
         
         {user ? (
           <Dialog>
             <DialogTrigger asChild>
-              <Button>Submit Resource</Button>
+              <Button>{t('resources.submit')}</Button>
             </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -188,7 +189,7 @@ export default function ResourcesPage() {
         </Dialog>
         ) : (
           <Link href="/login">
-            <Button>Login to Submit Resource</Button>
+            <Button>{t('resources.login_to_submit')}</Button>
           </Link>
         )}
       </div>

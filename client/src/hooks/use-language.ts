@@ -28,7 +28,20 @@ type TranslationKeys =
   | 'home.mining.desc'
   | 'footer.description'
   | 'footer.quick_links'
-  | 'footer.connect';
+  | 'footer.connect'
+  | 'forum.title'
+  | 'forum.new_post'
+  | 'forum.login_to_post'
+  | 'events.title'
+  | 'events.subtitle'
+  | 'events.create_event'
+  | 'events.login_to_create'
+  | 'events.upcoming'
+  | 'resources.title'
+  | 'resources.subtitle'
+  | 'resources.submit'
+  | 'resources.login_to_submit'
+  | 'resources.approved';
 
 type Translations = {
   [K in Language]: {
@@ -67,7 +80,20 @@ const translations: Translations = {
     'home.mining.desc': 'Learn about Bitcoin mining opportunities in Peru and how you can participate in securing the network.',
     'footer.description': 'Building the Bitcoin community in Peru, one satoshi at a time.',
     'footer.quick_links': 'Quick Links',
-    'footer.connect': 'Connect'
+    'footer.connect': 'Connect',
+    'forum.title': 'Forum',
+    'forum.new_post': 'New Post',
+    'forum.login_to_post': 'Login to Post',
+    'events.title': 'Bitcoin Events in Peru',
+    'events.subtitle': 'Join the Bitcoin community in Peru',
+    'events.create_event': 'Create Event',
+    'events.login_to_create': 'Login to Create Event',
+    'events.upcoming': 'Upcoming Events',
+    'resources.title': 'Bitcoin Educational Resources',
+    'resources.subtitle': 'Learn about Bitcoin and cryptocurrency',
+    'resources.submit': 'Submit Resource',
+    'resources.login_to_submit': 'Login to Submit Resource',
+    'resources.approved': 'Approved Resources'
   },
   es: {
     'nav.forum': 'Foro',
@@ -93,7 +119,20 @@ const translations: Translations = {
     'home.mining.desc': 'Aprende sobre las oportunidades de minería de Bitcoin en Perú y cómo puedes participar en asegurar la red.',
     'footer.description': 'Construyendo la comunidad Bitcoin en Perú, un satoshi a la vez.',
     'footer.quick_links': 'Enlaces Rápidos',
-    'footer.connect': 'Conectar'
+    'footer.connect': 'Conectar',
+    'forum.title': 'Foro',
+    'forum.new_post': 'Nueva Publicación',
+    'forum.login_to_post': 'Inicia Sesión para Publicar',
+    'events.title': 'Eventos Bitcoin en Perú',
+    'events.subtitle': 'Únete a la comunidad Bitcoin en Perú',
+    'events.create_event': 'Crear Evento',
+    'events.login_to_create': 'Inicia Sesión para Crear Evento',
+    'events.upcoming': 'Próximos Eventos',
+    'resources.title': 'Recursos Educativos Bitcoin',
+    'resources.subtitle': 'Aprende sobre Bitcoin y criptomonedas',
+    'resources.submit': 'Enviar Recurso',
+    'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
+    'resources.approved': 'Recursos Aprobados'
   }
 };
 

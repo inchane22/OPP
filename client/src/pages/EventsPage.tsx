@@ -23,6 +23,7 @@ import { Calendar, MapPin, Loader2 } from "lucide-react";
 export default function EventsPage() {
   const { user } = useUser();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["events"],
@@ -78,17 +79,17 @@ export default function EventsPage() {
         }}
       >
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">Bitcoin Events in Peru</h1>
+          <h1 className="text-4xl font-bold text-white">{t('events.title')}</h1>
         </div>
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Upcoming Events</h2>
+        <h2 className="text-2xl font-bold">{t('events.upcoming')}</h2>
         
         {user ? (
           <Dialog>
             <DialogTrigger asChild>
-              <Button>Create Event</Button>
+              <Button>{t('events.create_event')}</Button>
             </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -158,7 +159,7 @@ export default function EventsPage() {
         </Dialog>
         ) : (
           <Link href="/login">
-            <Button>Login to Create Event</Button>
+            <Button>{t('events.login_to_create')}</Button>
           </Link>
         )}
       </div>

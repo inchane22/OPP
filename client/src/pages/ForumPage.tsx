@@ -94,6 +94,7 @@ function CommentSection({ postId }: { postId: number }) {
 export default function ForumPage() {
   const { user } = useUser();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["posts"],
@@ -139,12 +140,12 @@ export default function ForumPage() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Forum</h1>
+        <h1 className="text-3xl font-bold">{t('forum.title')}</h1>
         
         {user ? (
           <Dialog>
             <DialogTrigger asChild>
-              <Button>New Post</Button>
+              <Button>{t('forum.new_post')}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -186,7 +187,7 @@ export default function ForumPage() {
           </Dialog>
         ) : (
           <Link href="/login">
-            <Button>Login to Post</Button>
+            <Button>{t('forum.login_to_post')}</Button>
           </Link>
         )}
       </div>
