@@ -43,6 +43,19 @@ export const resources = pgTable("resources", {
   approved: boolean("approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
+export const comments = pgTable("comments", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  postId: integer("post_id").references(() => posts.id).notNull(),
+  content: text("content").notNull(),
+  authorId: integer("author_id").references(() => users.id),
+  authorName: text("author_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+export const insertCommentSchema = createInsertSchema(comments);
+export const selectCommentSchema = createSelectSchema(comments);
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type Comment = z.infer<typeof selectCommentSchema>;
 
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);

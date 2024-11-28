@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { setupAuth } from "./auth";
 import { db } from "../db";
-import { posts, events, resources, users } from "@db/schema";
+import { posts, events, resources, users, comments } from "@db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export function registerRoutes(app: Express) {
@@ -107,6 +107,41 @@ export function registerRoutes(app: Express) {
       res.json(resource);
     } catch (error) {
       res.status(500).json({ error: "Failed to create resource" });
+    }
+  });
+  // Comments routes
+  app.get("/api/posts/:postId/comments", async (req, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const allComments = await db
+        .select()
+        .from(comments)
+        .where(eq(comments.postId, postId))
+        .orderBy(comments.createdAt);
+      res.json(allComments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/posts/:postId/comments", async (req, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const { content, authorName } = req.body;
+      
+      const [comment] = await db
+        .insert(comments)
+        .values({
+          postId,
+          content,
+          authorId: req.isAuthenticated() ? req.user.id : null,
+          authorName: req.isAuthenticated() ? req.user.username : authorName || "Anonymous"
+        })
+        .returning();
+        
+      res.json(comment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create comment" });
     }
   });
 }

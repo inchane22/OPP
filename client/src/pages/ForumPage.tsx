@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
@@ -15,16 +16,93 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
-import { insertPostSchema, type InsertPost, type Post } from "@db/schema";
+import { insertPostSchema, type InsertPost, type Post, type Comment } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { MessageCircle, Loader2 } from "lucide-react";
+
+function CommentSection({ postId }: { postId: number }) {
+  const [comment, setComment] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const { data: comments = [], isLoading } = useQuery<Comment[]>({
+    queryKey: ["comments", postId],
+    queryFn: () => fetch(`/api/posts/${postId}/comments`).then(res => res.json())
+  });
+
+  const createComment = useMutation({
+    mutationFn: () =>
+      fetch(`/api/posts/${postId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: comment, authorName })
+      }).then(res => res.json()),
+    onSuccess: () => {
+      toast({ title: "Comment added successfully" });
+      setComment("");
+      setAuthorName("");
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Failed to add comment"
+      });
+    }
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center p-4">
+      <Loader2 className="h-4 w-4 animate-spin" />
+    </div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-4">
+        {comments.map((comment) => (
+          <div key={comment.id} className="text-sm">
+            <div className="font-medium">
+              {comment.authorName}
+            </div>
+            <p>{comment.content}</p>
+          </div>
+        ))}
+      </div>
+      
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        createComment.mutate();
+      }} className="space-y-2">
+        {!user && (
+          <Input
+            placeholder="Your name (optional)"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+          />
+        )}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add a comment..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <Button type="submit" disabled={!comment || createComment.isPending}>
+            {createComment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Comment
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 export default function ForumPage() {
   const { user } = useUser();
   const { toast } = useToast();
 
-  const { data: posts, isLoading } = useQuery<Post[]>({
+  const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["posts"],
     queryFn: () => fetch("/api/posts").then(res => res.json())
   });
@@ -50,9 +128,9 @@ export default function ForumPage() {
       form.reset();
     },
     onError: () => {
-      toast({ 
+      toast({
         variant: "destructive",
-        title: "Failed to create post" 
+        title: "Failed to create post"
       });
     }
   });
@@ -75,44 +153,44 @@ export default function ForumPage() {
             <DialogTrigger asChild>
               <Button>New Post</Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Post</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(data => createPost.mutate(data))} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Content</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} rows={5} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={createPost.isPending}>
-                  {createPost.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Post
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Post</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(data => createPost.mutate(data))} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="content"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Content</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={5} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={createPost.isPending}>
+                    {createPost.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Post
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         ) : (
           <Link href="/login">
             <Button>Login to Post</Button>
@@ -121,7 +199,7 @@ export default function ForumPage() {
       </div>
 
       <div className="grid gap-6">
-        {posts?.map(post => (
+        {posts.map(post => (
           <Card key={post.id}>
             <CardHeader>
               <CardTitle>{post.title}</CardTitle>
@@ -132,6 +210,9 @@ export default function ForumPage() {
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap">{post.content}</p>
+              <div className="mt-4 pt-4 border-t">
+                <CommentSection postId={post.id} />
+              </div>
             </CardContent>
           </Card>
         ))}
