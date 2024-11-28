@@ -144,4 +144,27 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ error: "Failed to create comment" });
     }
   });
+
+  // Language preference update endpoint
+  app.post("/api/user/language", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not logged in");
+    }
+
+    const { language } = req.body;
+    if (language !== "en" && language !== "es") {
+      return res.status(400).send("Invalid language");
+    }
+
+    try {
+      await db
+        .update(users)
+        .set({ language })
+        .where(eq(users.id, req.user.id));
+      
+      res.json({ message: "Language updated successfully" });
+    } catch (error) {
+      res.status(500).send("Failed to update language preference");
+    }
+  });
 }

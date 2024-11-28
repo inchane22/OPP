@@ -26,7 +26,6 @@ function CommentSection({ postId }: { postId: number }) {
   const [authorName, setAuthorName] = useState("");
   const { user } = useUser();
   const { toast } = useToast();
-
   const queryClient = useQueryClient();
   
   const { data: comments = [], isLoading } = useQuery<Comment[]>({
