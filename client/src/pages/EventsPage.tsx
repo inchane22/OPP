@@ -35,7 +35,7 @@ export default function EventsPage() {
       title: "",
       description: "",
       location: "",
-      date: "",
+      date: new Date().toISOString(),
       organizerId: user?.id
     }
   });
