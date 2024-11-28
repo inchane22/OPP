@@ -27,7 +27,7 @@ function Router() {
 
   return (
     <div className="min-h-screen bg-background">
-      {user ? <Navbar user={user} /> : null}
+      <Navbar user={user} />
       <main className="container mx-auto px-4 py-8">
         <Switch>
           <Route path="/" component={HomePage} />
