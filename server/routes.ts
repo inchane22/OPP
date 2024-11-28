@@ -52,9 +52,48 @@ export function registerRoutes(app: Express) {
   // Events routes
   app.get("/api/events", async (req, res) => {
     try {
-      const allEvents = await db.select().from(events).orderBy(events.date);
+      let allEvents = await db.select().from(events).orderBy(events.date);
+      
+      // If no events exist, insert some sample events
+      if (allEvents.length === 0) {
+        const sampleEvents = [
+          {
+            title: "Bitcoin Meetup Lima",
+            description: "Monthly Bitcoin meetup in Lima. Topics: Lightning Network and Mining",
+            date: new Date("2024-12-15T18:00:00"),
+            location: "Miraflores, Lima",
+            organizerId: 1
+          },
+          {
+            title: "Orange Pill Workshop",
+            description: "Introduction to Bitcoin basics and why it matters",
+            date: new Date("2024-12-05T15:00:00"),
+            location: "Barranco, Lima",
+            organizerId: 1
+          },
+          {
+            title: "Mining in Peru Conference",
+            description: "Exploring opportunities for Bitcoin mining in Peru",
+            date: new Date("2025-01-20T09:00:00"),
+            location: "San Isidro, Lima",
+            organizerId: 1
+          },
+          {
+            title: "Bitcoin Beach Peru Launch",
+            description: "Launching the first Bitcoin Beach community in Peru",
+            date: new Date("2024-12-30T11:00:00"),
+            location: "Máncora, Piura",
+            organizerId: 1
+          }
+        ];
+
+        const insertedEvents = await db.insert(events).values(sampleEvents).returning();
+        allEvents = insertedEvents;
+      }
+
       res.json(allEvents);
     } catch (error) {
+      console.error("Failed to fetch or create events:", error);
       res.status(500).json({ error: "Failed to fetch events" });
     }
   });
