@@ -26,6 +26,15 @@ export default function EventsPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
 
+  const EVENT_TYPES = [
+    "meetup",
+    "workshop",
+    "conference",
+    "mining_workshop",
+    "trading_seminar",
+    "developer_meetup"
+  ] as const;
+
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: () => fetch("/api/events").then(res => res.json())
@@ -38,7 +47,10 @@ export default function EventsPage() {
       description: "",
       location: "",
       date: new Date(),
-      organizerId: user?.id
+      organizerId: user?.id,
+      type: "meetup",
+      capacity: 20,
+      isOnline: false
     }
   });
 
@@ -72,15 +84,26 @@ export default function EventsPage() {
   return (
     <div className="space-y-8">
       <div 
-        className="h-[300px] relative rounded-lg overflow-hidden"
+        className="h-[400px] relative rounded-lg overflow-hidden"
         style={{
-          backgroundImage: 'url("https://images.unsplash.com/photo-1531482615713-2afd69097998")',
+          backgroundImage: 'url("https://images.unsplash.com/photo-1620321023374-d1a68fbc720d")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">{t('events.title')}</h1>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 to-black/50 flex flex-col items-center justify-center text-center px-4">
+          <h1 className="text-5xl font-bold text-white mb-4">{t('events.title')}</h1>
+          <p className="text-xl text-white/90 max-w-2xl">{t('events.subtitle')}</p>
+          <div className="mt-8 flex gap-4">
+            <Button size="lg" variant="default" asChild>
+              <a href="#upcoming">{t('events.view_events')}</a>
+            </Button>
+            {user && (
+              <Button size="lg" variant="outline" onClick={() => document.querySelector('dialog')?.showModal()}>
+                {t('events.create_event')}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -150,6 +173,57 @@ export default function EventsPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Event Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select event type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {EVENT_TYPES.map(type => (
+                            <SelectItem key={type} value={type}>
+                              {type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="capacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Capacity</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isOnline"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="isOnline"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                        <label htmlFor="isOnline">Online Event</label>
+                      </div>
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" disabled={createEvent.isPending}>
                   {createEvent.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Event
@@ -165,24 +239,40 @@ export default function EventsPage() {
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div id="upcoming" className="grid md:grid-cols-2 gap-6">
         {events?.map(event => (
-          <Card key={event.id}>
+          <Card key={event.id} className="overflow-hidden">
+            <div className="h-48 bg-muted" />
             <CardHeader>
-              <CardTitle>{event.title}</CardTitle>
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <div className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>{format(new Date(event.date), "PPP")}</span>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="mb-2">{event.title}</CardTitle>
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                    <div className="flex items-center">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      <span>{format(new Date(event.date), "PPP")}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <MapPin className="mr-2 h-4 w-4" />
+                      <span>{event.location}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="mr-2 h-4 w-4" />
-                  <span>{event.location}</span>
-                </div>
+                <Badge variant={event.isOnline ? "outline" : "default"}>
+                  {event.isOnline ? "Online" : "In Person"}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap">{event.description}</p>
+              <p className="line-clamp-3">{event.description}</p>
+              <div className="mt-4 flex items-center justify-between">
+                <Badge variant="secondary">
+                  {event.type?.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {event.capacity} spots available
+                </span>
+              </div>
             </CardContent>
           </Card>
         ))}
