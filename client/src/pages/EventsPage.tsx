@@ -191,13 +191,22 @@ export default function EventsPage() {
                   variant="ghost" 
                   size="sm"
                   className="hover:text-primary"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    // TODO: Implement like functionality
+                    try {
+                      await fetch(`/api/events/${event.id}/like`, { method: 'POST' });
+                      // Refetch events to update the likes count
+                      queryClient.invalidateQueries({ queryKey: ['events'] });
+                    } catch (error) {
+                      toast({
+                        variant: "destructive",
+                        title: "Failed to like event"
+                      });
+                    }
                   }}
                 >
                   <Heart className="mr-2 h-4 w-4" />
-                  <span>123</span>
+                  <span>{event.likes}</span>
                 </Button>
                 <div className="flex gap-2">
                   <Button

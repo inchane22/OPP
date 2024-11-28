@@ -30,6 +30,7 @@ export const events = pgTable("events", {
   date: timestamp("date").notNull(),
   location: text("location").notNull(),
   organizerId: integer("organizer_id").references(() => users.id).notNull(),
+  likes: integer("likes").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 

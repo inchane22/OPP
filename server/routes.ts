@@ -98,6 +98,21 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/events/:id/like", async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const [event] = await db
+        .update(events)
+        .set({ likes: sql`${events.likes} + 1` })
+        .where(eq(events.id, eventId))
+        .returning();
+      
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update likes" });
+    }
+  });
+
   app.post("/api/events", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Not authenticated");
