@@ -1,0 +1,134 @@
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useUser } from "../hooks/use-user";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useForm } from "react-hook-form";
+import { insertPostSchema, type InsertPost, type Post } from "@db/schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { MessageCircle, Loader2 } from "lucide-react";
+
+export default function ForumPage() {
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const { data: posts, isLoading } = useQuery<Post[]>({
+    queryKey: ["posts"],
+    queryFn: () => fetch("/api/posts").then(res => res.json())
+  });
+
+  const form = useForm<InsertPost>({
+    resolver: zodResolver(insertPostSchema),
+    defaultValues: {
+      title: "",
+      content: "",
+      authorId: user?.id
+    }
+  });
+
+  const createPost = useMutation({
+    mutationFn: (data: InsertPost) =>
+      fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).then(res => res.json()),
+    onSuccess: () => {
+      toast({ title: "Post created successfully" });
+      form.reset();
+    },
+    onError: () => {
+      toast({ 
+        variant: "destructive",
+        title: "Failed to create post" 
+      });
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Forum</h1>
+        
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>New Post</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Post</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(data => createPost.mutate(data))} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Content</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={5} />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" disabled={createPost.isPending}>
+                  {createPost.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Post
+                </Button>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-6">
+        {posts?.map(post => (
+          <Card key={post.id}>
+            <CardHeader>
+              <CardTitle>{post.title}</CardTitle>
+              <div className="flex items-center text-sm text-muted-foreground">
+                <MessageCircle className="mr-2 h-4 w-4" />
+                <span>Posted on {format(new Date(post.createdAt), "PPP")}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap">{post.content}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
