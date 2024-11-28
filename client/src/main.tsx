@@ -25,19 +25,20 @@ function Router() {
     );
   }
 
-  if (!user) {
-    return <AuthPage />;
-  }
-
   return (
     <div className="min-h-screen bg-background">
-      <Navbar user={user} />
+      {user ? <Navbar user={user} /> : null}
       <main className="container mx-auto px-4 py-8">
         <Switch>
           <Route path="/" component={HomePage} />
-          <Route path="/forum" component={ForumPage} />
-          <Route path="/events" component={EventsPage} />
-          <Route path="/resources" component={ResourcesPage} />
+          <Route path="/login" component={AuthPage} />
+          {user && (
+            <>
+              <Route path="/forum" component={ForumPage} />
+              <Route path="/events" component={EventsPage} />
+              <Route path="/resources" component={ResourcesPage} />
+            </>
+          )}
           <Route>404 Page Not Found</Route>
         </Switch>
       </main>
