@@ -34,13 +34,9 @@ function Router() {
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
-            {user && (
-              <>
-                <Route path="/forum" component={ForumPage} />
-                <Route path="/events" component={EventsPage} />
-                <Route path="/resources" component={ResourcesPage} />
-              </>
-            )}
+            <Route path="/forum" component={ForumPage} />
+            <Route path="/events" component={EventsPage} />
+            <Route path="/resources" component={ResourcesPage} />
             <Route>404 Page Not Found</Route>
           </Switch>
         </main>

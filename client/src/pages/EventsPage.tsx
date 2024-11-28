@@ -84,10 +84,11 @@ export default function EventsPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Upcoming Events</h2>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>Create Event</Button>
-          </DialogTrigger>
+        {user ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>Create Event</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Event</DialogTitle>
@@ -150,6 +151,11 @@ export default function EventsPage() {
             </Form>
           </DialogContent>
         </Dialog>
+        ) : (
+          <Link href="/login">
+            <Button>Login to Create Event</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-6">

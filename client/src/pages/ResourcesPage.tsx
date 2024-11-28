@@ -104,10 +104,11 @@ export default function ResourcesPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Approved Resources</h2>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>Submit Resource</Button>
-          </DialogTrigger>
+        {user ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>Submit Resource</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Submit New Resource</DialogTitle>
@@ -184,6 +185,11 @@ export default function ResourcesPage() {
             </Form>
           </DialogContent>
         </Dialog>
+        ) : (
+          <Link href="/login">
+            <Button>Login to Submit Resource</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-6">

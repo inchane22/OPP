@@ -69,10 +69,11 @@ export default function ForumPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Forum</h1>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>New Post</Button>
-          </DialogTrigger>
+        {user ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>New Post</Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Post</DialogTitle>
@@ -111,6 +112,11 @@ export default function ForumPage() {
             </Form>
           </DialogContent>
         </Dialog>
+        ) : (
+          <Link href="/login">
+            <Button>Login to Post</Button>
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-6">
