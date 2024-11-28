@@ -237,36 +237,41 @@ export default function EventsPage() {
                   </Button>
                 </div>
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
-                    View Details
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{event.title}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">{event.location}</span>
-                    </div>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {event.description}
-                    </p>
-                    {user && (
-                      <Button className="w-full">
-                        Register Interest
-                      </Button>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                variant="outline" 
+                className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Create calendar event data
+                  const eventDate = new Date(event.date);
+                  const endDate = new Date(eventDate);
+                  endDate.setHours(eventDate.getHours() + 2); // Default 2 hour duration
+                  
+                  const icsData = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'BEGIN:VEVENT',
+                    `DTSTART:${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                    `DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                    `SUMMARY:${event.title}`,
+                    `DESCRIPTION:${event.description}`,
+                    `LOCATION:${event.location}`,
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                  ].join('\n');
+                  
+                  const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+                  const link = document.createElement('a');
+                  link.href = window.URL.createObjectURL(blob);
+                  link.download = `${event.title.toLowerCase().replace(/\s+/g, '-')}.ics`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Add to Calendar
+              </Button>
             </CardContent>
           </Card>
         ))}
