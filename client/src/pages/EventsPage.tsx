@@ -35,7 +35,7 @@ export default function EventsPage() {
       title: "",
       description: "",
       location: "",
-      date: new Date().toISOString(),
+      date: "",
       organizerId: user?.id
     }
   });
@@ -139,7 +139,11 @@ export default function EventsPage() {
                     <FormItem>
                       <FormLabel>Date</FormLabel>
                       <FormControl>
-                        <Input type="datetime-local" {...field} />
+                        <Input 
+                          type="datetime-local" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value)}
+                        />
                       </FormControl>
                     </FormItem>
                   )}

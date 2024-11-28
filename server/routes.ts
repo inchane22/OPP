@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { setupAuth } from "./auth";
 import { db } from "../db";
-import { posts, events, resources } from "@db/schema";
-import { eq } from "drizzle-orm";
+import { posts, events, resources, users } from "@db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export function registerRoutes(app: Express) {
   setupAuth(app);
@@ -10,9 +10,22 @@ export function registerRoutes(app: Express) {
   // Posts routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const allPosts = await db.select().from(posts).orderBy(posts.createdAt);
+      const allPosts = await db.select({
+        id: posts.id,
+        title: posts.title,
+        content: posts.content,
+        authorId: posts.authorId,
+        createdAt: posts.createdAt,
+        updatedAt: posts.updatedAt,
+        author: users
+      })
+      .from(posts)
+      .leftJoin(users, eq(posts.authorId, users.id))
+      .orderBy(desc(posts.createdAt));
+      
       res.json(allPosts);
     } catch (error) {
+      console.error("Failed to fetch posts:", error);
       res.status(500).json({ error: "Failed to fetch posts" });
     }
   });
