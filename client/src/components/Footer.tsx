@@ -17,18 +17,18 @@ export default function Footer() {
             <h3 className="font-bold text-lg mb-4">Quick Links</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/forum">
-                  <a className="text-muted-foreground hover:text-primary">Forum</a>
+                <Link href="/forum" className="text-muted-foreground hover:text-primary">
+                  Forum
                 </Link>
               </li>
               <li>
-                <Link href="/events">
-                  <a className="text-muted-foreground hover:text-primary">Events</a>
+                <Link href="/events" className="text-muted-foreground hover:text-primary">
+                  Events
                 </Link>
               </li>
               <li>
-                <Link href="/resources">
-                  <a className="text-muted-foreground hover:text-primary">Resources</a>
+                <Link href="/resources" className="text-muted-foreground hover:text-primary">
+                  Resources
                 </Link>
               </li>
             </ul>

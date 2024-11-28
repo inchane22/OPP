@@ -17,11 +17,9 @@ export default function Navbar({ user }: { user?: User }) {
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center px-4">
-        <Link href="/">
-          <a className="flex items-center space-x-2">
-            <img src="/bitcoin-logo.svg" alt="Bitcoin" className="h-8 w-8" />
-            <span className="font-bold text-xl text-primary">Orange Pill Peru</span>
-          </a>
+        <Link href="/" className="flex items-center space-x-2">
+          <img src="/bitcoin-logo.svg" alt="Bitcoin" className="h-8 w-8" />
+          <span className="font-bold text-xl text-primary">Orange Pill Peru</span>
         </Link>
 
         <div className="flex-1" />

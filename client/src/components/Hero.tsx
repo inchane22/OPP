@@ -23,7 +23,7 @@ export default function Hero() {
         <p className="text-xl max-w-2xl mx-auto">
           La primera comunidad Bitcoiner del Perú. Únete a nosotros en la revolución financiera.
         </p>
-        <Link href="/login">
+        <Link href="/login" className="inline-block">
           <Button size="lg" className="bg-primary hover:bg-primary/90">
             Join the Community
           </Button>
