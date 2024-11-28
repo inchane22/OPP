@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar, MapPin, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Loader2, Heart, Share2, Twitter, Facebook } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function EventsPage() {
@@ -186,10 +186,61 @@ export default function EventsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+              <div className="mt-4 flex items-center justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // TODO: Implement like functionality
+                  }}
+                >
+                  <Heart className="mr-2 h-4 w-4" />
+                  <span>123</span>
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:text-[#1DA1F2]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(
+                        `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                          `Check out ${event.title} at ${event.location} on ${format(
+                            new Date(event.date),
+                            "PPP"
+                          )}!&url=${window.location.href}`
+                        )}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    <Twitter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:text-[#4267B2]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(
+                        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                          window.location.href
+                        )}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    <Facebook className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
-                    Learn More
+                    View Details
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
