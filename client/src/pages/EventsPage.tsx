@@ -186,9 +186,36 @@ export default function EventsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground leading-relaxed">{event.description}</p>
-              <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
-                Learn More
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
+                    Learn More
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{event.title}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="flex items-center text-sm">
+                      <Calendar className="mr-2 h-5 w-5 text-primary" />
+                      <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <MapPin className="mr-2 h-5 w-5 text-primary" />
+                      <span className="font-medium">{event.location}</span>
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                      {event.description}
+                    </p>
+                    {user && (
+                      <Button className="w-full">
+                        Register Interest
+                      </Button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         ))}
