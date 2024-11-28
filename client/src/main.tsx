@@ -13,6 +13,7 @@ import ResourcesPage from "./pages/ResourcesPage";
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 
 function Router() {
   const { user, isLoading } = useUser();
@@ -28,20 +29,23 @@ function Router() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user} />
-      <main className="container mx-auto px-4 py-8">
-        <Switch>
-          <Route path="/" component={HomePage} />
-          <Route path="/login" component={AuthPage} />
-          {user && (
-            <>
-              <Route path="/forum" component={ForumPage} />
-              <Route path="/events" component={EventsPage} />
-              <Route path="/resources" component={ResourcesPage} />
-            </>
-          )}
-          <Route>404 Page Not Found</Route>
-        </Switch>
-      </main>
+      <div className="flex flex-col min-h-screen">
+        <main className="container mx-auto px-4 py-8 flex-1">
+          <Switch>
+            <Route path="/" component={HomePage} />
+            <Route path="/login" component={AuthPage} />
+            {user && (
+              <>
+                <Route path="/forum" component={ForumPage} />
+                <Route path="/events" component={EventsPage} />
+                <Route path="/resources" component={ResourcesPage} />
+              </>
+            )}
+            <Route>404 Page Not Found</Route>
+          </Switch>
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 }
