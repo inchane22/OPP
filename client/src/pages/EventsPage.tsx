@@ -72,15 +72,16 @@ export default function EventsPage() {
   return (
     <div className="space-y-8">
       <div 
-        className="h-[300px] relative rounded-lg overflow-hidden"
+        className="h-[400px] relative rounded-lg overflow-hidden"
         style={{
           backgroundImage: 'url("https://images.unsplash.com/photo-1531482615713-2afd69097998")',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">{t('events.title')}</h1>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-background/90 flex flex-col items-center justify-center text-center px-4">
+          <h1 className="text-5xl font-bold text-white mb-4">{t('events.title')}</h1>
+          <p className="text-xl text-white/90 max-w-2xl">{t('events.subtitle')}</p>
         </div>
       </div>
 
@@ -165,24 +166,29 @@ export default function EventsPage() {
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         {events?.map(event => (
-          <Card key={event.id}>
+          <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
             <CardHeader>
-              <CardTitle>{event.title}</CardTitle>
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                <div className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  <span>{format(new Date(event.date), "PPP")}</span>
+              <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
+                {event.title}
+              </CardTitle>
+              <div className="flex flex-col space-y-2 mt-2">
+                <div className="flex items-center text-sm">
+                  <Calendar className="mr-2 h-5 w-5 text-primary" />
+                  <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
                 </div>
-                <div className="flex items-center">
-                  <MapPin className="mr-2 h-4 w-4" />
-                  <span>{event.location}</span>
+                <div className="flex items-center text-sm">
+                  <MapPin className="mr-2 h-5 w-5 text-primary" />
+                  <span className="font-medium">{event.location}</span>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap">{event.description}</p>
+              <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+              <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
+                Learn More
+              </Button>
             </CardContent>
           </Card>
         ))}
