@@ -4,6 +4,7 @@ import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+
 import {
   Dialog,
   DialogContent,
@@ -18,8 +19,10 @@ import { useForm } from "react-hook-form";
 import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar, MapPin, Loader2, Heart, Share2, Twitter, Facebook } from "lucide-react";
+import { Calendar, MapPin, Loader2, Heart, Twitter, Facebook } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
+import { atcb_action } from 'add-to-calendar-button';
+import 'add-to-calendar-button/assets/css/atcb.css';
 
 export default function EventsPage() {
   const { user } = useUser();
@@ -237,36 +240,31 @@ export default function EventsPage() {
                   </Button>
                 </div>
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200">
-                    View Details
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{event.title}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">{event.location}</span>
-                    </div>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {event.description}
-                    </p>
-                    {user && (
-                      <Button className="w-full">
-                        Register Interest
-                      </Button>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                variant="outline" 
+                className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
+                onClick={() => {
+                  const eventStart = new Date(event.date);
+                  const eventEnd = new Date(eventStart);
+                  eventEnd.setHours(eventStart.getHours() + 2); // Default 2 hour duration
+                  
+                  atcb_action({
+                    name: event.title,
+                    description: event.description,
+                    startDate: eventStart.toISOString().split('T')[0],
+                    endDate: eventEnd.toISOString().split('T')[0],
+                    startTime: eventStart.toISOString().split('T')[1].slice(0, 5),
+                    endTime: eventEnd.toISOString().split('T')[1].slice(0, 5),
+                    location: event.location,
+                    options: ['Apple', 'Google', 'iCal', 'Microsoft365', 'Outlook.com', 'Yahoo'],
+                    timeZone: "America/Lima",
+                    iCalFileName: "Bitcoin-Event"
+                  });
+                }}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Add to Calendar
+              </Button>
             </CardContent>
           </Card>
         ))}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 import { useUser } from './use-user';
 import { useMutation } from '@tanstack/react-query';
 
@@ -13,10 +13,9 @@ type TranslationKeys =
   | 'hero.title'
   | 'hero.subtitle'
   | 'hero.join'
-  | 'auth.login'
-  | 'auth.register'
-  | 'auth.welcome'
-  | 'auth.join'
+  | 'footer.description'
+  | 'footer.quick_links'
+  | 'footer.connect'
   | 'home.why_bitcoin'
   | 'home.sound_money.title'
   | 'home.sound_money.desc'
@@ -26,36 +25,20 @@ type TranslationKeys =
   | 'home.community.desc'
   | 'home.mining.title'
   | 'home.mining.desc'
-  | 'footer.description'
-  | 'footer.quick_links'
-  | 'footer.connect'
   | 'forum.title'
   | 'forum.new_post'
   | 'forum.login_to_post'
   | 'events.title'
   | 'events.subtitle'
+  | 'events.upcoming'
   | 'events.create_event'
   | 'events.login_to_create'
-  | 'events.upcoming'
   | 'resources.title'
-  | 'resources.subtitle'
   | 'resources.submit'
-  | 'resources.login_to_submit'
-  | 'resources.approved';
+  | 'resources.approved'
+  | 'resources.login_to_submit';
 
-type Translations = {
-  [K in Language]: {
-    [T in TranslationKeys]: string;
-  };
-};
-
-type LanguageContextType = {
-  language: Language;
-  setLanguage: (lang: Language) => Promise<void>;
-  t: (key: TranslationKeys) => string;
-};
-
-const translations: Translations = {
+const translations: Record<Language, Record<TranslationKeys, string>> = {
   en: {
     'nav.forum': 'Forum',
     'nav.events': 'Events',
@@ -65,35 +48,30 @@ const translations: Translations = {
     'hero.title': 'Orange Pill Peru',
     'hero.subtitle': 'Join us in the financial revolution',
     'hero.join': 'Join the Community',
-    'auth.login': 'Login',
-    'auth.register': 'Register',
-    'auth.welcome': 'Welcome back to Orange Pill Peru',
-    'auth.join': 'Join the Bitcoin maximalist community',
-    'home.why_bitcoin': 'Why Bitcoin Maximalism?',
-    'home.sound_money.title': 'Sound Money',
-    'home.sound_money.desc': 'Bitcoin is the hardest form of money ever created, immune to inflation and government control.',
-    'home.financial_freedom.title': 'Financial Freedom',
-    'home.financial_freedom.desc': 'Take control of your financial future with true peer-to-peer digital cash.',
-    'home.community.title': 'Community',
-    'home.community.desc': 'Join a growing community of Bitcoiners in Peru and around the world.',
-    'home.mining.title': 'Bitcoin Mining in Peru',
-    'home.mining.desc': 'Learn about Bitcoin mining opportunities in Peru and how you can participate in securing the network.',
-    'footer.description': 'Building the Bitcoin community in Peru, one satoshi at a time.',
+    'footer.description': 'Building a stronger Bitcoin community in Peru',
     'footer.quick_links': 'Quick Links',
     'footer.connect': 'Connect',
-    'forum.title': 'Forum',
+    'home.why_bitcoin': 'Why Bitcoin?',
+    'home.sound_money.title': 'Sound Money',
+    'home.sound_money.desc': 'Bitcoin is the hardest form of money ever created',
+    'home.financial_freedom.title': 'Financial Freedom',
+    'home.financial_freedom.desc': 'Take control of your financial future',
+    'home.community.title': 'Community',
+    'home.community.desc': 'Join a growing community of Bitcoiners',
+    'home.mining.title': 'Mining in Peru',
+    'home.mining.desc': 'Learn about Bitcoin mining opportunities in Peru',
+    'forum.title': 'Community Forum',
     'forum.new_post': 'New Post',
     'forum.login_to_post': 'Login to Post',
-    'events.title': 'Bitcoin Events in Peru',
-    'events.subtitle': 'Join the Bitcoin community in Peru',
+    'events.title': 'Bitcoin Events',
+    'events.subtitle': 'Join our upcoming events and meetups',
+    'events.upcoming': 'Upcoming Events',
     'events.create_event': 'Create Event',
     'events.login_to_create': 'Login to Create Event',
-    'events.upcoming': 'Upcoming Events',
-    'resources.title': 'Bitcoin Educational Resources',
-    'resources.subtitle': 'Learn about Bitcoin and cryptocurrency',
+    'resources.title': 'Bitcoin Resources',
     'resources.submit': 'Submit Resource',
-    'resources.login_to_submit': 'Login to Submit Resource',
-    'resources.approved': 'Approved Resources'
+    'resources.approved': 'Approved Resources',
+    'resources.login_to_submit': 'Login to Submit'
   },
   es: {
     'nav.forum': 'Foro',
@@ -104,54 +82,57 @@ const translations: Translations = {
     'hero.title': 'Orange Pill Perú',
     'hero.subtitle': 'Únete a la revolución financiera',
     'hero.join': 'Únete a la Comunidad',
-    'auth.login': 'Iniciar Sesión',
-    'auth.register': 'Registrarse',
-    'auth.welcome': 'Bienvenido de nuevo a Orange Pill Perú',
-    'auth.join': 'Únete a la comunidad Bitcoin maximalista',
-    'home.why_bitcoin': '¿Por qué Bitcoin Maximalismo?',
-    'home.sound_money.title': 'Dinero Sólido',
-    'home.sound_money.desc': 'Bitcoin es la forma de dinero más sólida jamás creada, inmune a la inflación y al control gubernamental.',
-    'home.financial_freedom.title': 'Libertad Financiera',
-    'home.financial_freedom.desc': 'Toma el control de tu futuro financiero con dinero digital verdaderamente entre pares.',
-    'home.community.title': 'Comunidad',
-    'home.community.desc': 'Únete a una comunidad creciente de Bitcoiners en Perú y alrededor del mundo.',
-    'home.mining.title': 'Minería de Bitcoin en Perú',
-    'home.mining.desc': 'Aprende sobre las oportunidades de minería de Bitcoin en Perú y cómo puedes participar en asegurar la red.',
-    'footer.description': 'Construyendo la comunidad Bitcoin en Perú, un satoshi a la vez.',
+    'footer.description': 'Construyendo una comunidad Bitcoin más fuerte en Perú',
     'footer.quick_links': 'Enlaces Rápidos',
     'footer.connect': 'Conectar',
-    'forum.title': 'Foro',
+    'home.why_bitcoin': '¿Por qué Bitcoin?',
+    'home.sound_money.title': 'Dinero Sólido',
+    'home.sound_money.desc': 'Bitcoin es la forma más dura de dinero jamás creada',
+    'home.financial_freedom.title': 'Libertad Financiera',
+    'home.financial_freedom.desc': 'Toma el control de tu futuro financiero',
+    'home.community.title': 'Comunidad',
+    'home.community.desc': 'Únete a una comunidad creciente de Bitcoiners',
+    'home.mining.title': 'Minería en Perú',
+    'home.mining.desc': 'Aprende sobre las oportunidades de minería Bitcoin en Perú',
+    'forum.title': 'Foro Comunitario',
     'forum.new_post': 'Nueva Publicación',
     'forum.login_to_post': 'Inicia Sesión para Publicar',
-    'events.title': 'Eventos Bitcoin en Perú',
-    'events.subtitle': 'Únete a la comunidad Bitcoin en Perú',
+    'events.title': 'Eventos Bitcoin',
+    'events.subtitle': 'Únete a nuestros próximos eventos y encuentros',
+    'events.upcoming': 'Próximos Eventos',
     'events.create_event': 'Crear Evento',
     'events.login_to_create': 'Inicia Sesión para Crear Evento',
-    'events.upcoming': 'Próximos Eventos',
-    'resources.title': 'Recursos Educativos Bitcoin',
-    'resources.subtitle': 'Aprende sobre Bitcoin y criptomonedas',
+    'resources.title': 'Recursos Bitcoin',
     'resources.submit': 'Enviar Recurso',
-    'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
-    'resources.approved': 'Recursos Aprobados'
+    'resources.approved': 'Recursos Aprobados',
+    'resources.login_to_submit': 'Inicia Sesión para Enviar'
   }
 };
 
-export const LanguageContext = createContext<LanguageContextType>({
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => Promise<void>;
+  t: (key: TranslationKeys) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType>({
   language: 'es',
   setLanguage: async () => {},
-  t: (key) => key
+  t: (key: TranslationKeys) => key
 });
 
 export function useLanguage() {
   const context = useContext(LanguageContext);
-  if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
-  }
   return context;
 }
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
+interface LanguageProviderProps {
+  children: ReactNode;
+}
+
+export function LanguageProvider({ children }: LanguageProviderProps) {
   const { user } = useUser();
+  const [language, setLanguageState] = useState<Language>((user?.language as Language) || 'es');
   
   const updateLanguage = useMutation({
     mutationFn: async (lang: Language) => {
@@ -170,8 +151,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const [language, setLanguageState] = React.useState<Language>((user?.language as Language) || 'es');
-
   const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
     if (user) {
@@ -180,14 +159,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   };
 
   const t = (key: TranslationKeys): string => {
-    return translations[language][key];
+    return translations[language][key] || key;
   };
 
-  const contextValue = {
-    language,
-    setLanguage,
-    t
-  };
-
-  return React.createElement(LanguageContext.Provider, { value: contextValue }, children);
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
 }
