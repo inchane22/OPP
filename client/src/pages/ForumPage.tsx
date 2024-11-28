@@ -20,6 +20,7 @@ import { insertPostSchema, type InsertPost, type Post, type Comment } from "@db/
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { MessageCircle, Loader2 } from "lucide-react";
+import { useLanguage } from "../hooks/use-language";
 
 function CommentSection({ postId }: { postId: number }) {
   const [comment, setComment] = useState("");

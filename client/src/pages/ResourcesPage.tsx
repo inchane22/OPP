@@ -25,6 +25,7 @@ import { useForm } from "react-hook-form";
 import { insertResourceSchema, type InsertResource, type Resource } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Book, Link as LinkIcon, Video, Loader2 } from "lucide-react";
+import { useLanguage } from "../hooks/use-language";
 
 const RESOURCE_TYPES = ["article", "video", "book", "tool"] as const;
 

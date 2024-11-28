@@ -19,6 +19,7 @@ import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Calendar, MapPin, Loader2 } from "lucide-react";
+import { useLanguage } from "../hooks/use-language";
 
 export default function EventsPage() {
   const { user } = useUser();
