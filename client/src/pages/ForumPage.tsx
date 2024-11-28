@@ -74,25 +74,16 @@ function CommentSection({ postId }: { postId: number }) {
       <form onSubmit={(e) => {
         e.preventDefault();
         createComment.mutate();
-      }} className="space-y-2">
-        {!user && (
-          <Input
-            placeholder="Your name (optional)"
-            value={authorName}
-            onChange={(e) => setAuthorName(e.target.value)}
-          />
-        )}
-        <div className="flex gap-2">
-          <Input
-            placeholder="Add a comment..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-          <Button type="submit" disabled={!comment || createComment.isPending}>
-            {createComment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Comment
-          </Button>
-        </div>
+      }} className="flex gap-2">
+        <Input
+          placeholder="Add a comment..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <Button type="submit" disabled={!comment || createComment.isPending}>
+          {createComment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Comment
+        </Button>
       </form>
     </div>
   );
