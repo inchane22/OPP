@@ -95,10 +95,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const language = (user?.language as Language) || 'es';
+  const [language, setLanguageState] = React.useState<Language>((user?.language as Language) || 'es');
 
   const setLanguage = async (lang: Language) => {
-    await updateLanguage.mutateAsync(lang);
+    setLanguageState(lang);
+    if (user) {
+      await updateLanguage.mutateAsync(lang);
+    }
   };
 
   const t = (key: TranslationKeys): string => {
