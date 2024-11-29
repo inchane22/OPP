@@ -9,18 +9,13 @@ import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 
-// Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
-
-// Crypto utility functions for password hashing
 const crypto = {
-  // Hash password with salt
   hash: async (password: string) => {
     const salt = randomBytes(16).toString("hex");
     const buf = (await scryptAsync(password, salt, 64)) as Buffer;
     return `${buf.toString("hex")}.${salt}`;
   },
-  // Compare provided password with stored hash
   compare: async (suppliedPassword: string, storedPassword: string) => {
     const [hashedPassword, salt] = storedPassword.split(".");
     const hashedPasswordBuf = Buffer.from(hashedPassword, "hex");
@@ -33,7 +28,6 @@ const crypto = {
   },
 };
 
-// Extend express user object with our schema
 declare global {
   namespace Express {
     interface User extends SelectUser {}
@@ -41,7 +35,6 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
-  // Setup session store with memory store
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "orange-pill-peru-secret",
@@ -56,7 +49,6 @@ export function setupAuth(app: Express) {
     }),
   };
 
-  // Configure session for production
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
     sessionSettings.cookie = {
@@ -65,16 +57,13 @@ export function setupAuth(app: Express) {
     };
   }
 
-  // Initialize passport and session middleware
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Configure local strategy for username/password auth
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        // Find user by username
         const [user] = await db
           .select()
           .from(users)
@@ -85,7 +74,6 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Incorrect username." });
         }
 
-        // Verify password
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
           return done(null, false, { message: "Incorrect password." });
@@ -98,7 +86,6 @@ export function setupAuth(app: Express) {
     })
   );
 
-  // Session serialization
   passport.serializeUser((user, done) => {
     done(null, user.id);
   });
@@ -116,20 +103,20 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Authentication routes
   app.post("/api/register", async (req, res, next) => {
     try {
-      // Validate input
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
         return res
           .status(400)
-          .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
+          .json({ 
+            error: "Validation failed", 
+            details: result.error.issues.map(i => i.message)
+          });
       }
 
       const { username, password, email } = result.data;
 
-      // Check if user exists
       const [existingUser] = await db
         .select()
         .from(users)
@@ -137,10 +124,9 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        return res.status(400).json({ error: "Username already exists" });
       }
 
-      // Create new user with hashed password
       const hashedPassword = await crypto.hash(password);
       const [newUser] = await db
         .insert(users)
@@ -148,47 +134,38 @@ export function setupAuth(app: Express) {
           username,
           password: hashedPassword,
           email,
-          language: "es", // Default to Spanish
-          role: "user",
+          role: "user"
         })
         .returning();
 
-      // Log in after registration
       req.login(newUser, (err) => {
         if (err) {
           return next(err);
         }
         return res.json({
           message: "Registration successful",
-          user: { 
-            id: newUser.id, 
+          user: {
+            id: newUser.id,
             username: newUser.username,
             email: newUser.email,
-            language: newUser.language,
             role: newUser.role
           },
         });
       });
     } catch (error) {
-      next(error);
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
     }
   });
 
   app.post("/api/login", (req, res, next) => {
-    const result = insertUserSchema.safeParse(req.body);
-    if (!result.success) {
-      return res
-        .status(400)
-        .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
-    }
-
     passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
         return next(err);
       }
 
       if (!user) {
-        return res.status(400).send(info.message ?? "Login failed");
+        return res.status(400).json({ error: info.message ?? "Login failed" });
       }
 
       req.login(user, (err) => {
@@ -202,7 +179,6 @@ export function setupAuth(app: Express) {
             id: user.id,
             username: user.username,
             email: user.email,
-            language: user.language,
             role: user.role
           },
         });
@@ -213,7 +189,7 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        return res.status(500).send("Logout failed");
+        return res.status(500).json({ error: "Logout failed" });
       }
       res.json({ message: "Logout successful" });
     });
@@ -226,11 +202,9 @@ export function setupAuth(app: Express) {
         id: user.id,
         username: user.username,
         email: user.email,
-        language: user.language,
-        role: user.role,
-        avatar: user.avatar
+        role: user.role
       });
     }
-    res.status(401).send("Not logged in");
+    res.status(401).json({ error: "Not logged in" });
   });
 }

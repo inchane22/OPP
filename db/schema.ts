@@ -7,9 +7,6 @@ export const users = pgTable("users", {
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
   email: text("email").unique().notNull(),
-  avatar: text("avatar"),
-  bio: text("bio"),
-  language: text("language").default("es").notNull(),
   role: text("role").default("user").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
