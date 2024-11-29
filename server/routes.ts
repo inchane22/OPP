@@ -135,12 +135,55 @@ export function registerRoutes(app: Express) {
   // Resources routes
   app.get("/api/resources", async (req, res) => {
     try {
-      const allResources = await db
+      let allResources = await db
         .select()
         .from(resources)
         .orderBy(resources.createdAt);
+      
+      // If no resources exist, insert some initial resources
+      if (allResources.length === 0) {
+        const sampleResources = [
+          {
+            title: "Satoshi Nakamoto's Bitcoin Whitepaper",
+            description: "The original Bitcoin whitepaper that started it all. Essential reading for understanding Bitcoin's fundamental design.",
+            url: "https://bitcoin.org/bitcoin.pdf",
+            type: "article",
+            authorId: 1,
+            approved: true
+          },
+          {
+            title: "Bitcoin Mining in Peru Guide",
+            description: "A comprehensive guide to Bitcoin mining opportunities and regulations in Peru.",
+            url: "https://example.com/bitcoin-mining-peru",
+            type: "article",
+            authorId: 1,
+            approved: true
+          },
+          {
+            title: "The Bitcoin Standard",
+            description: "Learn about the history of money and why Bitcoin is the best form of money ever created.",
+            url: "https://example.com/bitcoin-standard",
+            type: "book",
+            authorId: 1,
+            approved: true
+          },
+          {
+            title: "Lightning Network Basics",
+            description: "Introduction to Bitcoin's Layer 2 scaling solution - the Lightning Network.",
+            url: "https://example.com/lightning-network",
+            type: "video",
+            authorId: 1,
+            approved: true
+          }
+        ];
+
+        const insertedResources = await db.insert(resources).values(sampleResources).returning();
+        allResources = insertedResources;
+      }
+
       res.json(allResources);
     } catch (error) {
+      console.error("Failed to fetch or create resources:", error);
       res.status(500).json({ error: "Failed to fetch resources" });
     }
   });
