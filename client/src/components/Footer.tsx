@@ -19,22 +19,38 @@ export default function Footer() {
             <h3 className="font-bold text-lg mb-4">{t('footer.quick_links')}</h3>
             <ul className="space-y-3">
               <li>
-                <Link href="/forum" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
+                <Link 
+                  href="/forum" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
+                >
                   {t('nav.forum')}
                 </Link>
               </li>
               <li>
-                <Link href="/events" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
+                <Link 
+                  href="/events" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
+                >
                   {t('nav.events')}
                 </Link>
               </li>
               <li>
-                <Link href="/resources" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
+                <Link 
+                  href="/resources" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
+                >
                   {t('nav.resources')}
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
+                <Link 
+                  href="/login" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
+                >
                   {t('nav.login')}
                 </Link>
               </li>
