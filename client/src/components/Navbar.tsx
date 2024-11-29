@@ -26,42 +26,54 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
 
         <div className="flex-1" />
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4">
+          <div className="hidden md:flex items-center space-x-1">
+            <Link href="/forum">
+              <Button variant="ghost" size="sm">{t('nav.forum')}</Button>
+            </Link>
+            <Link href="/events">
+              <Button variant="ghost" size="sm">{t('nav.events')}</Button>
+            </Link>
+            <Link href="/resources">
+              <Button variant="ghost" size="sm">{t('nav.resources')}</Button>
+            </Link>
+          </div>
+
+          <LanguageToggle />
+
           {user ? (
-            <>
-              <Link href="/forum">
-                <Button variant="ghost">{t('nav.forum')}</Button>
-              </Link>
-              <Link href="/events">
-                <Button variant="ghost">{t('nav.events')}</Button>
-              </Link>
-              <Link href="/resources">
-                <Button variant="ghost">{t('nav.resources')}</Button>
-              </Link>
-
-              <LanguageToggle />
-
-              <DropdownMenu>
-                <DropdownMenuTrigger>
-                  <Avatar>
-                    <AvatarImage src={user.avatar || `https://i.pravatar.cc/150?u=${user.id}`} />
-                    <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => logout()}>
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Avatar>
+                  <AvatarImage src={user.avatar || `https://i.pravatar.cc/150?u=${user.id}`} />
+                  <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/forum" className="md:hidden">
+                    {t('nav.forum')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/events" className="md:hidden">
+                    {t('nav.events')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/resources" className="md:hidden">
+                    {t('nav.resources')}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => logout()}>
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <>
-              <LanguageToggle />
-              <Link href="/login">
-                <Button>{t('nav.login')}</Button>
-              </Link>
-            </>
+            <Link href="/login">
+              <Button size="sm">{t('nav.login')}</Button>
+            </Link>
           )}
         </div>
       </div>
