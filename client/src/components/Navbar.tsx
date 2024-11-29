@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +18,7 @@ import { Menu } from "lucide-react";
 export default function Navbar({ user }: { user: User | null | undefined }) {
   const { logout } = useUser();
   const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -65,7 +67,7 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             </Link>
           )}
 
-          <Sheet>
+          <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-4 w-4" />
@@ -74,13 +76,13 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[240px] sm:w-[280px]">
               <nav className="flex flex-col gap-2">
-                <Link href="/forum" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href="/forum" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.forum')}
                 </Link>
-                <Link href="/events" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href="/events" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.events')}
                 </Link>
-                <Link href="/resources" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href="/resources" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.resources')}
                 </Link>
               </nav>
