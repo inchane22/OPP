@@ -6,8 +6,8 @@ export default function Footer() {
   const { t } = useLanguage();
   return (
     <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-12">
-      <div className="container py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="container py-8 px-4 md:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
           <div>
             <h3 className="font-bold text-lg mb-4">Orange Pill Peru</h3>
             <p className="text-sm text-muted-foreground">
@@ -17,19 +17,19 @@ export default function Footer() {
           
           <div>
             <h3 className="font-bold text-lg mb-4">{t('footer.quick_links')}</h3>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-3">
               <li>
-                <Link href="/forum" className="text-muted-foreground hover:text-primary">
+                <Link href="/forum" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
                   Forum
                 </Link>
               </li>
               <li>
-                <Link href="/events" className="text-muted-foreground hover:text-primary">
+                <Link href="/events" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
                   Events
                 </Link>
               </li>
               <li>
-                <Link href="/resources" className="text-muted-foreground hover:text-primary">
+                <Link href="/resources" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
                   Resources
                 </Link>
               </li>
