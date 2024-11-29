@@ -42,19 +42,21 @@ export default function AuthPage() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: result.message,
+          description: result.message || "Authentication failed",
         });
       } else {
         toast({
           title: isLogin ? "Login successful" : "Registration successful",
           description: "Welcome to Orange Pill Peru!",
         });
+        // Redirect to home page after successful login/register
+        window.location.href = "/";
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || "An unexpected error occurred",
       });
     }
   };

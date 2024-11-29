@@ -179,7 +179,8 @@ export function setupAuth(app: Express) {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role
+            role: user.role,
+            language: user.language
           },
         });
       });

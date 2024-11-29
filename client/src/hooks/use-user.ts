@@ -53,7 +53,11 @@ async function fetchUser(): Promise<User | null> {
     throw new Error(`${response.status}: ${await response.text()}`);
   }
 
-  return response.json();
+  const userData = await response.json();
+  return {
+    ...userData,
+    language: userData.language || 'es'
+  };
 }
 
 export function useUser() {
