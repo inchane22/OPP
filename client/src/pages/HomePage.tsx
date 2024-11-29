@@ -5,20 +5,20 @@ import { useLanguage } from "../hooks/use-language";
 export default function HomePage() {
   const { t } = useLanguage();
   return (
-    <div className="space-y-12">
+    <div>
       <Hero />
 
-      <section className="py-12">
-        <div className="container">
-          <h2 className="text-3xl font-bold mb-8 text-center">{t('home.why_bitcoin')}</h2>
+      <section className="py-16">
+        <div className="container px-4 mx-auto max-w-7xl">
+          <h2 className="text-4xl font-bold mb-12 text-center bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">{t('home.why_bitcoin')}</h2>
           
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card>
+          <div className="grid md:grid-cols-3 gap-8">
+            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
               <CardHeader>
-                <CardTitle>{t('home.sound_money.title')}</CardTitle>
+                <CardTitle className="text-xl font-semibold">{t('home.sound_money.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{t('home.sound_money.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed">{t('home.sound_money.desc')}</p>
               </CardContent>
             </Card>
 
@@ -43,12 +43,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-12 bg-muted">
-        <div className="container">
+      <section className="py-16 bg-muted">
+        <div className="container px-4 mx-auto max-w-7xl">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold mb-4">{t('home.mining.title')}</h2>
-              <p className="text-lg mb-6">
+            <div className="space-y-6">
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">{t('home.mining.title')}</h2>
+              <p className="text-lg text-muted-foreground leading-relaxed">
                 {t('home.mining.desc')}
               </p>
             </div>
