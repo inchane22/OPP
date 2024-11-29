@@ -17,11 +17,11 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
   const { t } = useLanguage();
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center px-4">
-        <Link href="/" className="flex items-center space-x-2">
+        <Link href="/" className="flex items-center space-x-2 transition-colors hover:text-primary">
           <span className="text-2xl">🍊💊🇵🇪</span>
-          <span className="font-bold text-xl text-primary ml-2">Orange Pill Peru</span>
+          <span className="font-bold text-xl ml-2 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">Orange Pill Peru</span>
         </Link>
 
         <div className="flex-1" />
