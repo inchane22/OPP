@@ -152,9 +152,9 @@ export function registerRoutes(app: Express) {
             approved: true
           },
           {
-            title: "Bitcoin Mining in Peru Guide",
-            description: "A comprehensive guide to Bitcoin mining opportunities and regulations in Peru.",
-            url: "https://example.com/bitcoin-mining-peru",
+            title: "Bitcoin Mining Basics",
+            description: "A comprehensive guide to Bitcoin mining from Braiins, covering everything from basic concepts to advanced topics.",
+            url: "https://braiins.com/blog/bitcoin-mining-guide",
             type: "article",
             authorId: 1,
             approved: true
@@ -162,15 +162,15 @@ export function registerRoutes(app: Express) {
           {
             title: "The Bitcoin Standard",
             description: "Learn about the history of money and why Bitcoin is the best form of money ever created.",
-            url: "https://example.com/bitcoin-standard",
+            url: "https://saifedean.com/thebitcoinstandard/",
             type: "book",
             authorId: 1,
             approved: true
           },
           {
-            title: "Lightning Network Basics",
+            title: "Lightning Network Explained",
             description: "Introduction to Bitcoin's Layer 2 scaling solution - the Lightning Network.",
-            url: "https://example.com/lightning-network",
+            url: "https://lightning.network/",
             type: "video",
             authorId: 1,
             approved: true
