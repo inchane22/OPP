@@ -67,23 +67,23 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="px-2 md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right">
-              <div className="flex flex-col gap-4 mt-4">
-                <Link href="/forum">
-                  <Button variant="ghost" className="w-full justify-start">{t('nav.forum')}</Button>
+            <SheetContent side="right" className="w-[240px] sm:w-[280px]">
+              <nav className="flex flex-col gap-2">
+                <Link href="/forum" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                  {t('nav.forum')}
                 </Link>
-                <Link href="/events">
-                  <Button variant="ghost" className="w-full justify-start">{t('nav.events')}</Button>
+                <Link href="/events" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                  {t('nav.events')}
                 </Link>
-                <Link href="/resources">
-                  <Button variant="ghost" className="w-full justify-start">{t('nav.resources')}</Button>
+                <Link href="/resources" className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                  {t('nav.resources')}
                 </Link>
-              </div>
+              </nav>
             </SheetContent>
           </Sheet>
         </div>
