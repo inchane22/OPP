@@ -20,17 +20,22 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link href="/forum" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
-                  Forum
+                  {t('nav.forum')}
                 </Link>
               </li>
               <li>
                 <Link href="/events" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
-                  Events
+                  {t('nav.events')}
                 </Link>
               </li>
               <li>
                 <Link href="/resources" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
-                  Resources
+                  {t('nav.resources')}
+                </Link>
+              </li>
+              <li>
+                <Link href="/login" className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block">
+                  {t('nav.login')}
                 </Link>
               </li>
             </ul>
