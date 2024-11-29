@@ -22,21 +22,21 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
               <CardHeader>
-                <CardTitle>{t('home.financial_freedom.title')}</CardTitle>
+                <CardTitle className="text-xl font-semibold">{t('home.financial_freedom.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{t('home.financial_freedom.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed">{t('home.financial_freedom.desc')}</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
               <CardHeader>
-                <CardTitle>{t('home.community.title')}</CardTitle>
+                <CardTitle className="text-xl font-semibold">{t('home.community.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p>{t('home.community.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed">{t('home.community.desc')}</p>
               </CardContent>
             </Card>
           </div>
@@ -56,7 +56,8 @@ export default function HomePage() {
               <img
                 src="https://images.unsplash.com/photo-1658225282648-b199eb2a4830"
                 alt="Bitcoin Mining"
-                className="rounded-lg shadow-lg"
+                className="rounded-lg shadow-lg transition-transform duration-300 hover:scale-[1.02]"
+                loading="lazy"
               />
             </div>
           </div>
