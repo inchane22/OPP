@@ -44,6 +44,11 @@ export default function AuthPage() {
           title: "Error",
           description: result.message,
         });
+      } else {
+        toast({
+          title: isLogin ? "Login successful" : "Registration successful",
+          description: "Welcome to Orange Pill Peru!",
+        });
       }
     } catch (error: any) {
       toast({
@@ -81,6 +86,21 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
+              {!isLogin && (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="password"
@@ -94,8 +114,15 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                {isLogin ? "Login" : "Register"}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    {isLogin ? "Logging in..." : "Registering..."}
+                  </div>
+                ) : (
+                  isLogin ? "Login" : "Register"
+                )}
               </Button>
             </form>
           </Form>
