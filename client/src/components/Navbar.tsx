@@ -24,9 +24,9 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center space-x-2 transition-colors hover:text-primary">
-            <span className="text-2xl">🍊💊🇵🇪</span>
-            <span className="font-bold text-xl ml-2 bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">Orange Pill Peru</span>
+          <Link href="/" className="flex items-center gap-1 transition-colors hover:text-primary">
+            <span className="text-lg">🍊💊🇵🇪</span>
+            <span className="font-bold text-lg bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent hidden sm:inline">Orange Pill Peru</span>
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
