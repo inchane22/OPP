@@ -86,7 +86,7 @@ export default function BusinessesPage() {
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-background/90 flex flex-col items-center justify-center text-center px-4">
-          <h1 className="text-4xl font-bold text-white mb-4">Negocios que Aceptan Bitcoin</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">Negocios en Bitcoin</h1>
           <p className="text-xl text-white/90 max-w-2xl">Descubre dónde gastar tus sats en Perú</p>
         </div>
       </div>
