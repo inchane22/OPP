@@ -37,14 +37,27 @@ export default function AuthPage() {
 
   const onSubmit = async (data: InsertUser) => {
     try {
-      const result = await (isLogin ? login(data) : register(data));
-      if (!result.ok) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.message || "Authentication failed",
-        });
-        return;
+      if (isLogin) {
+        const result = await login(data);
+        if (!result.ok) {
+          toast({
+            variant: "destructive",
+            title: t('auth.login_failed'),
+            description: result.message || t('auth.invalid_credentials'),
+          });
+          return;
+        }
+      } else {
+        console.log("Attempting registration...");
+        const result = await register(data);
+        if (!result.ok) {
+          toast({
+            variant: "destructive",
+            title: "Registration Failed",
+            description: result.message || "Registration failed. Username might already exist.",
+          });
+          return;
+        }
       }
       
       toast({

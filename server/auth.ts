@@ -73,12 +73,14 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
-          return done(null, false, { message: "Incorrect username." });
+          console.log("Login failed: User not found");
+          return done(null, false, { message: "Invalid username or password" });
         }
 
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
-          return done(null, false, { message: "Incorrect password." });
+          console.log("Login failed: Invalid password");
+          return done(null, false, { message: "Invalid username or password" });
         }
 
         return done(null, user);
@@ -172,11 +174,12 @@ export function setupAuth(app: Express) {
     passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
         console.error("Login error:", err);
-        return res.status(500).json({ error: "Internal server error" });
+        return res.status(500).json({ ok: false, message: "Internal server error" });
       }
 
       if (!user) {
-        return res.status(401).json({ error: info.message ?? "Invalid credentials" });
+        console.log("Authentication failed:", info.message);
+        return res.status(401).json({ ok: false, message: info.message ?? "Invalid credentials" });
       }
 
       req.login(user, (err) => {
