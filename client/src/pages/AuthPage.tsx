@@ -39,37 +39,23 @@ export default function AuthPage() {
 
   const onSubmit = async (data: InsertUser) => {
     try {
-      if (isLogin) {
-        const result = await login(data);
-        if (!result.ok) {
-          toast({
-            variant: "destructive",
-            title: t('auth.login_failed'),
-            description: result.message || t('auth.invalid_credentials'),
-          });
-          return;
-        }
-      } else {
-        console.log("Attempting registration...");
-        const result = await register(data);
-        if (!result.ok) {
-          toast({
-            variant: "destructive",
-            title: "Registration Failed",
-            description: result.message || "Registration failed. Username might already exist.",
-          });
-          return;
-        }
-      }
+      const result = isLogin ? await login(data) : await register(data);
       
+      if (!result.ok) {
+        toast({
+          variant: "destructive",
+          title: isLogin ? t('auth.login_failed') : t('auth.registration_failed'),
+          description: result.message || t('auth.invalid_credentials'),
+        });
+        return;
+      }
+
       toast({
         title: isLogin ? "Login successful" : "Registration successful",
-        description: "Welcome to Orange Pill Peru!",
+        description: t('auth.welcome'),
       });
       
-      // Use location.replace to ensure a clean redirect
-      window.location.replace("/");
-      
+      window.location.href = "/";
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -80,14 +66,12 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="container max-w-md mx-auto mt-20">
-      <Card>
-        <CardHeader>
-          <CardTitle>{isLogin ? "Login" : "Register"}</CardTitle>
-          <CardDescription>
-            {isLogin
-              ? "Welcome back to Orange Pill Peru"
-              : "Join the Bitcoin maximalist community"}
+    <div className="container max-w-md mx-auto mt-12 px-4">
+      <Card className="border-2">
+        <CardHeader className="space-y-2">
+          <CardTitle className="text-2xl font-bold">{isLogin ? t('auth.login') : t('auth.register')}</CardTitle>
+          <CardDescription className="text-base">
+            {isLogin ? t('auth.welcome') : t('auth.join')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -134,15 +118,18 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    {isLogin ? "Logging in..." : "Registering..."}
-                  </div>
-                ) : (
-                  isLogin ? "Login" : "Register"
+              <Button 
+                type="submit" 
+                className="w-full font-semibold" 
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting && (
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 )}
+                {form.formState.isSubmitting
+                  ? (isLogin ? "Logging in..." : "Registering...")
+                  : (isLogin ? t('auth.login') : t('auth.register'))
+                }
               </Button>
             </form>
           </Form>

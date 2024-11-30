@@ -29,9 +29,9 @@ function Router() {
     );
   }
 
-  // Redirect to home if trying to access login page while authenticated
-  if (user && location === "/login") {
-    window.location.replace("/");
+  const shouldRedirect = user && location === "/login";
+  if (shouldRedirect) {
+    window.location.href = "/";
     return null;
   }
 
@@ -42,7 +42,9 @@ function Router() {
         <main className="container mx-auto px-4 py-8 flex-1">
           <Switch>
             <Route path="/" component={HomePage} />
-            <Route path="/login" component={AuthPage} />
+            <Route path="/login">
+              {user ? null : <AuthPage />}
+            </Route>
             <Route path="/forum" component={ForumPage} />
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />
