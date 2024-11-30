@@ -17,7 +17,11 @@ export function registerRoutes(app: Express) {
         authorId: posts.authorId,
         createdAt: posts.createdAt,
         updatedAt: posts.updatedAt,
-        author: users
+        author: {
+          id: users.id,
+          username: users.username,
+          avatar: users.avatar
+        }
       })
       .from(posts)
       .leftJoin(users, eq(posts.authorId, users.id))
