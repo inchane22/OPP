@@ -20,6 +20,8 @@ type TranslationKeys =
   | 'auth.login_failed'
   | 'auth.invalid_credentials'
   | 'auth.registration_failed'
+  | 'auth.need_account'
+  | 'auth.have_account'
   | 'home.why_bitcoin'
   | 'home.sound_money.title'
   | 'home.sound_money.desc'
@@ -75,6 +77,8 @@ const translations: Translations = {
     'auth.login_failed': 'Login Failed',
     'auth.invalid_credentials': 'Invalid username or password. Please try again.',
     'auth.registration_failed': 'Registration Failed',
+    'auth.need_account': 'Need an account? Register',
+    'auth.have_account': 'Already have an account? Login',
     'home.why_bitcoin': 'Why Bitcoin Maximalism?',
     'home.sound_money.title': 'Sound Money',
     'home.sound_money.desc': 'Bitcoin is the hardest form of money ever created, immune to inflation and government control.',
@@ -117,6 +121,8 @@ const translations: Translations = {
     'auth.login_failed': 'Error de Inicio de Sesión',
     'auth.invalid_credentials': 'Usuario o contraseña inválidos. Por favor intente de nuevo.',
     'auth.registration_failed': 'Error de Registro',
+    'auth.need_account': '¿Necesitas una cuenta? Regístrate',
+    'auth.have_account': '¿Ya tienes una cuenta? Inicia sesión',
     'home.why_bitcoin': '¿Por qué Bitcoin Maximalismo?',
     'home.sound_money.title': 'Dinero Sólido',
     'home.sound_money.desc': 'Bitcoin es la forma de dinero más sólida jamás creada, inmune a la inflación y al control gubernamental.',

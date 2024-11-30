@@ -1,62 +1,60 @@
 import passport from "passport";
-import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
+import { Strategy as LocalStrategy } from "passport-local";
 import { type Express } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
+import { users, type User, insertUserSchema } from "@db/schema";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 
 const scryptAsync = promisify(scrypt);
+
 const crypto = {
   hash: async (password: string) => {
     const salt = randomBytes(16).toString("hex");
     const buf = (await scryptAsync(password, salt, 64)) as Buffer;
     return `${buf.toString("hex")}.${salt}`;
   },
-  compare: async (suppliedPassword: string, storedPassword: string) => {
-    const [hashedPassword, salt] = storedPassword.split(".");
-    const hashedPasswordBuf = Buffer.from(hashedPassword, "hex");
-    const suppliedPasswordBuf = (await scryptAsync(
-      suppliedPassword,
-      salt,
-      64
-    )) as Buffer;
-    return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
-  },
+  verify: async (password: string, hashedPassword: string) => {
+    const [hash, salt] = hashedPassword.split(".");
+    const hashBuffer = Buffer.from(hash, "hex");
+    const suppliedBuffer = (await scryptAsync(password, salt, 64)) as Buffer;
+    return timingSafeEqual(hashBuffer, suppliedBuffer);
+  }
 };
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User {
+      id: number;
+      username: string;
+      email: string;
+      role: string;
+      language: string;
+      createdAt: Date;
+    }
   }
 }
 
 export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID || "orange-pill-peru-secret",
+    secret: process.env.REPL_ID || "orange-pill-peru",
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: "lax",
-      httpOnly: true,
-      path: "/",
     },
-    store: new MemoryStore({
-      checkPeriod: 86400000, // Prune expired entries every 24h
+    store: new MemoryStore({ 
+      checkPeriod: 86400000 // Prune expired entries every 24h
     }),
   };
 
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
-    sessionSettings.cookie = {
-      ...sessionSettings.cookie,
-      secure: true,
-    };
+    sessionSettings.cookie!.secure = true;
   }
 
   app.use(session(sessionSettings));
@@ -73,19 +71,17 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
-          console.log("Login failed: User not found");
           return done(null, false, { message: "Invalid username or password" });
         }
 
-        const isMatch = await crypto.compare(password, user.password);
-        if (!isMatch) {
-          console.log("Login failed: Invalid password");
+        const isValid = await crypto.verify(password, user.password);
+        if (!isValid) {
           return done(null, false, { message: "Invalid username or password" });
         }
 
         return done(null, user);
-      } catch (err) {
-        return done(err);
+      } catch (error) {
+        return done(error);
       }
     })
   );
@@ -102,21 +98,19 @@ export function setupAuth(app: Express) {
         .where(eq(users.id, id))
         .limit(1);
       done(null, user);
-    } catch (err) {
-      done(err);
+    } catch (error) {
+      done(error);
     }
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", async (req, res) => {
     try {
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
-        return res
-          .status(400)
-          .json({ 
-            error: "Validation failed", 
-            details: result.error.issues.map(i => i.message)
-          });
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid input: " + result.error.issues.map(i => i.message).join(", ")
+        });
       }
 
       const { username, password, email } = result.data;
@@ -128,7 +122,10 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).json({ error: "Username already exists" });
+        return res.status(400).json({
+          ok: false,
+          message: "Username already exists"
+        });
       }
 
       const hashedPassword = await crypto.hash(password);
@@ -138,66 +135,72 @@ export function setupAuth(app: Express) {
           username,
           password: hashedPassword,
           email,
-          role: "user"
+          role: "user",
+          language: "es"
         })
         .returning();
 
       req.login(newUser, (err) => {
         if (err) {
-          return next(err);
+          return res.status(500).json({
+            ok: false,
+            message: "Failed to log in after registration"
+          });
         }
         return res.json({
-          message: "Registration successful",
+          ok: true,
           user: {
             id: newUser.id,
             username: newUser.username,
             email: newUser.email,
-            role: newUser.role
-          },
+            role: newUser.role,
+            language: newUser.language
+          }
         });
       });
     } catch (error) {
       console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed" });
+      res.status(500).json({
+        ok: false,
+        message: "Registration failed"
+      });
     }
   });
 
   app.post("/api/login", (req, res, next) => {
-    const result = insertUserSchema.safeParse(req.body);
-    if (!result.success) {
-      return res.status(400).json({
-        error: "Validation failed",
-        details: result.error.issues.map(i => i.message)
-      });
-    }
-
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
+    passport.authenticate("local", (err: any, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) {
         console.error("Login error:", err);
-        return res.status(500).json({ ok: false, message: "Internal server error" });
+        return res.status(500).json({
+          ok: false,
+          message: "Internal server error"
+        });
       }
 
       if (!user) {
-        console.log("Authentication failed:", info.message);
-        return res.status(401).json({ ok: false, message: info.message ?? "Invalid credentials" });
+        return res.status(401).json({
+          ok: false,
+          message: info?.message || "Invalid credentials"
+        });
       }
 
       req.login(user, (err) => {
         if (err) {
-          console.error("Session error:", err);
-          return res.status(500).json({ error: "Failed to create session" });
+          return res.status(500).json({
+            ok: false,
+            message: "Failed to create session"
+          });
         }
 
         return res.json({
           ok: true,
-          message: "Login successful",
           user: {
             id: user.id,
             username: user.username,
             email: user.email,
             role: user.role,
             language: user.language
-          },
+          }
         });
       });
     })(req, res, next);
@@ -206,22 +209,33 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        return res.status(500).json({ error: "Logout failed" });
+        return res.status(500).json({
+          ok: false,
+          message: "Logout failed"
+        });
       }
-      res.json({ message: "Logout successful" });
+      res.json({ ok: true });
     });
   });
 
   app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      const user = req.user;
-      return res.json({
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({
+        ok: false,
+        message: "Not logged in"
+      });
+    }
+
+    const user = req.user;
+    res.json({
+      ok: true,
+      user: {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: user.role
-      });
-    }
-    res.status(401).json({ error: "Not logged in" });
+        role: user.role,
+        language: user.language
+      }
+    });
   });
 }
