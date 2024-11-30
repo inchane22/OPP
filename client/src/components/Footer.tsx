@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Twitter, MessageCircle } from "lucide-react";
+import { Send, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function Footer() {
@@ -75,7 +75,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary"
               >
-                <Twitter className="h-5 w-5" />
+                <X className="h-5 w-5" />
               </a>
               <a
                 href="https://t.me/orangepillperu"
@@ -83,7 +83,7 @@ export default function Footer() {
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary"
               >
-                <MessageCircle className="h-5 w-5" />
+                <Send className="h-5 w-5" />
               </a>
             </div>
           </div>
