@@ -61,9 +61,7 @@ function Router() {
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
-            <Route path="/forum">
-              <ProtectedRoute component={ForumPage} />
-            </Route>
+            <Route path="/forum" component={ForumPage} />
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />
             <Route path="/account">
