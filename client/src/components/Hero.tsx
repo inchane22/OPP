@@ -80,7 +80,7 @@ export default function Hero() {
             </div>
             <div className="text-center hidden md:block p-6 rounded-xl backdrop-blur-sm bg-white/5 transform hover:scale-105 transition-all duration-300">
               <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">50+</div>
-              <div className="text-sm mt-2 text-white/80 font-medium">Businesses in Bitcoin</div>
+              <div className="text-sm mt-2 text-white/80 font-medium">Bitcoin Businesses</div>
             </div>
           </div>
         </div>

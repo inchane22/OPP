@@ -38,11 +38,11 @@ export default function Footer() {
               </li>
               <li>
                 <Link 
-                  href="/businesses" 
+                  href="/resources" 
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
                 >
-                  Negocios Bitcoin
+                  {t('nav.resources')}
                 </Link>
               </li>
               <li>
