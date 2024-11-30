@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { setupAuth } from "./auth";
 import { db } from "../db";
-import { posts, events, resources, users, comments } from "@db/schema";
+import { posts, events, resources, users, comments, businesses } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
 export function registerRoutes(app: Express) {
@@ -301,6 +301,71 @@ export function registerRoutes(app: Express) {
       res.json({ message: "Language updated successfully" });
     } catch (error) {
       res.status(500).send("Failed to update language preference");
+    }
+  });
+
+  // Businesses routes
+  app.get("/api/businesses", async (req, res) => {
+    try {
+      let allBusinesses = await db
+        .select()
+        .from(businesses)
+        .orderBy(businesses.createdAt);
+      
+      // If no businesses exist, insert some sample businesses
+      if (allBusinesses.length === 0) {
+        const sampleBusinesses = [
+          {
+            name: "Café Bitcoin",
+            description: "Cafetería artesanal que acepta pagos en Bitcoin y Lightning Network. Ven a disfrutar de un café mientras conversas sobre Bitcoin.",
+            address: "Av. Larco 345",
+            city: "Miraflores, Lima",
+            phone: "+51 1 234 5678",
+            website: "https://cafebitcoin.pe",
+            acceptsLightning: true,
+            verified: true,
+            submittedById: 1
+          },
+          {
+            name: "Tech Store Crypto",
+            description: "Tienda de tecnología que acepta Bitcoin. Encuentra los últimos gadgets y hardware wallets.",
+            address: "Jr. de la Unión 618",
+            city: "Centro de Lima",
+            phone: "+51 1 987 6543",
+            acceptsLightning: false,
+            verified: true,
+            submittedById: 1
+          }
+        ];
+
+        const insertedBusinesses = await db.insert(businesses).values(sampleBusinesses).returning();
+        allBusinesses = insertedBusinesses;
+      }
+
+      res.json(allBusinesses);
+    } catch (error) {
+      console.error("Failed to fetch businesses:", error);
+      res.status(500).json({ error: "Failed to fetch businesses" });
+    }
+  });
+
+  app.post("/api/businesses", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
+
+    try {
+      const [business] = await db
+        .insert(businesses)
+        .values({
+          ...req.body,
+          submittedById: req.user.id,
+          verified: false // New submissions start as unverified
+        })
+        .returning();
+      res.json(business);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create business" });
     }
   });
 }

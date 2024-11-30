@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import ForumPage from "./pages/ForumPage";
 import EventsPage from "./pages/EventsPage";
 import ResourcesPage from "./pages/ResourcesPage";
+import BusinessesPage from "./pages/BusinessesPage";
 import AccountPage from "./pages/AccountPage";
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
@@ -64,6 +65,7 @@ function Router() {
             <Route path="/forum" component={ForumPage} />
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />
+            <Route path="/businesses" component={BusinessesPage} />
             <Route path="/account">
               <ProtectedRoute component={AccountPage} />
             </Route>

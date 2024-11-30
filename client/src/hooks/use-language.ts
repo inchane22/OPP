@@ -43,7 +43,8 @@ type TranslationKeys =
   | 'resources.login_to_submit'
   | 'resources.approved'
   | 'account.preferences'
-  | 'account.language_preference';
+  | 'account.language_preference'
+  | 'nav.businesses';
 
 type Translations = {
   [K in Language]: {
@@ -97,7 +98,8 @@ const translations: Translations = {
     'resources.login_to_submit': 'Login to Submit Resource',
     'resources.approved': 'Approved Resources',
     'account.preferences': 'Preferences',
-    'account.language_preference': 'Language Preference'
+    'account.language_preference': 'Language Preference',
+    'nav.businesses': 'Bitcoin Businesses'
   },
   es: {
     'nav.forum': 'Foro',
@@ -138,7 +140,8 @@ const translations: Translations = {
     'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
     'resources.approved': 'Recursos Aprobados',
     'account.preferences': 'Preferencias',
-    'account.language_preference': 'Preferencia de Idioma'
+    'account.language_preference': 'Preferencia de Idioma',
+    'nav.businesses': 'Negocios Bitcoin'
   }
 };
 

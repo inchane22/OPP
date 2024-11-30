@@ -39,6 +39,9 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             <Link href="/resources">
               <Button variant="link">{t('nav.resources')}</Button>
             </Link>
+            <Link href="/businesses">
+              <Button variant="link">{t('nav.businesses')}</Button>
+            </Link>
           </div>
         </div>
 

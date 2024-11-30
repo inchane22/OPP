@@ -77,3 +77,22 @@ export const insertResourceSchema = createInsertSchema(resources);
 export const selectResourceSchema = createSelectSchema(resources);
 export type InsertResource = z.infer<typeof insertResourceSchema>;
 export type Resource = z.infer<typeof selectResourceSchema>;
+
+export const businesses = pgTable("businesses", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  phone: text("phone"),
+  website: text("website"),
+  acceptsLightning: boolean("accepts_lightning").default(false).notNull(),
+  verified: boolean("verified").default(false).notNull(),
+  submittedById: integer("submitted_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+export const insertBusinessSchema = createInsertSchema(businesses);
+export const selectBusinessSchema = createSelectSchema(businesses);
+export type InsertBusiness = z.infer<typeof insertBusinessSchema>;
+export type Business = z.infer<typeof selectBusinessSchema>;
