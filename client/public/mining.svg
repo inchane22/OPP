@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" fill="none">
+  <rect width="800" height="600" fill="#1a1b1e"/>
+  <!-- Mining Rig Frame -->
+  <rect x="100" y="150" width="600" height="300" rx="10" stroke="#f7931a" stroke-width="4"/>
+  <!-- GPU/ASIC Units -->
+  <rect x="150" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
+  <rect x="275" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
+  <rect x="400" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
+  <rect x="525" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
+  <!-- Cooling Fans -->
+  <circle cx="200" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
+  <circle cx="325" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
+  <circle cx="450" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
+  <circle cx="575" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
+  <!-- Power Cables -->
+  <path d="M 150 450 Q 400 500 650 450" stroke="#f7931a" stroke-width="4"/>
+  <!-- Bitcoin Symbol -->
+  <text x="370" y="100" font-family="Arial" font-size="48" fill="#f7931a">₿</text>
+</svg>
