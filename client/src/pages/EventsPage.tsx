@@ -161,10 +161,8 @@ export default function EventsPage() {
           </DialogContent>
         </Dialog>
         ) : (
-          <Link href="/login" className="inline-flex">
-            <Button variant="outline" className="min-w-[120px] whitespace-nowrap">
-              {t('events.login_to_create')}
-            </Button>
+          <Link href="/login">
+            <Button>{t('events.login_to_create')}</Button>
           </Link>
         )}
       </div>

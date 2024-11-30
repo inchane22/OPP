@@ -146,7 +146,7 @@ export default function ForumPage() {
         {user ? (
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="min-w-[120px]">{t('forum.new_post')}</Button>
+              <Button>{t('forum.new_post')}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -187,10 +187,8 @@ export default function ForumPage() {
             </DialogContent>
           </Dialog>
         ) : (
-          <Link href="/login" className="inline-flex">
-            <Button variant="outline" className="min-w-[120px] whitespace-nowrap">
-              {t('forum.login_to_post')}
-            </Button>
+          <Link href="/login">
+            <Button>{t('forum.login_to_post')}</Button>
           </Link>
         )}
       </div>
