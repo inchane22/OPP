@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useUser } from "../hooks/use-user";
+import { useLanguage } from "../hooks/use-language";
 import { insertUserSchema, type InsertUser } from "@db/schema";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { login, register } = useUser();
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
