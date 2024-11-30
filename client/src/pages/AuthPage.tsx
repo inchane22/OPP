@@ -44,14 +44,17 @@ export default function AuthPage() {
           title: "Error",
           description: result.message || "Authentication failed",
         });
-      } else {
-        toast({
-          title: isLogin ? "Login successful" : "Registration successful",
-          description: "Welcome to Orange Pill Peru!",
-        });
-        // Redirect to home page after successful login/register
-        window.location.href = "/";
+        return;
       }
+      
+      toast({
+        title: isLogin ? "Login successful" : "Registration successful",
+        description: "Welcome to Orange Pill Peru!",
+      });
+      
+      // Use location.replace to ensure a clean redirect
+      window.location.replace("/");
+      
     } catch (error: any) {
       toast({
         variant: "destructive",

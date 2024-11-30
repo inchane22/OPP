@@ -43,6 +43,8 @@ export function setupAuth(app: Express) {
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "lax",
+      httpOnly: true,
+      path: "/",
     },
     store: new MemoryStore({
       checkPeriod: 86400000, // Prune expired entries every 24h
@@ -159,21 +161,32 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+    const result = insertUserSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: result.error.issues.map(i => i.message)
+      });
+    }
+
     passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
       if (err) {
-        return next(err);
+        console.error("Login error:", err);
+        return res.status(500).json({ error: "Internal server error" });
       }
 
       if (!user) {
-        return res.status(400).json({ error: info.message ?? "Login failed" });
+        return res.status(401).json({ error: info.message ?? "Invalid credentials" });
       }
 
       req.login(user, (err) => {
         if (err) {
-          return next(err);
+          console.error("Session error:", err);
+          return res.status(500).json({ error: "Failed to create session" });
         }
 
         return res.json({
+          ok: true,
           message: "Login successful",
           user: {
             id: user.id,
