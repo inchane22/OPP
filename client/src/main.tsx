@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -11,13 +11,34 @@ import AuthPage from "./pages/AuthPage";
 import ForumPage from "./pages/ForumPage";
 import EventsPage from "./pages/EventsPage";
 import ResourcesPage from "./pages/ResourcesPage";
+import AccountPage from "./pages/AccountPage";
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
+  const { user, isLoading } = useUser();
+  const [location] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Redirect to={`/login?redirect=${encodeURIComponent(location)}`} />;
+  }
+
+  return <Component {...rest} />;
+}
+
 function Router() {
   const { user, isLoading } = useUser();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -25,6 +46,11 @@ function Router() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Redirect from login/register if already authenticated
+  if (user && location === "/login") {
+    return <Redirect to="/" />;
   }
 
   return (
@@ -35,10 +61,20 @@ function Router() {
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
-            <Route path="/forum" component={ForumPage} />
+            <Route path="/forum">
+              <ProtectedRoute component={ForumPage} />
+            </Route>
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />
-            <Route>404 Page Not Found</Route>
+            <Route path="/account">
+              <ProtectedRoute component={AccountPage} />
+            </Route>
+            <Route>
+              <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <h1 className="text-4xl font-bold">404</h1>
+                <p className="text-muted-foreground">Página no encontrada</p>
+              </div>
+            </Route>
           </Switch>
         </main>
         <Footer />

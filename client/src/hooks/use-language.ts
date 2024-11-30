@@ -41,7 +41,9 @@ type TranslationKeys =
   | 'resources.subtitle'
   | 'resources.submit'
   | 'resources.login_to_submit'
-  | 'resources.approved';
+  | 'resources.approved'
+  | 'account.preferences'
+  | 'account.language_preference';
 
 type Translations = {
   [K in Language]: {
@@ -93,7 +95,9 @@ const translations: Translations = {
     'resources.subtitle': 'Learn about Bitcoin and cryptocurrency',
     'resources.submit': 'Submit Resource',
     'resources.login_to_submit': 'Login to Submit Resource',
-    'resources.approved': 'Approved Resources'
+    'resources.approved': 'Approved Resources',
+    'account.preferences': 'Preferences',
+    'account.language_preference': 'Language Preference'
   },
   es: {
     'nav.forum': 'Foro',
@@ -132,7 +136,9 @@ const translations: Translations = {
     'resources.subtitle': 'Aprende sobre Bitcoin y criptomonedas',
     'resources.submit': 'Enviar Recurso',
     'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
-    'resources.approved': 'Recursos Aprobados'
+    'resources.approved': 'Recursos Aprobados',
+    'account.preferences': 'Preferencias',
+    'account.language_preference': 'Preferencia de Idioma'
   }
 };
 
