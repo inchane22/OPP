@@ -10,7 +10,7 @@ export function registerRoutes(app: Express) {
   // Posts routes
   app.get("/api/posts", async (req, res) => {
     try {
-      const allPosts = await db.select({
+      let allPosts = await db.select({
         id: posts.id,
         title: posts.title,
         content: posts.content,
@@ -22,6 +22,41 @@ export function registerRoutes(app: Express) {
       .from(posts)
       .leftJoin(users, eq(posts.authorId, users.id))
       .orderBy(desc(posts.createdAt));
+
+      // If no posts exist, insert some sample posts
+      if (allPosts.length === 0) {
+        const samplePosts = [
+          {
+            title: "¡Bienvenidos a Orange Pill Peru!",
+            content: "Este es el espacio para discutir todo sobre Bitcoin en Perú. Comparte tus experiencias y aprende de la comunidad.",
+            authorId: 1
+          },
+          {
+            title: "Guía: Cómo empezar con Bitcoin en Perú",
+            content: "Una guía paso a paso para comprar, almacenar y usar Bitcoin en Perú de manera segura.",
+            authorId: 1
+          },
+          {
+            title: "Lightning Network en Perú",
+            content: "Descubre cómo usar la Lightning Network para pagos instantáneos y económicos con Bitcoin.",
+            authorId: 1
+          }
+        ];
+
+        const insertedPosts = await db.insert(posts).values(samplePosts).returning();
+        allPosts = await db.select({
+          id: posts.id,
+          title: posts.title,
+          content: posts.content,
+          authorId: posts.authorId,
+          createdAt: posts.createdAt,
+          updatedAt: posts.updatedAt,
+          author: users
+        })
+        .from(posts)
+        .leftJoin(users, eq(posts.authorId, users.id))
+        .orderBy(desc(posts.createdAt));
+      }
       
       res.json(allPosts);
     } catch (error) {
