@@ -47,6 +47,15 @@ export default function Footer() {
               </li>
               <li>
                 <Link 
+                  href="/businesses" 
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
+                >
+                  {t('nav.businesses')}
+                </Link>
+              </li>
+              <li>
+                <Link 
                   href="/login" 
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   className="text-muted-foreground hover:text-primary transition-colors duration-200 inline-block"
