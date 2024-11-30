@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -19,6 +19,7 @@ import Footer from "./components/Footer";
 
 function Router() {
   const { user, isLoading } = useUser();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -26,6 +27,12 @@ function Router() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // Redirect to home if trying to access login page while authenticated
+  if (user && location === "/login") {
+    window.location.replace("/");
+    return null;
   }
 
   return (
