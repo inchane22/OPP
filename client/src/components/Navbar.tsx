@@ -59,15 +59,8 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
-                {user.role === 'admin' && (
-                  <Link href="/admin">
-                    <DropdownMenuItem>
-                      Panel de Admin
-                    </DropdownMenuItem>
-                  </Link>
-                )}
                 <DropdownMenuItem onClick={() => logout()}>
-                  Cerrar Sesión
+                  Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

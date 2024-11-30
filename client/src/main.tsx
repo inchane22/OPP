@@ -13,7 +13,6 @@ import EventsPage from "./pages/EventsPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import BusinessesPage from "./pages/BusinessesPage";
 import AccountPage from "./pages/AccountPage";
-import AdminPanel from "./pages/AdminPanel";
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
@@ -69,9 +68,6 @@ function Router() {
             <Route path="/businesses" component={BusinessesPage} />
             <Route path="/account">
               <ProtectedRoute component={AccountPage} />
-            </Route>
-            <Route path="/admin">
-              <ProtectedRoute component={AdminPanel} />
             </Route>
             <Route>
               <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
