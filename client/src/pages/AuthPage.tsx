@@ -32,6 +32,9 @@ export default function AuthPage() {
     defaultValues: {
       username: "",
       password: "",
+      email: "",
+      language: "es",
+      role: "user"
     },
   });
 
@@ -94,6 +97,21 @@ export default function AuthPage() {
                   </FormItem>
                 )}
               />
+              {!isLogin && (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <Button type="submit" className="w-full">
                 {isLogin ? "Login" : "Register"}
               </Button>
