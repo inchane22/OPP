@@ -13,7 +13,7 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">
-              {t('home.why_bitcoin')}
+              ¿Por qué Bitcoin?
             </h2>
             <div className="h-1 w-20 bg-primary mx-auto rounded-full mb-6" />
           </div>
