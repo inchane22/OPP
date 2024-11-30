@@ -88,6 +88,9 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
                 <Link href="/resources" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.resources')}
                 </Link>
+                <Link href="/businesses" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                  {t('nav.businesses')}
+                </Link>
               </nav>
             </SheetContent>
           </Sheet>
