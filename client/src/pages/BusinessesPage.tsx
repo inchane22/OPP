@@ -39,8 +39,8 @@ export default function BusinessesPage() {
       description: "",
       address: "",
       city: "",
-      phone: "",
-      website: "",
+      phone: "",  // Initialize as empty string
+      website: "", // Initialize as empty string
       acceptsLightning: false,
       verified: false,
       submittedById: user?.id
@@ -76,7 +76,7 @@ export default function BusinessesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="container mx-auto px-4 py-8 space-y-8">
       <div 
         className="h-[300px] relative rounded-lg overflow-hidden"
         style={{
@@ -160,7 +160,7 @@ export default function BusinessesPage() {
                       <FormItem>
                         <FormLabel>Teléfono (opcional)</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input type="tel" {...field} />
                         </FormControl>
                       </FormItem>
                     )}
@@ -172,7 +172,7 @@ export default function BusinessesPage() {
                       <FormItem>
                         <FormLabel>Sitio Web (opcional)</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input type="url" {...field} />
                         </FormControl>
                       </FormItem>
                     )}
