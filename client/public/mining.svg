@@ -1,19 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" fill="none">
+  <!-- Background -->
   <rect width="800" height="600" fill="#1a1b1e"/>
-  <!-- Mining Rig Frame -->
-  <rect x="100" y="150" width="600" height="300" rx="10" stroke="#f7931a" stroke-width="4"/>
-  <!-- GPU/ASIC Units -->
-  <rect x="150" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
-  <rect x="275" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
-  <rect x="400" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
-  <rect x="525" y="200" width="100" height="200" rx="5" fill="#f7931a" opacity="0.8"/>
-  <!-- Cooling Fans -->
-  <circle cx="200" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
-  <circle cx="325" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
-  <circle cx="450" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
-  <circle cx="575" cy="300" r="30" stroke="#f7931a" stroke-width="3"/>
-  <!-- Power Cables -->
-  <path d="M 150 450 Q 400 500 650 450" stroke="#f7931a" stroke-width="4"/>
-  <!-- Bitcoin Symbol -->
-  <text x="370" y="100" font-family="Arial" font-size="48" fill="#f7931a">₿</text>
+  
+  <!-- Mining Rig -->
+  <g transform="translate(100, 100)">
+    <!-- Rack Frame -->
+    <rect x="50" y="50" width="500" height="400" stroke="#f7931a" stroke-width="4" fill="none"/>
+    
+    <!-- ASIC Miners -->
+    <g>
+      <!-- First Row -->
+      <rect x="75" y="100" width="450" height="80" fill="#f7931a" opacity="0.9"/>
+      <!-- Second Row -->
+      <rect x="75" y="210" width="450" height="80" fill="#f7931a" opacity="0.9"/>
+      <!-- Third Row -->
+      <rect x="75" y="320" width="450" height="80" fill="#f7931a" opacity="0.9"/>
+    </g>
+    
+    <!-- Power LEDs -->
+    <circle cx="100" cy="140" r="5" fill="#00ff00"/>
+    <circle cx="100" cy="250" r="5" fill="#00ff00"/>
+    <circle cx="100" cy="360" r="5" fill="#00ff00"/>
+    
+    <!-- Network Cables -->
+    <path d="M 525 140 Q 550 140 575 140" stroke="#f7931a" stroke-width="2"/>
+    <path d="M 525 250 Q 550 250 575 250" stroke="#f7931a" stroke-width="2"/>
+    <path d="M 525 360 Q 550 360 575 360" stroke="#f7931a" stroke-width="2"/>
+  </g>
+  
+  <!-- Bitcoin Logo -->
+  <g transform="translate(350, 40)">
+    <circle cx="50" cy="50" r="30" fill="#f7931a"/>
+    <text x="50" y="65" font-family="Arial" font-size="40" fill="white" text-anchor="middle">₿</text>
+  </g>
 </svg>
