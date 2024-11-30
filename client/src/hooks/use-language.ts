@@ -99,7 +99,7 @@ const translations: Translations = {
     'resources.approved': 'Approved Resources',
     'account.preferences': 'Preferences',
     'account.language_preference': 'Language Preference',
-    'nav.businesses': 'Bitcoin Businesses'
+    'nav.businesses': 'Businesses in Bitcoin'
   },
   es: {
     'nav.forum': 'Foro',
@@ -141,7 +141,7 @@ const translations: Translations = {
     'resources.approved': 'Recursos Aprobados',
     'account.preferences': 'Preferencias',
     'account.language_preference': 'Preferencia de Idioma',
-    'nav.businesses': 'Negocios Bitcoin'
+    'nav.businesses': 'Negocios en Bitcoin'
   }
 };
 
