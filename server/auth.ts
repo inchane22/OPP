@@ -82,13 +82,13 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
-          return done(null, false, { message: "Incorrect username." });
+          return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
 
         // Verify password
         const isMatch = await crypto.compare(password, user.password);
         if (!isMatch) {
-          return done(null, false, { message: "Incorrect password." });
+          return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
 
         return done(null, user);
@@ -124,7 +124,7 @@ export function setupAuth(app: Express) {
       if (!result.success) {
         return res
           .status(400)
-          .send("Invalid input: " + result.error.issues.map(i => i.message).join(", "));
+          .json({ error: result.error.issues.map(i => i.message).join(", ") });
       }
 
       const { username, password, email } = result.data;
@@ -137,7 +137,7 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).send("Username already exists");
+        return res.status(400).json({ error: "El usuario ya existe" });
       }
 
       // Create new user with hashed password
@@ -159,7 +159,7 @@ export function setupAuth(app: Express) {
           return next(err);
         }
         return res.json({
-          message: "Registration successful",
+          message: "Registro exitoso",
           user: { 
             id: newUser.id, 
             username: newUser.username,
@@ -181,7 +181,7 @@ export function setupAuth(app: Express) {
       }
 
       if (!user) {
-        return res.status(400).send(info.message ?? "Login failed");
+        return res.status(400).json({ error: info.message ?? "Error al iniciar sesión" });
       }
 
       req.login(user, (err) => {
@@ -190,7 +190,7 @@ export function setupAuth(app: Express) {
         }
 
         return res.json({
-          message: "Login successful",
+          message: "Inicio de sesión exitoso",
           user: {
             id: user.id,
             username: user.username,
@@ -206,9 +206,9 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        return res.status(500).send("Logout failed");
+        return res.status(500).json({ error: "Error al cerrar sesión" });
       }
-      res.json({ message: "Logout successful" });
+      res.json({ message: "Sesión cerrada exitosamente" });
     });
   });
 
@@ -224,6 +224,6 @@ export function setupAuth(app: Express) {
         avatar: user.avatar
       });
     }
-    res.status(401).send("Not logged in");
+    res.status(401).json({ error: "No has iniciado sesión" });
   });
 }
