@@ -5,58 +5,85 @@ import { useLanguage } from "../hooks/use-language";
 export default function HomePage() {
   const { t } = useLanguage();
   return (
-    <div>
+    <div className="flex flex-col min-h-screen">
       <Hero />
 
-      <section className="py-12 md:py-16 px-4">
+      {/* Why Bitcoin Section */}
+      <section className="py-16 md:py-24 px-4 scroll-m-20" id="why-bitcoin">
         <div className="container mx-auto max-w-7xl">
-          <h2 className="text-3xl md:text-4xl font-bold mb-8 md:mb-12 text-center bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">{t('home.why_bitcoin')}</h2>
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">
+              {t('home.why_bitcoin')}
+            </h2>
+            <div className="h-1 w-20 bg-primary mx-auto rounded-full mb-6" />
+          </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+            <Card className="group transition-all duration-300 hover:shadow-xl hover:border-primary/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardHeader>
-                <CardTitle className="text-xl font-semibold">{t('home.sound_money.title')}</CardTitle>
+                <CardTitle className="text-2xl font-bold group-hover:text-primary transition-colors">
+                  {t('home.sound_money.title')}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">{t('home.sound_money.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed text-base">
+                  {t('home.sound_money.desc')}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
+            <Card className="group transition-all duration-300 hover:shadow-xl hover:border-primary/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardHeader>
-                <CardTitle className="text-xl font-semibold">{t('home.financial_freedom.title')}</CardTitle>
+                <CardTitle className="text-2xl font-bold group-hover:text-primary transition-colors">
+                  {t('home.financial_freedom.title')}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">{t('home.financial_freedom.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed text-base">
+                  {t('home.financial_freedom.desc')}
+                </p>
               </CardContent>
             </Card>
 
-            <Card className="transition-all duration-200 hover:shadow-lg hover:border-primary/50">
+            <Card className="group transition-all duration-300 hover:shadow-xl hover:border-primary/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <CardHeader>
-                <CardTitle className="text-xl font-semibold">{t('home.community.title')}</CardTitle>
+                <CardTitle className="text-2xl font-bold group-hover:text-primary transition-colors">
+                  {t('home.community.title')}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">{t('home.community.desc')}</p>
+                <p className="text-muted-foreground leading-relaxed text-base">
+                  {t('home.community.desc')}
+                </p>
               </CardContent>
             </Card>
           </div>
         </div>
       </section>
 
-      <section className="py-12 md:py-16 bg-muted">
-        <div className="container px-4 mx-auto max-w-7xl">
-          <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
-            <div className="space-y-4 md:space-y-6">
-              <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">{t('home.mining.title')}</h2>
-              <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+      {/* Mining Section */}
+      <section className="py-16 md:py-24 bg-muted/50 relative overflow-hidden scroll-m-20" id="mining">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,black)] pointer-events-none" />
+        <div className="container px-4 mx-auto max-w-7xl relative">
+          <div className="grid lg:grid-cols-2 gap-12 md:gap-16 items-center">
+            <div className="space-y-6 md:space-y-8">
+              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">
+                {t('home.mining.title')}
+              </h2>
+              <div className="h-1 w-20 bg-primary rounded-full" />
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
                 {t('home.mining.desc')}
               </p>
             </div>
-            <div>
+            <div className="relative group">
+              <div className="absolute -inset-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl blur-2xl group-hover:blur-3xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
               <img
                 src="https://images.unsplash.com/photo-1658225282648-b199eb2a4830"
                 alt="Bitcoin Mining"
-                className="rounded-lg shadow-lg transition-transform duration-300 hover:scale-[1.02]"
+                className="rounded-xl shadow-2xl transition-all duration-300 group-hover:scale-[1.02] relative"
                 loading="lazy"
               />
             </div>
