@@ -81,8 +81,8 @@ export default function HomePage() {
             <div className="relative group">
               <div className="absolute -inset-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl blur-2xl group-hover:blur-3xl transition-all duration-300 opacity-0 group-hover:opacity-100" />
               <img
-                src="https://images.unsplash.com/photo-1621501103258-3e130d10e6c6"
-                alt="Professional Bitcoin Mining Facility"
+                src="https://images.unsplash.com/photo-1625216961487-db078727914a"
+                alt="Bitcoin Mining Equipment"
                 className="rounded-xl shadow-2xl transition-all duration-300 group-hover:scale-[1.02] relative"
                 loading="lazy"
               />
