@@ -29,18 +29,18 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             <span className="font-bold text-lg bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent hidden sm:inline">Orange Pill Peru</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden md:flex items-center">
             <Link href="/forum">
-              <Button variant="link">{t('nav.forum')}</Button>
+              <Button variant="link" className="h-10 px-4 py-2">{t('nav.forum')}</Button>
             </Link>
             <Link href="/events">
-              <Button variant="link">{t('nav.events')}</Button>
+              <Button variant="link" className="h-10 px-4 py-2">{t('nav.events')}</Button>
             </Link>
             <Link href="/resources">
-              <Button variant="link">{t('nav.resources')}</Button>
+              <Button variant="link" className="h-10 px-4 py-2">{t('nav.resources')}</Button>
             </Link>
             <Link href="/businesses">
-              <Button variant="link">{t('nav.businesses')}</Button>
+              <Button variant="link" className="h-10 px-4 py-2">{t('nav.businesses')}</Button>
             </Link>
           </div>
         </div>
