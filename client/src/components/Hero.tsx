@@ -52,16 +52,20 @@ export default function Hero() {
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </Button>
             </Link>
-            <Link href="#why-bitcoin">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="border-white/30 text-white hover:bg-white/10 font-bold px-8 py-6 text-lg backdrop-blur-sm transform hover:scale-105 transition-all duration-300 w-full sm:w-auto group"
-              >
-                {t('hero.learn_more')}
-                <span className="ml-2 group-hover:translate-y-1 transition-transform duration-300">↓</span>
-              </Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="border-white/30 text-white hover:bg-white/10 font-bold px-8 py-6 text-lg backdrop-blur-sm transform hover:scale-105 transition-all duration-300 w-full sm:w-auto group"
+              onClick={() => {
+                const section = document.getElementById('why-bitcoin');
+                if (section) {
+                  section.scrollIntoView({ behavior: 'smooth' });
+                }
+              }}
+            >
+              Por qué Bitcoin
+              <span className="ml-2 group-hover:translate-y-1 transition-transform duration-300">↓</span>
+            </Button>
           </div>
 
           {/* Enhanced trust indicators with animations */}
