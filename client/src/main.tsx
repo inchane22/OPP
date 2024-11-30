@@ -1,12 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "./hooks/use-language";
-
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
 import ForumPage from "./pages/ForumPage";
@@ -19,7 +18,6 @@ import Footer from "./components/Footer";
 
 function Router() {
   const { user, isLoading } = useUser();
-  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -29,12 +27,6 @@ function Router() {
     );
   }
 
-  const shouldRedirect = user && location === "/login";
-  if (shouldRedirect) {
-    window.location.href = "/";
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user} />
@@ -42,9 +34,7 @@ function Router() {
         <main className="container mx-auto px-4 py-8 flex-1">
           <Switch>
             <Route path="/" component={HomePage} />
-            <Route path="/login">
-              {user ? null : <AuthPage />}
-            </Route>
+            <Route path="/login" component={AuthPage} />
             <Route path="/forum" component={ForumPage} />
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />

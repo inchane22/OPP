@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useUser } from "../hooks/use-user";
-import { useLanguage } from "../hooks/use-language";
 import { insertUserSchema, type InsertUser } from "@db/schema";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -21,56 +20,50 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { login, register } = useUser();
   const { toast } = useToast();
-  const { t } = useLanguage();
 
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
     defaultValues: {
       username: "",
       password: "",
-      email: ""
-    }
+    },
   });
 
   const onSubmit = async (data: InsertUser) => {
     try {
-      const result = isLogin ? await login(data) : await register(data);
-      
+      const result = await (isLogin ? login(data) : register(data));
       if (!result.ok) {
         toast({
           variant: "destructive",
-          title: t(isLogin ? 'auth.login_failed' : 'auth.registration_failed'),
-          description: result.message
+          title: "Error",
+          description: result.message,
         });
-        return;
       }
-
-      window.location.href = "/";
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error instanceof Error ? error.message : "An unexpected error occurred"
+        description: error.message,
       });
     }
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold">
-            {isLogin ? t('auth.login') : t('auth.register')}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            {isLogin ? t('auth.welcome') : t('auth.join')}
-          </p>
+    <div className="container max-w-md mx-auto mt-20">
+      <Card>
+        <CardHeader>
+          <CardTitle>{isLogin ? "Login" : "Register"}</CardTitle>
+          <CardDescription>
+            {isLogin
+              ? "Welcome back to Orange Pill Peru"
+              : "Join the Bitcoin maximalist community"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -82,29 +75,12 @@ export default function AuthPage() {
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input {...field} autoComplete="username" />
+                      <Input {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              {!isLogin && (
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} autoComplete="email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
               <FormField
                 control={form.control}
                 name="password"
@@ -112,43 +88,28 @@ export default function AuthPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="password" 
-                        {...field} 
-                        autoComplete={isLogin ? "current-password" : "new-password"}
-                      />
+                      <Input type="password" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={form.formState.isSubmitting}
-              >
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isLogin ? t('auth.login') : t('auth.register')}
-              </Button>
-
-              <Button
-                type="button"
-                variant="link"
-                className="w-full font-normal"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  form.reset();
-                }}
-              >
-                {isLogin 
-                  ? t('auth.need_account') 
-                  : t('auth.have_account')}
+              <Button type="submit" className="w-full">
+                {isLogin ? "Login" : "Register"}
               </Button>
             </form>
           </Form>
+
+          <div className="mt-4 text-center">
+            <Button
+              variant="link"
+              onClick={() => setIsLogin(!isLogin)}
+            >
+              {isLogin
+                ? "Need an account? Register"
+                : "Already have an account? Login"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
