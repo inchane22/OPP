@@ -160,7 +160,11 @@ export default function BusinessesPage() {
                       <FormItem>
                         <FormLabel>Teléfono (opcional)</FormLabel>
                         <FormControl>
-                          <Input type="tel" {...field} />
+                          <Input 
+                            type="tel" 
+                            {...field} 
+                            value={field.value || ''} 
+                          />
                         </FormControl>
                       </FormItem>
                     )}
@@ -172,7 +176,11 @@ export default function BusinessesPage() {
                       <FormItem>
                         <FormLabel>Sitio Web (opcional)</FormLabel>
                         <FormControl>
-                          <Input type="url" {...field} />
+                          <Input 
+                            type="url" 
+                            {...field} 
+                            value={field.value || ''} 
+                          />
                         </FormControl>
                       </FormItem>
                     )}
