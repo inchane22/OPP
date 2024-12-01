@@ -1,10 +1,11 @@
-import type { Express } from "express";
-import { setupAuth } from "./auth";
+import { type Express } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
+import { setupAuth } from "./auth";
 
 export function registerRoutes(app: Express) {
+  // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 
   // Posts routes
@@ -47,7 +48,7 @@ export function registerRoutes(app: Express) {
           }
         ];
 
-        const insertedPosts = await db.insert(posts).values(samplePosts).returning();
+        await db.insert(posts).values(samplePosts).returning();
         allPosts = await db.select({
           id: posts.id,
           title: posts.title,
@@ -55,7 +56,11 @@ export function registerRoutes(app: Express) {
           authorId: posts.authorId,
           createdAt: posts.createdAt,
           updatedAt: posts.updatedAt,
-          author: users
+          author: {
+            id: users.id,
+            username: users.username,
+            avatar: users.avatar
+          }
         })
         .from(posts)
         .leftJoin(users, eq(posts.authorId, users.id))
@@ -116,13 +121,6 @@ export function registerRoutes(app: Express) {
             date: new Date("2025-01-20T09:00:00"),
             location: "San Isidro, Lima",
             organizerId: 1
-          },
-          {
-            title: "Bitcoin Beach Peru Launch",
-            description: "Launching the first Bitcoin Beach community in Peru",
-            date: new Date("2024-12-30T11:00:00"),
-            location: "Máncora, Piura",
-            organizerId: 1
           }
         ];
 
@@ -132,23 +130,8 @@ export function registerRoutes(app: Express) {
 
       res.json(allEvents);
     } catch (error) {
-      console.error("Failed to fetch or create events:", error);
+      console.error("Failed to fetch events:", error);
       res.status(500).json({ error: "Failed to fetch events" });
-    }
-  });
-
-  app.post("/api/events/:id/like", async (req, res) => {
-    try {
-      const eventId = parseInt(req.params.id);
-      const [event] = await db
-        .update(events)
-        .set({ likes: sql`${events.likes} + 1` })
-        .where(eq(events.id, eventId))
-        .returning();
-      
-      res.json(event);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update likes" });
     }
   });
 
@@ -168,6 +151,21 @@ export function registerRoutes(app: Express) {
       res.json(event);
     } catch (error) {
       res.status(500).json({ error: "Failed to create event" });
+    }
+  });
+
+  app.post("/api/events/:id/like", async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const [event] = await db
+        .update(events)
+        .set({ likes: sql`${events.likes} + 1` })
+        .where(eq(events.id, eventId))
+        .returning();
+      
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update likes" });
     }
   });
 
@@ -205,14 +203,6 @@ export function registerRoutes(app: Express) {
             type: "book",
             authorId: 1,
             approved: true
-          },
-          {
-            title: "Lightning Network Explained",
-            description: "Introduction to Bitcoin's Layer 2 scaling solution - the Lightning Network.",
-            url: "https://lightning.network/",
-            type: "video",
-            authorId: 1,
-            approved: true
           }
         ];
 
@@ -222,7 +212,7 @@ export function registerRoutes(app: Express) {
 
       res.json(allResources);
     } catch (error) {
-      console.error("Failed to fetch or create resources:", error);
+      console.error("Failed to fetch resources:", error);
       res.status(500).json({ error: "Failed to fetch resources" });
     }
   });
@@ -245,6 +235,7 @@ export function registerRoutes(app: Express) {
       res.status(500).json({ error: "Failed to create resource" });
     }
   });
+
   // Comments routes
   app.get("/api/posts/:postId/comments", async (req, res) => {
     try {
@@ -278,6 +269,41 @@ export function registerRoutes(app: Express) {
       res.json(comment);
     } catch (error) {
       res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  // Admin routes
+  app.get("/api/admin/stats", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      const [[{ totalUsers }]] = await db
+        .select({ totalUsers: sql`count(*)` })
+        .from(users);
+
+      const [[{ totalResources }]] = await db
+        .select({ totalResources: sql`count(*)` })
+        .from(resources);
+
+      const [[{ totalEvents }]] = await db
+        .select({ totalEvents: sql`count(*)` })
+        .from(events);
+
+      const [[{ totalBusinesses }]] = await db
+        .select({ totalBusinesses: sql`count(*)` })
+        .from(businesses);
+
+      res.json({
+        totalUsers,
+        totalResources,
+        totalEvents,
+        totalBusinesses
+      });
+    } catch (error) {
+      console.error("Failed to fetch admin stats:", error);
+      res.status(500).json({ error: "Failed to fetch admin stats" });
     }
   });
 
