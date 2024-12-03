@@ -23,7 +23,9 @@ export default function HomeCarousel() {
       if (!response.ok) {
         throw new Error('Failed to fetch carousel items');
       }
-      return response.json();
+      const data = await response.json();
+      // Only show active items
+      return data.filter((item: CarouselItem) => item.active);
     }
   });
 
