@@ -283,12 +283,27 @@ export function registerRoutes(app: Express) {
       const totalResources = await db.select({ count: sql<number>`count(*)::int` }).from(resources);
       const totalEvents = await db.select({ count: sql<number>`count(*)::int` }).from(events);
       const totalBusinesses = await db.select({ count: sql<number>`count(*)::int` }).from(businesses);
+      
+      const postsData = await db.select({
+        id: posts.id,
+        title: posts.title,
+        content: posts.content,
+        createdAt: posts.createdAt,
+        author: {
+          id: users.id,
+          username: users.username,
+        }
+      })
+      .from(posts)
+      .leftJoin(users, eq(posts.authorId, users.id))
+      .orderBy(desc(posts.createdAt));
 
       const stats = {
         totalUsers: totalUsers[0].count,
         totalResources: totalResources[0].count,
         totalEvents: totalEvents[0].count,
-        totalBusinesses: totalBusinesses[0].count
+        totalBusinesses: totalBusinesses[0].count,
+        posts: postsData
       };
 
       res.json(stats);

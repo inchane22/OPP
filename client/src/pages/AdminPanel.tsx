@@ -44,6 +44,7 @@ export default function AdminPanel() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Vista General</TabsTrigger>
+            <TabsTrigger value="posts">Foros</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
             <TabsTrigger value="businesses">Negocios</TabsTrigger>
@@ -95,6 +96,42 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="posts">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión de Publicaciones</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra las publicaciones del foro
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.posts?.map((post) => (
+                    <div key={post.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{post.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Por: {post.author?.username} | {new Date(post.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="space-x-2">
+                          <Button variant="outline" size="sm">
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm">
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                      <p className="text-sm">{post.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="users">
