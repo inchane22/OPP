@@ -144,7 +144,33 @@ export default function AdminPanel() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* User management content will go here */}
+                <div className="space-y-4">
+                  {stats?.users?.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{user.username}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {user.email} | {user.role} | {new Date(user.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Idioma: {user.language === 'es' ? 'Español' : 'English'}
+                          </p>
+                        </div>
+                        <div className="space-x-2">
+                          <Button variant="outline" size="sm">
+                            Editar
+                          </Button>
+                          {user.role !== 'admin' && (
+                            <Button variant="destructive" size="sm">
+                              Eliminar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

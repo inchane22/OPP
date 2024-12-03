@@ -298,12 +298,24 @@ export function registerRoutes(app: Express) {
       .leftJoin(users, eq(posts.authorId, users.id))
       .orderBy(desc(posts.createdAt));
 
+      const usersData = await db.select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+        language: users.language
+      })
+      .from(users)
+      .orderBy(desc(users.createdAt));
+
       const stats = {
         totalUsers: totalUsers[0].count,
         totalResources: totalResources[0].count,
         totalEvents: totalEvents[0].count,
         totalBusinesses: totalBusinesses[0].count,
-        posts: postsData
+        posts: postsData,
+        users: usersData
       };
 
       res.json(stats);
