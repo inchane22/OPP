@@ -279,21 +279,25 @@ export function registerRoutes(app: Express) {
     }
 
     try {
-      const [[{ totalUsers }]] = await db
-        .select({ totalUsers: sql`count(*)` })
+      const totalUsersResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(users);
+      const totalUsers = totalUsersResult[0].count;
 
-      const [[{ totalResources }]] = await db
-        .select({ totalResources: sql`count(*)` })
+      const totalResourcesResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(resources);
+      const totalResources = totalResourcesResult[0].count;
 
-      const [[{ totalEvents }]] = await db
-        .select({ totalEvents: sql`count(*)` })
+      const totalEventsResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(events);
+      const totalEvents = totalEventsResult[0].count;
 
-      const [[{ totalBusinesses }]] = await db
-        .select({ totalBusinesses: sql`count(*)` })
+      const totalBusinessesResult = await db
+        .select({ count: sql<number>`count(*)::int` })
         .from(businesses);
+      const totalBusinesses = totalBusinessesResult[0].count;
 
       res.json({
         totalUsers,

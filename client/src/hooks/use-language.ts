@@ -8,6 +8,7 @@ type TranslationKeys =
   | 'nav.forum'
   | 'nav.events'
   | 'nav.resources'
+  | 'nav.businesses'
   | 'nav.login'
   | 'nav.register'
   | 'hero.title'
@@ -32,6 +33,13 @@ type TranslationKeys =
   | 'forum.title'
   | 'forum.new_post'
   | 'forum.login_to_post'
+  | 'forum.create_post'
+  | 'forum.categories'
+  | 'forum.category.general'
+  | 'forum.category.technical'
+  | 'forum.category.trading'
+  | 'forum.category.mining'
+  | 'forum.category.lightning'
   | 'events.title'
   | 'events.subtitle'
   | 'events.create_event'
@@ -43,8 +51,7 @@ type TranslationKeys =
   | 'resources.login_to_submit'
   | 'resources.approved'
   | 'account.preferences'
-  | 'account.language_preference'
-  | 'nav.businesses';
+  | 'account.language_preference';
 
 type Translations = {
   [K in Language]: {
@@ -52,17 +59,12 @@ type Translations = {
   };
 };
 
-type LanguageContextType = {
-  language: Language;
-  setLanguage: (lang: Language) => Promise<void>;
-  t: (key: TranslationKeys) => string;
-};
-
 const translations: Translations = {
   en: {
     'nav.forum': 'Forum',
     'nav.events': 'Events',
     'nav.resources': 'Resources',
+    'nav.businesses': 'Businesses',
     'nav.login': 'Login',
     'nav.register': 'Register',
     'hero.title': 'Orange Pill Peru',
@@ -87,6 +89,13 @@ const translations: Translations = {
     'forum.title': 'Forum',
     'forum.new_post': 'New Post',
     'forum.login_to_post': 'Login to Post',
+    'forum.create_post': 'Create New Post',
+    'forum.categories': 'Categories',
+    'forum.category.general': 'General Discussion',
+    'forum.category.technical': 'Technical Analysis',
+    'forum.category.trading': 'Trading',
+    'forum.category.mining': 'Mining',
+    'forum.category.lightning': 'Lightning Network',
     'events.title': 'Bitcoin Events in Peru',
     'events.subtitle': 'Join the Bitcoin community in Peru',
     'events.create_event': 'Create Event',
@@ -98,13 +107,13 @@ const translations: Translations = {
     'resources.login_to_submit': 'Login to Submit Resource',
     'resources.approved': 'Approved Resources',
     'account.preferences': 'Preferences',
-    'account.language_preference': 'Language Preference',
-    'nav.businesses': 'Businesses in Bitcoin'
+    'account.language_preference': 'Language Preference'
   },
   es: {
     'nav.forum': 'Foro',
     'nav.events': 'Eventos',
     'nav.resources': 'Recursos',
+    'nav.businesses': 'Negocios',
     'nav.login': 'Iniciar Sesión',
     'nav.register': 'Registrarse',
     'hero.title': 'Orange Pill Perú',
@@ -129,6 +138,13 @@ const translations: Translations = {
     'forum.title': 'Foro',
     'forum.new_post': 'Nueva Publicación',
     'forum.login_to_post': 'Inicia Sesión para Publicar',
+    'forum.create_post': 'Crear Nueva Publicación',
+    'forum.categories': 'Categorías',
+    'forum.category.general': 'Discusión General',
+    'forum.category.technical': 'Análisis Técnico',
+    'forum.category.trading': 'Trading',
+    'forum.category.mining': 'Minería',
+    'forum.category.lightning': 'Red Lightning',
     'events.title': 'Eventos Bitcoin en Perú',
     'events.subtitle': 'Únete a la comunidad Bitcoin en Perú',
     'events.create_event': 'Crear Evento',
@@ -140,12 +156,15 @@ const translations: Translations = {
     'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
     'resources.approved': 'Recursos Aprobados',
     'account.preferences': 'Preferencias',
-    'account.language_preference': 'Preferencia de Idioma',
-    'nav.businesses': 'Negocios en Bitcoin'
+    'account.language_preference': 'Preferencia de Idioma'
   }
 };
 
-export const LanguageContext = createContext<LanguageContextType>({
+export const LanguageContext = createContext<{
+  language: Language;
+  setLanguage: (lang: Language) => Promise<void>;
+  t: (key: TranslationKeys | `forum.category.${string}`) => string;
+}>({
   language: 'es',
   setLanguage: async () => {},
   t: (key) => key
@@ -188,8 +207,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const t = (key: TranslationKeys): string => {
-    return translations[language][key];
+  const t = (key: TranslationKeys | `forum.category.${string}`): string => {
+    return translations[language][key as TranslationKeys] || key;
   };
 
   const contextValue = {

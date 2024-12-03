@@ -150,7 +150,7 @@ export default function ForumPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Post</DialogTitle>
+                <DialogTitle>{t('forum.create_post')}</DialogTitle>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(data => createPost.mutate(data))} className="space-y-4">
@@ -162,6 +162,24 @@ export default function ForumPage() {
                         <FormLabel>Title</FormLabel>
                         <FormControl>
                           <Input {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <select {...field} className="w-full p-2 rounded-md border">
+                            <option value="general">{t('forum.category.general' as `forum.category.${string}`)}</option>
+                            <option value="technical">{t('forum.category.technical' as `forum.category.${string}`)}</option>
+                            <option value="trading">{t('forum.category.trading' as `forum.category.${string}`)}</option>
+                            <option value="mining">{t('forum.category.mining' as `forum.category.${string}`)}</option>
+                            <option value="lightning">{t('forum.category.lightning' as `forum.category.${string}`)}</option>
+                          </select>
                         </FormControl>
                       </FormItem>
                     )}
@@ -198,9 +216,14 @@ export default function ForumPage() {
           <Card key={post.id}>
             <CardHeader>
               <CardTitle>{post.title}</CardTitle>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <MessageCircle className="mr-2 h-4 w-4" />
-                <span>Posted on {format(new Date(post.createdAt), "PPP")}</span>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="px-2 py-1 bg-primary/10 rounded-full text-primary">
+                  {post.category ? t(`forum.category.${post.category}` as `forum.category.${string}`) : ''}
+                </span>
+                <div className="flex items-center">
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  <span>Posted on {format(new Date(post.createdAt), "PPP")}</span>
+                </div>
               </div>
             </CardHeader>
             <CardContent>

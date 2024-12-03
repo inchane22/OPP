@@ -13,6 +13,7 @@ import EventsPage from "./pages/EventsPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import BusinessesPage from "./pages/BusinessesPage";
 import AccountPage from "./pages/AccountPage";
+import AdminPanel from "./pages/AdminPanel";
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
@@ -54,6 +55,11 @@ function Router() {
     return <Redirect to="/" />;
   }
 
+  // Only redirect to admin panel if user is admin and trying to access non-admin routes
+  if (user?.role === 'admin' && !location.startsWith('/admin') && location !== '/') {
+    return <Redirect to="/admin" />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user} />
@@ -66,6 +72,9 @@ function Router() {
             <Route path="/events" component={EventsPage} />
             <Route path="/resources" component={ResourcesPage} />
             <Route path="/businesses" component={BusinessesPage} />
+            <Route path="/admin">
+              {user?.role === 'admin' ? <AdminPanel /> : <Redirect to="/" />}
+            </Route>
             <Route path="/account">
               <ProtectedRoute component={AccountPage} />
             </Route>

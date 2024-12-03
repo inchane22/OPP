@@ -1,9 +1,9 @@
-import { pgTable, text, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id: serial("id").primaryKey(),
   username: text("username").unique().notNull(),
   password: text("password").notNull(),
   email: text("email").unique().notNull(),
@@ -15,16 +15,17 @@ export const users = pgTable("users", {
 });
 
 export const posts = pgTable("posts", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  category: text("category").default("general").notNull(),
   authorId: integer("author_id").references(() => users.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });
 
 export const events = pgTable("events", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   date: timestamp("date").notNull(),
@@ -35,7 +36,7 @@ export const events = pgTable("events", {
 });
 
 export const resources = pgTable("resources", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   url: text("url").notNull(),
@@ -44,12 +45,27 @@ export const resources = pgTable("resources", {
   approved: boolean("approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
+
 export const comments = pgTable("comments", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  id: serial("id").primaryKey(),
   postId: integer("post_id").references(() => posts.id).notNull(),
   content: text("content").notNull(),
   authorId: integer("author_id").references(() => users.id),
   authorName: text("author_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+
+export const businesses = pgTable("businesses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  phone: text("phone"),
+  website: text("website"),
+  acceptsLightning: boolean("accepts_lightning").default(false).notNull(),
+  verified: boolean("verified").default(false).notNull(),
+  submittedById: integer("submitted_by_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
 
@@ -77,20 +93,6 @@ export const insertResourceSchema = createInsertSchema(resources);
 export const selectResourceSchema = createSelectSchema(resources);
 export type InsertResource = z.infer<typeof insertResourceSchema>;
 export type Resource = z.infer<typeof selectResourceSchema>;
-
-export const businesses = pgTable("businesses", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  name: text("name").notNull(),
-  description: text("description").notNull(),
-  address: text("address").notNull(),
-  city: text("city").notNull(),
-  phone: text("phone"),
-  website: text("website"),
-  acceptsLightning: boolean("accepts_lightning").default(false).notNull(),
-  verified: boolean("verified").default(false).notNull(),
-  submittedById: integer("submitted_by_id").references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow().notNull()
-});
 
 export const insertBusinessSchema = createInsertSchema(businesses);
 export const selectBusinessSchema = createSelectSchema(businesses);

@@ -1,12 +1,24 @@
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
+import PriceDisplay from "../components/PriceDisplay";
+import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
 
 export default function HomePage() {
   const { t } = useLanguage();
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
+
+      {/* Price Display and Bitcoin Tools */}
+      <section className="py-8">
+        <div className="container mx-auto max-w-7xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <PriceDisplay />
+            <BitcoinQRGenerator />
+          </div>
+        </div>
+      </section>
 
       {/* Why Bitcoin Section */}
       <section className="py-16 md:py-24 px-4 scroll-m-20" id="why-bitcoin">

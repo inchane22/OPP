@@ -74,6 +74,8 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
+        console.log(`Attempting login for user: ${username}`);
+        
         // Find user by username
         const [user] = await db
           .select()
@@ -82,17 +84,22 @@ export function setupAuth(app: Express) {
           .limit(1);
 
         if (!user) {
+          console.log('User not found');
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
 
+        console.log('User found, verifying password');
         // Verify password
         const isMatch = await crypto.compare(password, user.password);
+        console.log('Password match:', isMatch);
+        
         if (!isMatch) {
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
 
         return done(null, user);
       } catch (err) {
+        console.error('Login error:', err);
         return done(err);
       }
     })

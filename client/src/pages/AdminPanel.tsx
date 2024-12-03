@@ -21,7 +21,7 @@ export default function AdminPanel() {
 
   // Redirect if not admin
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
       window.location.href = '/';
     }
   }, [user]);
@@ -37,107 +37,109 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Panel de Administración</h1>
+    <div className="p-6">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6 text-foreground">Panel de Administración</h1>
 
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Vista General</TabsTrigger>
-          <TabsTrigger value="users">Usuarios</TabsTrigger>
-          <TabsTrigger value="resources">Recursos</TabsTrigger>
-          <TabsTrigger value="businesses">Negocios</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Vista General</TabsTrigger>
+            <TabsTrigger value="users">Usuarios</TabsTrigger>
+            <TabsTrigger value="resources">Recursos</TabsTrigger>
+            <TabsTrigger value="businesses">Negocios</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="overview">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Usuarios
-                </CardTitle>
+          <TabsContent value="overview">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-card text-card-foreground">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">
+                    Total Usuarios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats?.totalUsers ?? 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card text-card-foreground">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">
+                    Total Recursos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats?.totalResources ?? 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card text-card-foreground">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">
+                    Total Eventos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats?.totalEvents ?? 0}</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card text-card-foreground">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">
+                    Total Negocios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats?.totalBusinesses ?? 0}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión de Usuarios</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra los usuarios de la plataforma
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalUsers ?? 0}</div>
+                {/* User management content will go here */}
               </CardContent>
             </Card>
+          </TabsContent>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Recursos
-                </CardTitle>
+          <TabsContent value="resources">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Recursos Pendientes</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Aprueba o rechaza recursos enviados por usuarios
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalResources ?? 0}</div>
+                {/* Resource approval content will go here */}
               </CardContent>
             </Card>
+          </TabsContent>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Eventos
-                </CardTitle>
+          <TabsContent value="businesses">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Negocios Pendientes</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Verifica y aprueba negocios que aceptan Bitcoin
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalEvents ?? 0}</div>
+                {/* Business verification content will go here */}
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Negocios
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalBusinesses ?? 0}</div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="users">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gestión de Usuarios</CardTitle>
-              <CardDescription>
-                Administra los usuarios de la plataforma
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* User management content will go here */}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="resources">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recursos Pendientes</CardTitle>
-              <CardDescription>
-                Aprueba o rechaza recursos enviados por usuarios
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Resource approval content will go here */}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="businesses">
-          <Card>
-            <CardHeader>
-              <CardTitle>Negocios Pendientes</CardTitle>
-              <CardDescription>
-                Verifica y aprueba negocios que aceptan Bitcoin
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Business verification content will go here */}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
