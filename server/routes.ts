@@ -516,8 +516,7 @@ export function registerRoutes(app: Express) {
 
     try {
       await db
-        .update(carousel_items)
-        .set({ active: false })
+        .delete(carousel_items)
         .where(eq(carousel_items.id, parseInt(req.params.id)));
       res.json({ success: true });
     } catch (error) {
