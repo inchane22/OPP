@@ -279,30 +279,19 @@ export function registerRoutes(app: Express) {
     }
 
     try {
-      const [{ users_count, resources_count, events_count, businesses_count }] = await db.execute<{
-        users_count: number;
-        resources_count: number;
-        events_count: number;
-        businesses_count: number;
-      }>(sql`
-        SELECT 
-          COUNT(*)::int as users_count FROM users,
-          COUNT(*)::int as resources_count FROM resources,
-          COUNT(*)::int as events_count FROM events,
-          COUNT(*)::int as businesses_count FROM businesses
-      `);
+      const totalUsers = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+      const totalResources = await db.select({ count: sql<number>`count(*)::int` }).from(resources);
+      const totalEvents = await db.select({ count: sql<number>`count(*)::int` }).from(events);
+      const totalBusinesses = await db.select({ count: sql<number>`count(*)::int` }).from(businesses);
 
-      const totalUsers = users_count;
-      const totalResources = resources_count;
-      const totalEvents = events_count;
-      const totalBusinesses = businesses_count;
+      const stats = {
+        totalUsers: totalUsers[0].count,
+        totalResources: totalResources[0].count,
+        totalEvents: totalEvents[0].count,
+        totalBusinesses: totalBusinesses[0].count
+      };
 
-      res.json({
-        totalUsers,
-        totalResources,
-        totalEvents,
-        totalBusinesses
-      });
+      res.json(stats);
     } catch (error) {
       console.error("Failed to fetch admin stats:", error);
       res.status(500).json({ error: "Failed to fetch admin stats" });
