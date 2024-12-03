@@ -16,7 +16,7 @@ interface CarouselItem {
 export default function HomeCarousel() {
   const { t } = useLanguage();
   
-  const { data: items } = useQuery<CarouselItem[]>({
+  const { data: items, isLoading, error } = useQuery<CarouselItem[]>({
     queryKey: ['carousel-items'],
     queryFn: async () => {
       const response = await fetch('/api/carousel');
@@ -26,6 +26,18 @@ export default function HomeCarousel() {
       return response.json();
     }
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return null;
+  }
 
   if (!items?.length) return null;
 
