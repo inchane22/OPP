@@ -16,6 +16,29 @@ interface CarouselItem {
 export default function HomeCarousel() {
   const { t } = useLanguage();
   
+  function getEmbedUrl(url: string): string {
+    try {
+      // Handle youtu.be format
+      if (url.includes('youtu.be')) {
+        const videoId = url.split('youtu.be/')[1].split('?')[0];
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      // Handle youtube.com format
+      if (url.includes('youtube.com/watch')) {
+        const videoId = new URL(url).searchParams.get('v');
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+      // If it's already an embed URL, return as is
+      if (url.includes('youtube.com/embed')) {
+        return url;
+      }
+      return url;
+    } catch (e) {
+      console.error('Error parsing YouTube URL:', e);
+      return url;
+    }
+  }
+
   const { data: items, isLoading, error } = useQuery<CarouselItem[]>({
     queryKey: ['carousel-items'],
     queryFn: async () => {
@@ -24,8 +47,13 @@ export default function HomeCarousel() {
         throw new Error('Failed to fetch carousel items');
       }
       const data = await response.json();
-      // Only show active items
-      return data.filter((item: CarouselItem) => item.active);
+      // Only show active items and transform URLs
+      return data
+        .filter((item: CarouselItem) => item.active)
+        .map((item: CarouselItem) => ({
+          ...item,
+          embedUrl: getEmbedUrl(item.embedUrl)
+        }));
     }
   });
 
