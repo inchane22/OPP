@@ -50,14 +50,18 @@ function Router() {
     );
   }
 
-  // Redirect from login/register if already authenticated
-  if (user && location === "/login") {
+  // If user is admin, redirect to admin panel after login
+  if (user?.role === 'admin') {
+    if (location === "/login") {
+      return <Redirect to="/admin" />;
+    }
+    // Keep admin in admin panel unless explicitly navigating elsewhere
+    if (!location.startsWith('/admin') && location !== '/') {
+      return <Redirect to="/admin" />;
+    }
+  } else if (user && location === "/login") {
+    // For non-admin users, redirect to home after login
     return <Redirect to="/" />;
-  }
-
-  // Only redirect to admin panel if user is admin and trying to access non-admin routes
-  if (user?.role === 'admin' && !location.startsWith('/admin') && location !== '/') {
-    return <Redirect to="/admin" />;
   }
 
   return (
