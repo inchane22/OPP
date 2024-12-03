@@ -71,7 +71,11 @@ export const businesses = pgTable("businesses", {
 export const carousel_items = pgTable("carousel_items", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  embedUrl: text("embed_url").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // 'news' or 'video'
+  url: text("url").notNull(), // URL to the news article or video
+  embedUrl: text("embed_url"), // For video embeds (YouTube, etc)
+  thumbnailUrl: text("thumbnail_url"), // Preview image URL
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
