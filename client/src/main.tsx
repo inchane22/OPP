@@ -76,20 +76,41 @@ function Router() {
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
-            <Route path="/foro" component={ForumPage} />
-            <Route path="/eventos" component={EventsPage} />
-            <Route path="/recursos" component={ResourcesPage} />
-            <Route path="/negocios" component={BusinessesPage} />
+            
+            {/* English routes */}
+            <Route path="/forum" component={ForumPage} />
+            <Route path="/events" component={EventsPage} />
+            <Route path="/resources" component={ResourcesPage} />
+            <Route path="/businesses" component={BusinessesPage} />
+            <Route path="/account">
+              <ProtectedRoute component={AccountPage} />
+            </Route>
+            
+            {/* Spanish routes */}
+            <Route path="/foro">
+              <Redirect to="/forum" />
+            </Route>
+            <Route path="/eventos">
+              <Redirect to="/events" />
+            </Route>
+            <Route path="/recursos">
+              <Redirect to="/resources" />
+            </Route>
+            <Route path="/negocios">
+              <Redirect to="/businesses" />
+            </Route>
+            <Route path="/cuenta">
+              <Redirect to="/account" />
+            </Route>
+
             <Route path="/admin">
               {user?.role === 'admin' ? <AdminPanel /> : <Redirect to="/" />}
             </Route>
-            <Route path="/cuenta">
-              <ProtectedRoute component={AccountPage} />
-            </Route>
+
             <Route>
               <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
                 <h1 className="text-4xl font-bold">404</h1>
-                <p className="text-muted-foreground">Página no encontrada</p>
+                <p className="text-muted-foreground">Page not found / Página no encontrada</p>
               </div>
             </Route>
           </Switch>

@@ -17,7 +17,7 @@ import { Menu } from "lucide-react";
 
 export default function Navbar({ user }: { user: User | null | undefined }) {
   const { logout } = useUser();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
 
   return (
@@ -30,16 +30,16 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
           </Link>
 
           <div className="hidden md:flex items-center">
-            <Link href="/forum">
+            <Link href={language === 'es' ? '/foro' : '/forum'}>
               <Button variant="link" className="h-10 px-4 py-2">{t('nav.forum')}</Button>
             </Link>
-            <Link href="/events">
+            <Link href={language === 'es' ? '/eventos' : '/events'}>
               <Button variant="link" className="h-10 px-4 py-2">{t('nav.events')}</Button>
             </Link>
-            <Link href="/resources">
+            <Link href={language === 'es' ? '/recursos' : '/resources'}>
               <Button variant="link" className="h-10 px-4 py-2">{t('nav.resources')}</Button>
             </Link>
-            <Link href="/businesses">
+            <Link href={language === 'es' ? '/negocios' : '/businesses'}>
               <Button variant="link" className="h-10 px-4 py-2">{t('nav.businesses')}</Button>
             </Link>
           </div>
@@ -79,16 +79,16 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[240px] sm:w-[280px]">
               <nav className="flex flex-col gap-2">
-                <Link href="/forum" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href={language === 'es' ? '/foro' : '/forum'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.forum')}
                 </Link>
-                <Link href="/events" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href={language === 'es' ? '/eventos' : '/events'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.events')}
                 </Link>
-                <Link href="/resources" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href={language === 'es' ? '/recursos' : '/resources'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.resources')}
                 </Link>
-                <Link href="/businesses" onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link href={language === 'es' ? '/negocios' : '/businesses'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
                   {t('nav.businesses')}
                 </Link>
               </nav>
