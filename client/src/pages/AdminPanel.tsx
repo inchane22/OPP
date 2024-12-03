@@ -184,7 +184,39 @@ export default function AdminPanel() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Resource approval content will go here */}
+                <div className="space-y-4">
+                  {stats?.resources?.map((resource) => (
+                    <div key={resource.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{resource.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Por: {resource.author?.username} | Tipo: {resource.type} | {new Date(resource.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm mt-2">{resource.description}</p>
+                          <a 
+                            href={resource.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-sm text-primary hover:underline mt-1 inline-block"
+                          >
+                            Ver recurso
+                          </a>
+                        </div>
+                        <div className="space-x-2">
+                          {!resource.approved && (
+                            <Button variant="outline" size="sm">
+                              Aprobar
+                            </Button>
+                          )}
+                          <Button variant="destructive" size="sm">
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

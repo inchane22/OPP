@@ -309,13 +309,31 @@ export function registerRoutes(app: Express) {
       .from(users)
       .orderBy(desc(users.createdAt));
 
+      const resourcesData = await db.select({
+        id: resources.id,
+        title: resources.title,
+        description: resources.description,
+        url: resources.url,
+        type: resources.type,
+        approved: resources.approved,
+        createdAt: resources.createdAt,
+        author: {
+          id: users.id,
+          username: users.username,
+        }
+      })
+      .from(resources)
+      .leftJoin(users, eq(resources.authorId, users.id))
+      .orderBy(desc(resources.createdAt));
+
       const stats = {
         totalUsers: totalUsers[0].count,
         totalResources: totalResources[0].count,
         totalEvents: totalEvents[0].count,
         totalBusinesses: totalBusinesses[0].count,
         posts: postsData,
-        users: usersData
+        users: usersData,
+        resources: resourcesData
       };
 
       res.json(stats);
