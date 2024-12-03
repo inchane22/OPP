@@ -40,6 +40,17 @@ interface Resource {
   };
 }
 
+interface CarouselItem {
+  id: number;
+  title: string;
+  embed_url: string;
+  description?: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by_id?: number;
+}
+
 interface Business {
   id: number;
   name: string;
@@ -60,9 +71,12 @@ interface Business {
 interface CarouselItem {
   id: number;
   title: string;
-  embed: string;
+  embed_url: string;
+  description?: string;
   active: boolean;
-  createdAt: string;
+  created_at: string;
+  updated_at: string;
+  created_by_id?: number;
 }
 
 interface AdminStats {
@@ -184,9 +198,14 @@ export default function AdminPanel() {
                         <div>
                           <h3 className="font-medium">{item.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Creado: {new Date(item.createdAt).toLocaleDateString()}
+                            Creado: {new Date(item.created_at).toLocaleDateString()}
+                            {item.updated_at !== item.created_at && 
+                              ` | Actualizado: ${new Date(item.updated_at).toLocaleDateString()}`}
                           </p>
-                          <p className="text-sm mt-2">Embed URL: {item.embed}</p>
+                          <p className="text-sm mt-2">Embed URL: {item.embed_url}</p>
+                          {item.description && (
+                            <p className="text-sm mt-1 text-muted-foreground">{item.description}</p>
+                          )}
                           <div className="mt-2">
                             <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                               item.active 
