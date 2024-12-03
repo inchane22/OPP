@@ -70,7 +70,7 @@ export default function Footer() {
                 <X className="h-5 w-5" />
               </a>
               <a
-                href="https://t.me/orangepillperu"
+                href="https://t.me/+_gXGtSUFl5YxYjQx"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-primary"
