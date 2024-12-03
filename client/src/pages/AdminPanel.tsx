@@ -57,6 +57,14 @@ interface Business {
   };
 }
 
+interface CarouselItem {
+  id: number;
+  title: string;
+  embed: string;
+  active: boolean;
+  createdAt: string;
+}
+
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
@@ -66,6 +74,7 @@ interface AdminStats {
   users: User[];
   resources: Resource[];
   businesses: Business[];
+  carouselItems: CarouselItem[];
 }
 
 async function fetchStats() {
@@ -107,6 +116,7 @@ export default function AdminPanel() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Vista General</TabsTrigger>
+            <TabsTrigger value="carousel">Carrusel</TabsTrigger>
             <TabsTrigger value="posts">Foros</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
@@ -151,6 +161,66 @@ export default function AdminPanel() {
               <Card className="bg-card text-card-foreground">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-foreground">
+          <TabsContent value="carousel">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión del Carrusel</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra los elementos del carrusel en la página principal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    // TODO: Add new carousel item dialog
+                  }}>
+                    Agregar Nuevo Item
+                  </Button>
+                </div>
+                <div className="space-y-4">
+                  {stats?.carouselItems?.map((item: CarouselItem) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Creado: {new Date(item.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm mt-2">Embed URL: {item.embed}</p>
+                          <div className="mt-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              item.active 
+                                ? "bg-green-100 text-green-800" 
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {item.active ? "Activo" : "Inactivo"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            // TODO: Toggle active state
+                          }}>
+                            {item.active ? "Desactivar" : "Activar"}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            // TODO: Edit carousel item
+                          }}>
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => {
+                            // TODO: Delete carousel item
+                          }}>
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
                     Total Negocios
                   </CardTitle>
                 </CardHeader>
