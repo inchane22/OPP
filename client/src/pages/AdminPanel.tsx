@@ -371,7 +371,9 @@ export default function AdminPanel() {
                                   credentials: 'include'
                                 });
                                 if (!response.ok) throw new Error('Failed to delete post');
+                                // Invalidate both admin stats and posts queries
                                 queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                queryClient.invalidateQueries({ queryKey: ['posts'] });
                               } catch (error) {
                                 console.error('Error deleting post:', error);
                               }
