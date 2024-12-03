@@ -40,17 +40,6 @@ interface Resource {
   };
 }
 
-interface CarouselItem {
-  id: number;
-  title: string;
-  embed_url: string;
-  description?: string;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
-  created_by_id?: number;
-}
-
 interface Business {
   id: number;
   name: string;
@@ -71,12 +60,12 @@ interface Business {
 interface CarouselItem {
   id: number;
   title: string;
-  embed_url: string;
+  embedUrl: string;
   description?: string;
   active: boolean;
-  created_at: string;
-  updated_at: string;
-  created_by_id?: number;
+  createdAt: string;
+  updatedAt: string;
+  createdById?: number;
 }
 
 interface AdminStats {
@@ -175,6 +164,16 @@ export default function AdminPanel() {
               <Card className="bg-card text-card-foreground">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-foreground">
+                    Total Negocios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats?.totalBusinesses ?? 0}</div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
           <TabsContent value="carousel">
             <Card className="bg-card text-card-foreground">
               <CardHeader>
@@ -192,17 +191,17 @@ export default function AdminPanel() {
                   </Button>
                 </div>
                 <div className="space-y-4">
-                  {stats?.carouselItems?.map((item: CarouselItem) => (
+                  {stats?.carouselItems?.map((item) => (
                     <div key={item.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{item.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Creado: {new Date(item.created_at).toLocaleDateString()}
-                            {item.updated_at !== item.created_at && 
-                              ` | Actualizado: ${new Date(item.updated_at).toLocaleDateString()}`}
+                            Creado: {new Date(item.createdAt).toLocaleDateString()}
+                            {item.updatedAt !== item.createdAt && 
+                              ` | Actualizado: ${new Date(item.updatedAt).toLocaleDateString()}`}
                           </p>
-                          <p className="text-sm mt-2">Embed URL: {item.embed_url}</p>
+                          <p className="text-sm mt-2">URL del Video: {item.embedUrl}</p>
                           {item.description && (
                             <p className="text-sm mt-1 text-muted-foreground">{item.description}</p>
                           )}
@@ -239,15 +238,6 @@ export default function AdminPanel() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-                    Total Negocios
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats?.totalBusinesses ?? 0}</div>
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
           <TabsContent value="posts">
