@@ -7,6 +7,10 @@ interface CarouselItem {
   id: number;
   title: string;
   embedUrl: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdById?: number;
 }
 
 export default function HomeCarousel() {
