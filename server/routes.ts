@@ -284,6 +284,7 @@ export function registerRoutes(app: Express) {
       const totalResources = await db.select({ count: sql<number>`count(*)::int` }).from(resources);
       const totalEvents = await db.select({ count: sql<number>`count(*)::int` }).from(events);
       const totalBusinesses = await db.select({ count: sql<number>`count(*)::int` }).from(businesses);
+      const carouselItemsData = await db.select().from(carousel_items).orderBy(desc(carousel_items.createdAt));
       
       const postsData = await db.select({
         id: posts.id,
@@ -355,7 +356,8 @@ export function registerRoutes(app: Express) {
         posts: postsData,
         users: usersData,
         resources: resourcesData,
-        businesses: businessesData
+        businesses: businessesData,
+        carouselItems: carouselItemsData
       };
 
       res.json(stats);
