@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import { cn } from "./lib/utils";
 
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType<any> }) {
   const { user, isLoading } = useUser();
@@ -68,18 +69,21 @@ function Router() {
     <div className="min-h-screen bg-background">
       <Navbar user={user} />
       <div className="flex flex-col min-h-screen">
-        <main className="container mx-auto px-4 py-8 flex-1">
+        <main className={cn(
+          "container mx-auto px-4 py-8 flex-1",
+          "animate-in fade-in-50 duration-500"
+        )}>
           <Switch>
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
-            <Route path="/forum" component={ForumPage} />
-            <Route path="/events" component={EventsPage} />
-            <Route path="/resources" component={ResourcesPage} />
-            <Route path="/businesses" component={BusinessesPage} />
+            <Route path="/foro" component={ForumPage} />
+            <Route path="/eventos" component={EventsPage} />
+            <Route path="/recursos" component={ResourcesPage} />
+            <Route path="/negocios" component={BusinessesPage} />
             <Route path="/admin">
               {user?.role === 'admin' ? <AdminPanel /> : <Redirect to="/" />}
             </Route>
-            <Route path="/account">
+            <Route path="/cuenta">
               <ProtectedRoute component={AccountPage} />
             </Route>
             <Route>

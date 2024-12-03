@@ -105,7 +105,7 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Email <span className="text-sm text-muted-foreground">(optional)</span></FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="your@email.com" {...field} />
+                        <Input type="email" placeholder="your@email.com" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
