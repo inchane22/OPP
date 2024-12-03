@@ -66,6 +66,7 @@ interface AdminStats {
   users: User[];
   resources: Resource[];
   businesses: Business[];
+  carouselItems: CarouselItem[];
 }
 interface CarouselItem {
   id: number;
