@@ -347,25 +347,6 @@ export function registerRoutes(app: Express) {
       .leftJoin(users, eq(businesses.submittedById, users.id))
       .orderBy(desc(businesses.createdAt));
 
-      const carouselItemsData = await db.select({
-        id: carousel_items.id,
-        title: carousel_items.title,
-        description: carousel_items.description,
-        type: carousel_items.type,
-        url: carousel_items.url,
-        embedUrl: carousel_items.embed_url,
-        thumbnailUrl: carousel_items.thumbnail_url,
-        active: carousel_items.active,
-        createdAt: carousel_items.created_at,
-        createdBy: {
-          id: users.id,
-          username: users.username,
-        }
-      })
-      .from(carousel_items)
-      .leftJoin(users, eq(carousel_items.created_by_id, users.id))
-      .orderBy(desc(carousel_items.created_at));
-
       const stats = {
         totalUsers: totalUsers[0].count,
         totalResources: totalResources[0].count,
@@ -374,8 +355,7 @@ export function registerRoutes(app: Express) {
         posts: postsData,
         users: usersData,
         resources: resourcesData,
-        businesses: businessesData,
-        carouselItems: carouselItemsData
+        businesses: businessesData
       };
 
       res.json(stats);

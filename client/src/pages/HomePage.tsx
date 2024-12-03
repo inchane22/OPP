@@ -10,6 +10,9 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
+      
+      {/* Featured Content Carousel */}
+      <HomeCarousel />
 
       {/* Price Display and Bitcoin Tools */}
       <section className="py-8">
@@ -103,9 +106,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Featured Content Carousel */}
-      <HomeCarousel />
     </div>
   );
 }

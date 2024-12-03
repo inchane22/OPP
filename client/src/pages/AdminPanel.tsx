@@ -66,22 +66,6 @@ interface AdminStats {
   users: User[];
   resources: Resource[];
   businesses: Business[];
-  carouselItems: CarouselItem[];
-}
-interface CarouselItem {
-  id: number;
-  title: string;
-  description?: string;
-  type: 'news' | 'video';
-  url: string;
-  embedUrl?: string;
-  thumbnailUrl?: string;
-  active: boolean;
-  createdAt: string;
-  createdBy?: {
-    id: number;
-    username: string;
-  };
 }
 
 async function fetchStats() {
@@ -123,7 +107,6 @@ export default function AdminPanel() {
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Vista General</TabsTrigger>
-            <TabsTrigger value="carousel">Noticias y Videos</TabsTrigger>
             <TabsTrigger value="posts">Foros</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
@@ -176,64 +159,6 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="carousel">
-            <Card className="bg-card text-card-foreground">
-              <CardHeader>
-                <CardTitle className="text-foreground">Gestión de Noticias y Videos</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Administra el contenido destacado de la página principal
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <Button className="mb-4" variant="outline">
-                    Agregar Nuevo Contenido
-                  </Button>
-                </div>
-                <div className="space-y-4">
-                  {stats?.carouselItems?.map((item: CarouselItem) => (
-                    <div key={item.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{item.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Tipo: {item.type === 'news' ? 'Noticia' : 'Video'} | {new Date(item.createdAt).toLocaleDateString()}
-                          </p>
-                          {item.description && (
-                            <p className="text-sm mt-2">{item.description}</p>
-                          )}
-                          <div className="mt-2">
-                            <a 
-                              href={item.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-sm text-primary hover:underline"
-                            >
-                              Ver contenido
-                            </a>
-                          </div>
-                          {item.type === 'video' && item.embedUrl && (
-                            <div className="mt-2">
-                              <p className="text-sm text-muted-foreground">URL de inserción: {item.embedUrl}</p>
-                            </div>
-                          )}
-                        </div>
-                        <div className="space-x-2">
-                          <Button variant="outline" size="sm">
-                            Editar
-                          </Button>
-                          <Button variant="destructive" size="sm">
-                            Eliminar
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="posts">
