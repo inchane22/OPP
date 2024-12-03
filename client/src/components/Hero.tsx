@@ -71,12 +71,12 @@ export default function Hero() {
           {/* Enhanced trust indicators with animations */}
           <div className="pt-16 md:pt-20 grid grid-cols-2 md:grid-cols-3 gap-8 md:gap-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-700 fill-mode-forwards">
             <div className="text-center p-6 rounded-xl backdrop-blur-sm bg-white/5 transform hover:scale-105 transition-all duration-300">
-              <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">15+</div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">150+</div>
               <div className="text-sm mt-2 text-white/80 font-medium">Miembros</div>
             </div>
             <div className="text-center p-6 rounded-xl backdrop-blur-sm bg-white/5 transform hover:scale-105 transition-all duration-300">
-              <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">100+</div>
-              <div className="text-sm mt-2 text-white/80 font-medium">Local Events</div>
+              <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">15+</div>
+              <div className="text-sm mt-2 text-white/80 font-medium">Eventos</div>
             </div>
             <div className="text-center hidden md:block p-6 rounded-xl backdrop-blur-sm bg-white/5 transform hover:scale-105 transition-all duration-300">
               <div className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">50+</div>
