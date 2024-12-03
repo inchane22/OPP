@@ -6,10 +6,10 @@ import { useLanguage } from "../hooks/use-language";
 interface CarouselItem {
   id: number;
   title: string;
+  description: string;
   embedUrl: string;
   active: boolean;
   createdAt: string;
-  updatedAt: string;
   createdById?: number;
 }
 
