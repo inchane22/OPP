@@ -2,12 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
+import Autoplay from "embla-carousel-autoplay";
+import { type EmblaPluginType } from 'embla-carousel'
 
 interface CarouselItem {
   id: number;
   title: string;
   embedUrl: string;
 }
+
+const plugin = Autoplay({
+  delay: 5000,
+  stopOnInteraction: false,
+  stopOnMouseEnter: true,
+}) as EmblaPluginType;
 
 export default function HomeCarousel() {
   const { t } = useLanguage();
@@ -34,7 +42,9 @@ export default function HomeCarousel() {
         <Carousel 
           opts={{
             align: "start",
+            loop: true
           }}
+          plugins={[plugin]}
           className="w-full max-w-5xl mx-auto"
         >
           <CarouselContent>
