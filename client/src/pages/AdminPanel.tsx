@@ -289,8 +289,22 @@ export default function AdminPanel() {
                           }}>
                             Editar
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => {
-                            // TODO: Delete carousel item
+                          <Button variant="destructive" size="sm" onClick={async () => {
+                            try {
+                              const response = await fetch(`/api/carousel/${item.id}`, {
+                                method: 'DELETE',
+                                credentials: 'include'
+                              });
+
+                              if (!response.ok) {
+                                throw new Error('Failed to delete carousel item');
+                              }
+
+                              // Refetch the stats to update the list
+                              queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                            } catch (error) {
+                              console.error('Error deleting carousel item:', error);
+                            }
                           }}>
                             Eliminar
                           </Button>
