@@ -100,7 +100,7 @@ export default function HomeCarousel() {
               delay: 5000,
               stopOnInteraction: false,
               stopOnMouseEnter: true,
-            })
+            }) as any
           ]}
         >
           <CarouselContent>
