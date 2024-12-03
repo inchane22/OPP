@@ -2,7 +2,6 @@ import { type Express } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 
 export function registerRoutes(app: Express) {
@@ -450,59 +449,6 @@ export function registerRoutes(app: Express) {
       res.json(business);
     } catch (error) {
       res.status(500).json({ error: "Failed to create business" });
-    }
-  });
-  // Carousel routes
-  app.get("/api/carousel", async (req, res) => {
-    try {
-      const items = await db
-        .select()
-        .from(carousel_items)
-        .where(eq(carousel_items.active, true))
-        .orderBy(desc(carousel_items.createdAt));
-      res.json(items);
-    } catch (error) {
-      console.error("Failed to fetch carousel items:", error);
-      res.status(500).json({ error: "Failed to fetch carousel items" });
-    }
-  });
-
-  app.post("/api/carousel", async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
-    }
-
-    try {
-      const [item] = await db
-        .insert(carousel_items)
-        .values({
-          ...req.body,
-          createdById: req.user.id,
-        })
-        .returning();
-      res.json(item);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create carousel item" });
-    }
-  });
-
-  app.patch("/api/carousel/:id", async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
-    }
-
-    try {
-      const [item] = await db
-        .update(carousel_items)
-        .set({
-          ...req.body,
-          updatedAt: new Date(),
-        })
-        .where(eq(carousel_items.id, parseInt(req.params.id)))
-        .returning();
-      res.json(item);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update carousel item" });
     }
   });
 }
