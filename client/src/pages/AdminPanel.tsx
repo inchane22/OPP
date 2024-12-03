@@ -230,7 +230,70 @@ export default function AdminPanel() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Business verification content will go here */}
+                <div className="space-y-4">
+                  {stats?.businesses?.map((business) => (
+                    <div key={business.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{business.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Ubicación: {business.city} | {new Date(business.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Enviado por: {business.submitter?.username}
+                          </p>
+                          <p className="text-sm mt-2">{business.description}</p>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm">
+                              <span className="font-medium">Dirección:</span> {business.address}
+                            </p>
+                            {business.phone && (
+                              <p className="text-sm">
+                                <span className="font-medium">Teléfono:</span> {business.phone}
+                              </p>
+                            )}
+                            {business.website && (
+                              <a
+                                href={business.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline block"
+                              >
+                                Visitar sitio web
+                              </a>
+                            )}
+                          </div>
+                          <div className="mt-2 flex gap-2">
+                            {business.acceptsLightning && (
+                              <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
+                                Lightning Network
+                              </span>
+                            )}
+                            {business.verified ? (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+                                Verificado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">
+                                Pendiente
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-x-2">
+                          {!business.verified && (
+                            <Button variant="outline" size="sm">
+                              Verificar
+                            </Button>
+                          )}
+                          <Button variant="destructive" size="sm">
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
