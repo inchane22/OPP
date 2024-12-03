@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { useUser } from "../hooks/use-user";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
 
 interface Post {
@@ -93,6 +97,7 @@ async function fetchStats() {
 export default function AdminPanel() {
   const { user } = useUser();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
 
   // Redirect if not admin
   useEffect(() => {
@@ -184,11 +189,69 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <Button variant="outline" size="sm" onClick={() => {
-                    // TODO: Add new carousel item dialog
-                  }}>
-                    Agregar Nuevo Item
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Agregar Nuevo Item
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Agregar Nuevo Item al Carrusel</DialogTitle>
+                        <DialogDescription>
+                          Agrega un nuevo video o contenido al carrusel de la página principal.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const newItem = {
+                          title: formData.get('title'),
+                          embedUrl: formData.get('embedUrl'),
+                          description: formData.get('description'),
+                          active: true
+                        };
+
+                        try {
+                          const response = await fetch('/api/carousel', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(newItem),
+                            credentials: 'include'
+                          });
+
+                          if (!response.ok) {
+                            throw new Error('Failed to create carousel item');
+                          }
+
+                          // Refetch the stats to update the list
+                          queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                          (e.target as HTMLFormElement).reset();
+                          
+                        } catch (error) {
+                          console.error('Error creating carousel item:', error);
+                        }
+                      }} className="space-y-4">
+                        <div>
+                          <Label htmlFor="title">Título</Label>
+                          <Input id="title" name="title" required />
+                        </div>
+                        <div>
+                          <Label htmlFor="embedUrl">URL de Embed (YouTube, Vimeo, etc)</Label>
+                          <Input id="embedUrl" name="embedUrl" required />
+                        </div>
+                        <div>
+                          <Label htmlFor="description">Descripción (opcional)</Label>
+                          <Textarea id="description" name="description" />
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit">Guardar</Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 <div className="space-y-4">
                   {stats?.carouselItems?.map((item) => (
