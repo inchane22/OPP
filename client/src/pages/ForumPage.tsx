@@ -175,10 +175,12 @@ export default function ForumPage() {
                         <FormControl>
                           <select {...field} className="w-full p-2 rounded-md border">
                             <option value="general">{t('forum.category.general' as `forum.category.${string}`)}</option>
-                            <option value="technical">{t('forum.category.technical' as `forum.category.${string}`)}</option>
-                            <option value="trading">{t('forum.category.trading' as `forum.category.${string}`)}</option>
-                            <option value="mining">{t('forum.category.mining' as `forum.category.${string}`)}</option>
+                            <option value="bitcoin-core">{t('forum.category.bitcoin_core' as `forum.category.${string}`)}</option>
                             <option value="lightning">{t('forum.category.lightning' as `forum.category.${string}`)}</option>
+                            <option value="mining">{t('forum.category.mining' as `forum.category.${string}`)}</option>
+                            <option value="peru-adoption">{t('forum.category.peru_adoption' as `forum.category.${string}`)}</option>
+                            <option value="meetups">{t('forum.category.meetups' as `forum.category.${string}`)}</option>
+                            <option value="security">{t('forum.category.security' as `forum.category.${string}`)}</option>
                           </select>
                         </FormControl>
                       </FormItem>
