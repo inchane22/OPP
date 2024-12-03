@@ -6,6 +6,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "../hooks/use-language";
 
+interface Post {
+  id: number;
+  title: string;
+  content: string;
+  createdAt: string;
+  author?: {
+    id: number;
+    username: string;
+  };
+}
+
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  createdAt: string;
+  language: string;
+}
+
+interface Resource {
+  id: number;
+  title: string;
+  description: string;
+  url: string;
+  type: string;
+  approved: boolean;
+  createdAt: string;
+  author?: {
+    id: number;
+    username: string;
+  };
+}
+
+interface Business {
+  id: number;
+  name: string;
+  description: string;
+  address: string;
+  city: string;
+  phone?: string;
+  website?: string;
+  acceptsLightning: boolean;
+  verified: boolean;
+  createdAt: string;
+  submitter?: {
+    id: number;
+    username: string;
+  };
+}
+
+interface AdminStats {
+  totalUsers: number;
+  totalResources: number;
+  totalEvents: number;
+  totalBusinesses: number;
+  posts: Post[];
+  users: User[];
+  resources: Resource[];
+  businesses: Business[];
+}
+
 async function fetchStats() {
   const response = await fetch('/api/admin/stats', {
     credentials: 'include'
@@ -27,7 +89,7 @@ export default function AdminPanel() {
     }
   }, [user]);
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<AdminStats>({
     queryKey: ['admin-stats'],
     queryFn: fetchStats,
     enabled: user?.role === 'admin'
@@ -109,7 +171,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.posts?.map((post) => (
+                  {stats?.posts?.map((post: Post) => (
                     <div key={post.id} className="border rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
@@ -145,7 +207,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.users?.map((user) => (
+                  {stats?.users?.map((user: User) => (
                     <div key={user.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
@@ -185,7 +247,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.resources?.map((resource) => (
+                  {stats?.resources?.map((resource: Resource) => (
                     <div key={resource.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
@@ -231,7 +293,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.businesses?.map((business) => (
+                  {stats?.businesses?.map((business: Business) => (
                     <div key={business.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
