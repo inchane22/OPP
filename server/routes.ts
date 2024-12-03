@@ -455,11 +455,10 @@ export function registerRoutes(app: Express) {
   // Carousel routes
   app.get("/api/carousel", async (req, res) => {
     try {
-      const items = await db
-        .select()
-        .from(carousel_items)
-        .where(eq(carousel_items.active, true))
-        .orderBy(desc(carousel_items.createdAt));
+      const items = await db.query.carousel_items.findMany({
+        where: eq(carousel_items.active, true),
+        orderBy: [desc(carousel_items.createdAt)]
+      });
       res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error);
@@ -482,6 +481,7 @@ export function registerRoutes(app: Express) {
         .returning();
       res.json(item);
     } catch (error) {
+      console.error("Failed to create carousel item:", error);
       res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
@@ -502,7 +502,25 @@ export function registerRoutes(app: Express) {
         .returning();
       res.json(item);
     } catch (error) {
+      console.error("Failed to update carousel item:", error);
       res.status(500).json({ error: "Failed to update carousel item" });
+    }
+  });
+
+  app.delete("/api/carousel/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .update(carousel_items)
+        .set({ active: false })
+        .where(eq(carousel_items.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete carousel item:", error);
+      res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
 }

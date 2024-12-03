@@ -68,6 +68,21 @@ export const businesses = pgTable("businesses", {
   submittedById: integer("submitted_by_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
+export const carousel_items = pgTable("carousel_items", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  embedUrl: text("embed_url").notNull(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdById: integer("created_by_id").references(() => users.id)
+});
+
+export const insertCarouselItemSchema = createInsertSchema(carousel_items);
+export const selectCarouselItemSchema = createSelectSchema(carousel_items);
+export type InsertCarouselItem = z.infer<typeof insertCarouselItemSchema>;
+export type CarouselItem = z.infer<typeof selectCarouselItemSchema>;
+
 
 export const insertCommentSchema = createInsertSchema(comments);
 export const selectCommentSchema = createSelectSchema(comments);
