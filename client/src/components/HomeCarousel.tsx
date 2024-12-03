@@ -75,7 +75,7 @@ export default function HomeCarousel() {
     <section className="py-12 bg-muted/50">
       <div className="container">
         <h2 className="text-3xl font-bold text-center mb-8">
-          Bitcoiners Peruanos dejando huella
+          Bitcoiners Dejando Huella en Perú
         </h2>
         <Carousel 
           opts={{
