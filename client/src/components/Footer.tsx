@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Send, X } from "lucide-react";
+import { Send, X, Instagram } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function Footer() {
@@ -76,6 +76,14 @@ export default function Footer() {
                 className="text-muted-foreground hover:text-primary"
               >
                 <Send className="h-5 w-5" />
+              </a>
+              <a
+                href="https://instagram.com/orangepillperu"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary"
+              >
+                <Instagram className="h-5 w-5" />
               </a>
             </div>
           </div>

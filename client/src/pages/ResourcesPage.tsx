@@ -107,7 +107,7 @@ export default function ResourcesPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">{t('resources.approved')}</h2>
         
-        {user ? (
+        {user?.role === 'admin' && (
           <Dialog>
             <DialogTrigger asChild>
               <Button>{t('resources.submit')}</Button>
@@ -188,10 +188,6 @@ export default function ResourcesPage() {
             </Form>
           </DialogContent>
         </Dialog>
-        ) : (
-          <Link href="/login">
-            <Button>{t('resources.login_to_submit')}</Button>
-          </Link>
         )}
       </div>
 

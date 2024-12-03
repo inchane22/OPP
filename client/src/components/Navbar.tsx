@@ -42,6 +42,11 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             <Link href={language === 'es' ? '/negocios' : '/businesses'}>
               <Button variant="link" className="h-10 px-4 py-2">{t('nav.businesses')}</Button>
             </Link>
+            {user?.role === 'admin' && (
+              <Link href="/admin">
+                <Button variant="link" className="h-10 px-4 py-2">Admin Panel</Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -79,18 +84,53 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[240px] sm:w-[280px]">
               <nav className="flex flex-col gap-2">
-                <Link href={language === 'es' ? '/foro' : '/forum'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link 
+                  href={language === 'es' ? '/foro' : '/forum'} 
+                  onClick={(e) => {
+                    setTimeout(() => setOpen(false), 150);
+                  }} 
+                  className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
+                >
                   {t('nav.forum')}
                 </Link>
-                <Link href={language === 'es' ? '/eventos' : '/events'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link 
+                  href={language === 'es' ? '/eventos' : '/events'} 
+                  onClick={(e) => {
+                    setTimeout(() => setOpen(false), 150);
+                  }} 
+                  className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
+                >
                   {t('nav.events')}
                 </Link>
-                <Link href={language === 'es' ? '/recursos' : '/resources'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link 
+                  href={language === 'es' ? '/recursos' : '/resources'} 
+                  onClick={(e) => {
+                    setTimeout(() => setOpen(false), 150);
+                  }} 
+                  className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
+                >
                   {t('nav.resources')}
                 </Link>
-                <Link href={language === 'es' ? '/negocios' : '/businesses'} onClick={() => setOpen(false)} className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors">
+                <Link 
+                  href={language === 'es' ? '/negocios' : '/businesses'} 
+                  onClick={(e) => {
+                    setTimeout(() => setOpen(false), 150);
+                  }} 
+                  className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
+                >
                   {t('nav.businesses')}
                 </Link>
+                {user?.role === 'admin' && (
+                  <Link 
+                    href="/admin" 
+                    onClick={(e) => {
+                      setTimeout(() => setOpen(false), 150);
+                    }} 
+                    className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
               </nav>
             </SheetContent>
           </Sheet>

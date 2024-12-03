@@ -140,6 +140,10 @@ export function registerRoutes(app: Express) {
     if (!req.isAuthenticated()) {
       return res.status(401).send("Not authenticated");
     }
+    
+    if (req.user.role !== 'admin') {
+      return res.status(403).send("Only administrators can create events");
+    }
 
     try {
       const [event] = await db
@@ -223,6 +227,10 @@ export function registerRoutes(app: Express) {
       return res.status(401).send("Not authenticated");
     }
 
+    if (req.user.role !== 'admin') {
+      return res.status(403).send("Only administrators can create resources");
+    }
+
     try {
       const [resource] = await db
         .insert(resources)
@@ -284,6 +292,7 @@ export function registerRoutes(app: Express) {
       const totalResources = await db.select({ count: sql<number>`count(*)::int` }).from(resources);
       const totalEvents = await db.select({ count: sql<number>`count(*)::int` }).from(events);
       const totalBusinesses = await db.select({ count: sql<number>`count(*)::int` }).from(businesses);
+      const carouselItemsData = await db.select().from(carousel_items).orderBy(desc(carousel_items.createdAt));
       
       const postsData = await db.select({
         id: posts.id,
@@ -355,13 +364,66 @@ export function registerRoutes(app: Express) {
         posts: postsData,
         users: usersData,
         resources: resourcesData,
-        businesses: businessesData
+        businesses: businessesData,
+        carouselItems: carouselItemsData
       };
 
       res.json(stats);
     } catch (error) {
       console.error("Failed to fetch admin stats:", error);
       res.status(500).json({ error: "Failed to fetch admin stats" });
+    }
+  });
+  // Admin delete post endpoint
+  app.delete("/api/posts/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .delete(posts)
+        .where(eq(posts.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+      res.status(500).json({ error: "Failed to delete post" });
+    }
+  });
+
+  // Resource approval endpoint
+  app.post("/api/resources/:id/approve", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      const [resource] = await db
+        .update(resources)
+        .set({ approved: true })
+        .where(eq(resources.id, parseInt(req.params.id)))
+        .returning();
+      res.json(resource);
+    } catch (error) {
+      console.error("Failed to approve resource:", error);
+      res.status(500).json({ error: "Failed to approve resource" });
+    }
+  });
+
+  // Admin delete resource endpoint
+  app.delete("/api/resources/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .delete(resources)
+        .where(eq(resources.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete resource:", error);
+      res.status(500).json({ error: "Failed to delete resource" });
     }
   });
 
@@ -455,11 +517,10 @@ export function registerRoutes(app: Express) {
   // Carousel routes
   app.get("/api/carousel", async (req, res) => {
     try {
-      const items = await db
-        .select()
-        .from(carousel_items)
-        .where(eq(carousel_items.active, true))
-        .orderBy(desc(carousel_items.createdAt));
+      const items = await db.query.carousel_items.findMany({
+        where: eq(carousel_items.active, true),
+        orderBy: [desc(carousel_items.createdAt)]
+      });
       res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error);
@@ -482,6 +543,7 @@ export function registerRoutes(app: Express) {
         .returning();
       res.json(item);
     } catch (error) {
+      console.error("Failed to create carousel item:", error);
       res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
@@ -502,7 +564,24 @@ export function registerRoutes(app: Express) {
         .returning();
       res.json(item);
     } catch (error) {
+      console.error("Failed to update carousel item:", error);
       res.status(500).json({ error: "Failed to update carousel item" });
+    }
+  });
+
+  app.delete("/api/carousel/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .delete(carousel_items)
+        .where(eq(carousel_items.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete carousel item:", error);
+      res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
 }

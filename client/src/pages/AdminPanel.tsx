@@ -1,9 +1,14 @@
 import { useEffect } from "react";
+import { Link } from "wouter";
 import { useUser } from "../hooks/use-user";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
 
 interface Post {
@@ -57,6 +62,17 @@ interface Business {
   };
 }
 
+interface CarouselItem {
+  id: number;
+  title: string;
+  embedUrl: string;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdById?: number;
+}
+
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
@@ -66,6 +82,7 @@ interface AdminStats {
   users: User[];
   resources: Resource[];
   businesses: Business[];
+  carouselItems: CarouselItem[];
 }
 
 async function fetchStats() {
@@ -81,6 +98,7 @@ async function fetchStats() {
 export default function AdminPanel() {
   const { user } = useUser();
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
 
   // Redirect if not admin
   useEffect(() => {
@@ -102,11 +120,25 @@ export default function AdminPanel() {
   return (
     <div className="p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-foreground">Panel de Administración</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-foreground">Panel de Administración</h1>
+          <div className="flex gap-2">
+            <Link href="/">
+              <Button variant="outline">Ir al Inicio</Button>
+            </Link>
+            <Link href="/resources">
+              <Button variant="outline">Recursos</Button>
+            </Link>
+            <Link href="/businesses">
+              <Button variant="outline">Negocios</Button>
+            </Link>
+          </div>
+        </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">Vista General</TabsTrigger>
+            <TabsTrigger value="carousel">Carrusel</TabsTrigger>
             <TabsTrigger value="posts">Foros</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
@@ -161,6 +193,144 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
+          <TabsContent value="carousel">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión del Carrusel</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra los elementos del carrusel en la página principal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-6">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Agregar Nuevo Item
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Agregar Nuevo Item al Carrusel</DialogTitle>
+                        <DialogDescription>
+                          Agrega un nuevo video o contenido al carrusel de la página principal.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const newItem = {
+                          title: formData.get('title'),
+                          embedUrl: formData.get('embedUrl'),
+                          description: formData.get('description'),
+                          active: true
+                        };
+
+                        try {
+                          const response = await fetch('/api/carousel', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(newItem),
+                            credentials: 'include'
+                          });
+
+                          if (!response.ok) {
+                            throw new Error('Failed to create carousel item');
+                          }
+
+                          // Refetch the stats to update the list
+                          queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                          (e.target as HTMLFormElement).reset();
+                          
+                        } catch (error) {
+                          console.error('Error creating carousel item:', error);
+                        }
+                      }} className="space-y-4">
+                        <div>
+                          <Label htmlFor="title">Título</Label>
+                          <Input id="title" name="title" required />
+                        </div>
+                        <div>
+                          <Label htmlFor="embedUrl">URL de Embed (YouTube, Vimeo, etc)</Label>
+                          <Input id="embedUrl" name="embedUrl" required />
+                        </div>
+                        <div>
+                          <Label htmlFor="description">Descripción (opcional)</Label>
+                          <Textarea id="description" name="description" />
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit">Guardar</Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <div className="space-y-4">
+                  {stats?.carouselItems?.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Creado: {new Date(item.createdAt).toLocaleDateString()}
+                            {item.updatedAt !== item.createdAt && 
+                              ` | Actualizado: ${new Date(item.updatedAt).toLocaleDateString()}`}
+                          </p>
+                          <p className="text-sm mt-2">URL del Video: {item.embedUrl}</p>
+                          {item.description && (
+                            <p className="text-sm mt-1 text-muted-foreground">{item.description}</p>
+                          )}
+                          <div className="mt-2">
+                            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                              item.active 
+                                ? "bg-green-100 text-green-800" 
+                                : "bg-gray-100 text-gray-800"
+                            }`}>
+                              {item.active ? "Activo" : "Inactivo"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            // TODO: Toggle active state
+                          }}>
+                            {item.active ? "Desactivar" : "Activar"}
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            // TODO: Edit carousel item
+                          }}>
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={async () => {
+                            try {
+                              const response = await fetch(`/api/carousel/${item.id}`, {
+                                method: 'DELETE',
+                                credentials: 'include'
+                              });
+
+                              if (!response.ok) {
+                                throw new Error('Failed to delete carousel item');
+                              }
+
+                              // Refetch the stats to update the list
+                              queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                            } catch (error) {
+                              console.error('Error deleting carousel item:', error);
+                            }
+                          }}>
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="posts">
             <Card className="bg-card text-card-foreground">
               <CardHeader>
@@ -181,10 +351,32 @@ export default function AdminPanel() {
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button variant="outline" size="sm">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              // TODO: Implement edit functionality
+                              console.log('Edit post:', post.id);
+                            }}
+                          >
                             Editar
                           </Button>
-                          <Button variant="destructive" size="sm">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/posts/${post.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+                                if (!response.ok) throw new Error('Failed to delete post');
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              } catch (error) {
+                                console.error('Error deleting post:', error);
+                              }
+                            }}
+                          >
                             Eliminar
                           </Button>
                         </div>
@@ -256,22 +448,60 @@ export default function AdminPanel() {
                             Por: {resource.author?.username} | Tipo: {resource.type} | {new Date(resource.createdAt).toLocaleDateString()}
                           </p>
                           <p className="text-sm mt-2">{resource.description}</p>
-                          <a 
-                            href={resource.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-sm text-primary hover:underline mt-1 inline-block"
-                          >
-                            Ver recurso
-                          </a>
+                          <div className="flex gap-2 mt-1">
+                            <a 
+                              href={resource.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-sm text-primary hover:underline inline-block"
+                            >
+                              Ver recurso
+                            </a>
+                            <Link 
+                              href="/resources"
+                              className="text-sm text-primary hover:underline inline-block"
+                            >
+                              Ver en página de recursos
+                            </Link>
+                          </div>
                         </div>
                         <div className="space-x-2">
                           {!resource.approved && (
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/resources/${resource.id}/approve`, {
+                                    method: 'POST',
+                                    credentials: 'include'
+                                  });
+                                  if (!response.ok) throw new Error('Failed to approve resource');
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                } catch (error) {
+                                  console.error('Error approving resource:', error);
+                                }
+                              }}
+                            >
                               Aprobar
                             </Button>
                           )}
-                          <Button variant="destructive" size="sm">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/resources/${resource.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+                                if (!response.ok) throw new Error('Failed to delete resource');
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              } catch (error) {
+                                console.error('Error deleting resource:', error);
+                              }
+                            }}
+                          >
                             Eliminar
                           </Button>
                         </div>

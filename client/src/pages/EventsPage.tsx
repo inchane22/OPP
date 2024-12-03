@@ -89,7 +89,7 @@ export default function EventsPage() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">{t('events.upcoming')}</h2>
         
-        {user ? (
+        {user?.role === 'admin' && (
           <Dialog>
             <DialogTrigger asChild>
               <Button>{t('events.create_event')}</Button>
@@ -160,10 +160,6 @@ export default function EventsPage() {
             </Form>
           </DialogContent>
         </Dialog>
-        ) : (
-          <Link href="/login">
-            <Button>{t('events.login_to_create')}</Button>
-          </Link>
         )}
       </div>
 

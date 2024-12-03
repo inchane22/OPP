@@ -3,12 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
 import PriceDisplay from "../components/PriceDisplay";
 import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
+import HomeCarousel from "../components/HomeCarousel";
 
 export default function HomePage() {
   const { t } = useLanguage();
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
+      
+      {/* Featured Content Carousel */}
+      <HomeCarousel />
 
       {/* Price Display and Bitcoin Tools */}
       <section className="py-8">
