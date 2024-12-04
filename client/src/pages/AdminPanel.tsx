@@ -340,10 +340,9 @@ export default function AdminPanel() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                // Optimistically update the UI
                                 // Store the old data for rollback
-                                const oldPosts = queryClient.getQueryData(['posts']);
-                                const oldStats = queryClient.getQueryData(['admin-stats']);
+                                const oldPosts = queryClient.getQueryData(['posts']) as Post[] | undefined;
+                                const oldStats = queryClient.getQueryData(['admin-stats']) as any;
                                 
                                 // Optimistically update both queries
                                 queryClient.setQueryData(['posts'], (oldData: Post[] | undefined) => {
@@ -719,7 +718,7 @@ export default function AdminPanel() {
                           </div>
                           <div className="mt-2 flex gap-2">
                             {business.acceptsLightning && (
-                              <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">
+                              <span className="inline-flex items-center rounded-full bg-orange-500 px-2 py-1 text-xs font-medium text-white">
                                 Lightning Network
                               </span>
                             )}

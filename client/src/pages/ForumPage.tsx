@@ -16,18 +16,20 @@ export default function ForumPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const { data: posts = [], isLoading, error } = useQuery<Post[]>({
-    queryKey: ['posts'],
+  const { data: posts = [], isLoading, error } = useQuery({
+    queryKey: ['posts'] as const,
     queryFn: fetchPosts,
-    staleTime: 0, // Ensure we always get fresh data
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-    refetchInterval: 5000 // Periodically check for updates
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000, // More frequent updates
+    retry: 3,
+    gcTime: 0
   });
 
-  if (error) {
+  if (error instanceof Error) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
-        <p className="text-destructive">Error loading posts. Please try again later.</p>
+        <p className="text-destructive">{error.message || 'Error loading posts. Please try again later.'}</p>
       </div>
     );
   }
@@ -45,7 +47,7 @@ export default function ForumPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          posts.map((post: Post) => (
+          posts?.map((post) => (
             <Card key={post.id}>
               <CardHeader>
                 <CardTitle>{post.title}</CardTitle>
