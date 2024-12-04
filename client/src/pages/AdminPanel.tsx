@@ -11,33 +11,32 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
-import type { Post, User, Resource, Business } from "@db/schema";
-
-interface Event {
-  id: number;
-  title: string;
-  description: string;
-  location: string;
-  date: string;
-  createdAt: Date;
-}
+import type { Post, User, Resource, Business, Event } from "@db/schema";
 
 interface PostWithAuthor extends Post {
-  author: {
-    username: string;
-  };
+  author: Pick<User, 'username'>;
 }
 
 interface ResourceWithAuthor extends Resource {
-  author: {
-    username: string;
-  };
+  author: Pick<User, 'username'>;
 }
 
 interface BusinessWithSubmitter extends Business {
-  submitter: {
-    username: string;
-  };
+  submitter: Pick<User, 'username'>;
+}
+
+interface EventWithOrganizer extends Event {
+  organizer: Pick<User, 'username'>;
+}
+
+interface CarouselItem {
+  id: number;
+  title: string;
+  embedUrl: string;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AdminStats {
@@ -49,16 +48,8 @@ interface AdminStats {
   posts: PostWithAuthor[];
   resources: ResourceWithAuthor[];
   businesses: BusinessWithSubmitter[];
-  events: Event[];
-  carouselItems: Array<{
-    id: number;
-    title: string;
-    embedUrl: string;
-    description?: string;
-    active: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }>;
+  events: EventWithOrganizer[];
+  carouselItems: CarouselItem[];
 }
 
 async function fetchStats(): Promise<AdminStats> {
@@ -344,15 +335,16 @@ export default function AdminPanel() {
                                 const previousStats = queryClient.getQueryData<AdminStats>(['admin-stats']);
                                 const previousPosts = queryClient.getQueryData<Post[]>(['posts']);
 
-                                // Optimistically update the UI
-                                if (previousStats) {
+                                // Type guard and optimistic updates
+                                if (previousStats?.posts) {
                                   queryClient.setQueryData<AdminStats>(['admin-stats'], {
                                     ...previousStats,
-                                    posts: previousStats.posts.filter((p) => p.id !== post.id)
+                                    posts: previousStats.posts.filter((p) => p.id !== post.id),
+                                    totalPosts: previousStats.totalPosts - 1
                                   });
                                 }
 
-                                if (previousPosts) {
+                                if (previousPosts?.length) {
                                   queryClient.setQueryData<Post[]>(['posts'], 
                                     previousPosts.filter((p) => p.id !== post.id)
                                   );
