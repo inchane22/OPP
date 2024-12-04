@@ -174,7 +174,24 @@ export default function ForumPage() {
                           throw new Error('Failed to create comment');
                         }
 
+                        const newComment = await response.json();
+                        
+                        // Immediately update the cache with the new comment
+                        queryClient.setQueryData(['posts'], (oldData: any) => {
+                          return oldData.map((p: any) => {
+                            if (p.id === post.id) {
+                              return {
+                                ...p,
+                                comments: [...(p.comments || []), newComment]
+                              };
+                            }
+                            return p;
+                          });
+                        });
+
+                        // Then invalidate to ensure consistency
                         queryClient.invalidateQueries({ queryKey: ['posts'] });
+                        
                         toast({
                           title: "Comment added successfully",
                           variant: "default"
