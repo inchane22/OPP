@@ -69,8 +69,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use port 80 in production, 5000 in development
-  const PORT = app.get("env") === "production" ? 80 : 5000;
+  // Always use port 5000 for consistency
+  const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
