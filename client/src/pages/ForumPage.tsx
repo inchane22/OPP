@@ -176,8 +176,9 @@ export default function ForumPage() {
 
                         const newComment = await response.json();
                         
-                        // Immediately update the cache with the new comment
+                        // Optimistically update the UI
                         queryClient.setQueryData(['posts'], (oldData: any) => {
+                          if (!oldData) return oldData;
                           return oldData.map((p: any) => {
                             if (p.id === post.id) {
                               return {
@@ -189,8 +190,10 @@ export default function ForumPage() {
                           });
                         });
 
-                        // Then invalidate to ensure consistency
-                        queryClient.invalidateQueries({ queryKey: ['posts'] });
+                        // Schedule a background refetch after a short delay
+                        setTimeout(() => {
+                          queryClient.invalidateQueries({ queryKey: ['posts'] });
+                        }, 1000);
                         
                         toast({
                           title: "Comment added successfully",
