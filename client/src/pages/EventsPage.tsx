@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar, MapPin, Loader2, Heart, Share2, Twitter, Facebook } from "lucide-react";
+import { Calendar, MapPin, Loader2, Heart, Share2, Instagram, X, Facebook } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function EventsPage() {
@@ -32,13 +32,28 @@ export default function EventsPage() {
     queryFn: () => fetch("/api/events").then(res => res.json())
   });
 
+  // Function to get the next 21st date
+  const getNext21stDate = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const next21st = new Date(currentYear, currentMonth, 21);
+    
+    // If we're past the 21st of this month, get next month's 21st
+    if (now.getDate() > 21) {
+      next21st.setMonth(currentMonth + 1);
+    }
+    
+    return next21st;
+  };
+
   const form = useForm<InsertEvent>({
     resolver: zodResolver(insertEventSchema),
     defaultValues: {
       title: "",
       description: "",
       location: "",
-      date: new Date(),
+      date: getNext21stDate(),
       organizerId: user?.id
     }
   });
@@ -209,7 +224,7 @@ export default function EventsPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="hover:text-[#1DA1F2]"
+                    className="hover:text-black dark:hover:text-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       window.open(
@@ -223,7 +238,21 @@ export default function EventsPage() {
                       );
                     }}
                   >
-                    <Twitter className="h-4 w-4" />
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="hover:text-[#E4405F]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(
+                        `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
+                        "_blank"
+                      );
+                    }}
+                  >
+                    <Instagram className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
