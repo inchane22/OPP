@@ -341,6 +341,11 @@ export default function AdminPanel() {
                             onClick={async () => {
                               try {
                                 // Optimistically update the UI
+                                // Store the old data for rollback
+                                const oldPosts = queryClient.getQueryData(['posts']);
+                                const oldStats = queryClient.getQueryData(['admin-stats']);
+                                
+                                // Optimistically update both queries
                                 queryClient.setQueryData(['posts'], (oldData: Post[] | undefined) => {
                                   return oldData ? oldData.filter(p => p.id !== post.id) : [];
                                 });
@@ -374,9 +379,15 @@ export default function AdminPanel() {
                                 ]);
                               } catch (error) {
                                 console.error('Error deleting post:', error);
-                                // Revert optimistic updates
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                queryClient.invalidateQueries({ queryKey: ['posts'] });
+                                // Revert optimistic updates with the stored data
+                                queryClient.setQueryData(['posts'], oldPosts);
+                                queryClient.setQueryData(['admin-stats'], oldStats);
+                                
+                                // Then refetch to ensure consistency
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                  queryClient.invalidateQueries({ queryKey: ['posts'] })
+                                ]);
                                 
                                 toast({
                                   title: t('admin.posts.delete_error'),

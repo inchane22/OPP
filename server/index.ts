@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { createServer } from "http";
+import path from "path";
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -66,12 +67,12 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // In production, serve the static files from the dist directory
-    app.use(express.static('dist/client'));
+    // In production, serve the static files from the dist/public directory
+    app.use(express.static(path.join(__dirname, '../dist/public')));
     
     // Handle client-side routing by serving index.html for all routes
     app.get('*', (req, res) => {
-      res.sendFile('dist/client/index.html', { root: '.' });
+      res.sendFile(path.join(__dirname, '../dist/public/index.html'));
     });
   }
 
