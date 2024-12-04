@@ -340,23 +340,6 @@ export default function AdminPanel() {
                             size="sm"
                             onClick={async () => {
                               try {
-                                // Store the old data for rollback
-                                const oldPosts = queryClient.getQueryData(['posts']) as Post[] | undefined;
-                                const oldStats = queryClient.getQueryData(['admin-stats']) as any;
-                                
-                                // Optimistically update both queries
-                                queryClient.setQueryData(['posts'], (oldData: Post[] | undefined) => {
-                                  return oldData ? oldData.filter(p => p.id !== post.id) : [];
-                                });
-                                
-                                queryClient.setQueryData(['admin-stats'], (oldData: any) => {
-                                  if (!oldData) return oldData;
-                                  return {
-                                    ...oldData,
-                                    posts: oldData.posts.filter((p: Post) => p.id !== post.id)
-                                  };
-                                });
-
                                 const response = await fetch(`/api/posts/${post.id}`, {
                                   method: 'DELETE',
                                   credentials: 'include'
@@ -371,23 +354,13 @@ export default function AdminPanel() {
                                   variant: "default"
                                 });
 
-                                // Invalidate queries to ensure consistency
+                                // Invalidate queries to refresh the data
                                 await Promise.all([
                                   queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
                                   queryClient.invalidateQueries({ queryKey: ['posts'] })
                                 ]);
                               } catch (error) {
                                 console.error('Error deleting post:', error);
-                                // Revert optimistic updates with the stored data
-                                queryClient.setQueryData(['posts'], oldPosts);
-                                queryClient.setQueryData(['admin-stats'], oldStats);
-                                
-                                // Then refetch to ensure consistency
-                                await Promise.all([
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                  queryClient.invalidateQueries({ queryKey: ['posts'] })
-                                ]);
-                                
                                 toast({
                                   title: t('admin.posts.delete_error'),
                                   description: post.title,
