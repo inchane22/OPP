@@ -18,11 +18,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { Post, InsertPost } from '@db/schema';
+import type { Post, InsertPost, Comment } from '@db/schema';
 import { insertPostSchema } from '@db/schema';
 
-async function fetchPosts(): Promise<Post[]> {
-  const response = await fetch('/api/posts');
+async function fetchPosts(): Promise<(Post & { comments?: Comment[] })[]> {
+  const response = await fetch('/api/posts?include=comments');
   if (!response.ok) throw new Error('Failed to fetch posts');
   return response.json();
 }
@@ -138,6 +138,69 @@ export default function ForumPage() {
               </CardHeader>
               <CardContent>
                 <p>{post.content}</p>
+                <div className="mt-4 border-t pt-4">
+                  <h4 className="text-sm font-semibold mb-2">Comments</h4>
+                  <div className="space-y-2">
+                    {post.comments?.map((comment) => (
+                      <div key={comment.id} className="bg-muted p-2 rounded-md">
+                        <p className="text-sm">{comment.content}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <form
+                    className="mt-4 space-y-2"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const content = formData.get('content') as string;
+                      
+                      try {
+                        const response = await fetch(`/api/posts/${post.id}/comments`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            content,
+                            authorName: user ? undefined : 'Anonymous'
+                          }),
+                          credentials: 'include'
+                        });
+
+                        if (!response.ok) {
+                          throw new Error('Failed to create comment');
+                        }
+
+                        queryClient.invalidateQueries({ queryKey: ['posts'] });
+                        toast({
+                          title: "Comment added successfully",
+                          variant: "default"
+                        });
+                        (e.target as HTMLFormElement).reset();
+                      } catch (error) {
+                        console.error('Error creating comment:', error);
+                        toast({
+                          title: "Error adding comment",
+                          description: "Could not add the comment. Please try again.",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
+                  >
+                    <Textarea
+                      name="content"
+                      placeholder="Add a comment..."
+                      required
+                      rows={2}
+                    />
+                    <Button type="submit" size="sm">
+                      Post Comment
+                    </Button>
+                  </form>
+                </div>
               </CardContent>
             </Card>
           ))
