@@ -97,9 +97,18 @@ export default function ForumPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
 
-  const { data: posts = [], isLoading } = useQuery<Post[]>({
+  const { data: posts = [], isLoading, isError, error } = useQuery<Post[]>({
     queryKey: ["posts"],
-    queryFn: () => fetch("/api/posts").then(res => res.json())
+    queryFn: async () => {
+      const res = await fetch("/api/posts");
+      if (!res.ok) {
+        throw new Error("Failed to fetch posts");
+      }
+      return res.json();
+    },
+    // Refresh data periodically and on window focus
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000
   });
 
   const form = useForm<InsertPost>({
@@ -134,6 +143,20 @@ export default function ForumPage() {
     return (
       <div className="flex justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500">Error loading posts: {error?.message}</p>
+        <Button 
+          onClick={() => queryClient.invalidateQueries({ queryKey: ["posts"] })}
+          className="mt-4"
+        >
+          Retry
+        </Button>
       </div>
     );
   }

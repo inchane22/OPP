@@ -382,9 +382,14 @@ export default function AdminPanel() {
                                   credentials: 'include'
                                 });
                                 if (!response.ok) throw new Error('Failed to delete post');
-                                // Invalidate both admin stats and posts queries
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                queryClient.invalidateQueries({ queryKey: ['posts'] });
+                                // Invalidate queries in all components
+                                await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                await queryClient.invalidateQueries({ queryKey: ['posts'] });
+                                // Show success toast
+                                toast({ 
+                                  title: "Post deleted successfully",
+                                  description: "The post has been removed from all views"
+                                });
                               } catch (error) {
                                 console.error('Error deleting post:', error);
                               }
