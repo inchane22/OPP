@@ -45,25 +45,21 @@ export function setupAuth(app: Express) {
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID || "orange-pill-peru-secret",
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true
     },
     store: new MemoryStore({
       checkPeriod: 86400000, // Prune expired entries every 24h
     }),
   };
 
-  // Configure session for production
-  if (app.get("env") === "production") {
-    app.set("trust proxy", 1);
-    sessionSettings.cookie = {
-      ...sessionSettings.cookie,
-      secure: true,
-    };
-  }
+  // Set trust proxy for both environments
+  app.set("trust proxy", 1);
 
   // Initialize passport and session middleware
   app.use(session(sessionSettings));

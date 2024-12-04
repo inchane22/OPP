@@ -32,10 +32,6 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start fullstack app"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Create Admin"
 
 [[workflows.workflow.tasks]]
@@ -50,20 +46,13 @@ args = "Build and Start"
 task = "workflow.run"
 args = "Production Build and Start"
 
-[[workflows.workflow]]
-name = "Start fullstack app"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Development Server"
 
 [[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=development npm run dev"
-waitForPort = 5000
+task = "workflow.run"
+args = "Production Build"
 
 [[workflows.workflow]]
 name = "Create Admin"
@@ -121,3 +110,32 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run build && NODE_ENV=production npm start"
+
+[[workflows.workflow]]
+name = "Development Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Production Build"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build"
