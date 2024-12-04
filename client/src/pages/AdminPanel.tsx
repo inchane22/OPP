@@ -176,6 +176,113 @@ export default function AdminPanel() {
             </div>
           </TabsContent>
 
+          <TabsContent value="users">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión de Usuarios</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra los usuarios de la plataforma
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.users?.map((managedUser: User) => (
+                    <div key={managedUser.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{managedUser.username}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {managedUser.email} | {managedUser.role} | {new Date(managedUser.createdAt).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Idioma: {managedUser.language === 'es' ? 'Español' : 'English'}
+                          </p>
+                        </div>
+                        <div className="space-x-2">
+                          {user?.role === 'admin' && (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const newRole = managedUser.role === 'admin' ? 'user' : 'admin';
+                                    const response = await fetch(`/api/users/${managedUser.id}/role`, {
+                                      method: 'PUT',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        role: newRole
+                                      }),
+                                      credentials: 'include'
+                                    });
+
+                                    if (!response.ok) {
+                                      throw new Error('Failed to update user role');
+                                    }
+
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({
+                                      title: `Role updated to ${newRole}`,
+                                      variant: "default"
+                                    });
+                                  } catch (error) {
+                                    console.error('Error updating user role:', error);
+                                    toast({
+                                      title: "Error updating role",
+                                      description: "Could not update user role",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              >
+                                {managedUser.role === 'admin' ? "Remove Admin" : "Make Admin"}
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={async () => {
+                                  if (!confirm('Are you sure you want to delete this user?')) return;
+                                  
+                                  try {
+                                    const response = await fetch(`/api/users/${managedUser.id}`, {
+                                      method: 'DELETE',
+                                      credentials: 'include'
+                                    });
+
+                                    if (!response.ok) {
+                                      throw new Error('Failed to delete user');
+                                    }
+
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({
+                                      title: "User deleted",
+                                      variant: "default"
+                                    });
+                                  } catch (error) {
+                                    console.error('Error deleting user:', error);
+                                    toast({
+                                      title: "Error deleting user",
+                                      description: "Could not delete user",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="carousel">
             <Card className="bg-card text-card-foreground">
               <CardHeader>
@@ -649,113 +756,6 @@ export default function AdminPanel() {
                           >
                             Eliminar
                           </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="users">
-            <Card className="bg-card text-card-foreground">
-              <CardHeader>
-                <CardTitle className="text-foreground">Gestión de Usuarios</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Administra los usuarios de la plataforma
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats?.users?.map((user: User) => (
-                    <div key={user.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{user.username}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {user.email} | {user.role} | {new Date(user.createdAt).toLocaleDateString()}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Idioma: {user.language === 'es' ? 'Español' : 'English'}
-                          </p>
-                        </div>
-                        <div className="space-x-2">
-                          {currentUser?.role === 'admin' && (
-                            <>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const newRole = user.role === 'admin' ? 'user' : 'admin';
-                                    const response = await fetch(`/api/users/${user.id}/role`, {
-                                      method: 'PUT',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        role: newRole
-                                      }),
-                                      credentials: 'include'
-                                    });
-
-                                    if (!response.ok) {
-                                      throw new Error('Failed to update user role');
-                                    }
-
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                    toast({
-                                      title: `Role updated to ${newRole}`,
-                                      variant: "default"
-                                    });
-                                  } catch (error) {
-                                    console.error('Error updating user role:', error);
-                                    toast({
-                                      title: "Error updating role",
-                                      description: "Could not update user role",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
-                              >
-                                {user.role === 'admin' ? "Remove Admin" : "Make Admin"}
-                              </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm"
-                                onClick={async () => {
-                                  if (!confirm('Are you sure you want to delete this user?')) return;
-                                  
-                                  try {
-                                    const response = await fetch(`/api/users/${user.id}`, {
-                                      method: 'DELETE',
-                                      credentials: 'include'
-                                    });
-
-                                    if (!response.ok) {
-                                      throw new Error('Failed to delete user');
-                                    }
-
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                    toast({
-                                      title: "User deleted",
-                                      variant: "default"
-                                    });
-                                  } catch (error) {
-                                    console.error('Error deleting user:', error);
-                                    toast({
-                                      title: "Error deleting user",
-                                      description: "Could not delete user",
-                                      variant: "destructive"
-                                    });
-                                  }
-                                }}
-                              >
-                                Delete
-                              </Button>
-                            </>
-                          )}
                         </div>
                       </div>
                     </div>
