@@ -21,8 +21,18 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Post, InsertPost, Comment } from '@db/schema';
 import { insertPostSchema } from '@db/schema';
 
-async function fetchPosts(): Promise<(Post & { comments?: Comment[] })[]> {
-  const response = await fetch('/api/posts?include=comments');
+interface User {
+  id: number;
+  username: string;
+}
+
+interface PostWithAuthor extends Post {
+  author?: User | null;
+  comments?: Comment[];
+}
+
+async function fetchPosts(): Promise<PostWithAuthor[]> {
+  const response = await fetch('/api/posts?include=comments,author');
   if (!response.ok) throw new Error('Failed to fetch posts');
   return response.json();
 }

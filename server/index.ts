@@ -80,30 +80,13 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    // In production, serve the static files from the dist/public directory
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const publicPath = path.join(__dirname, '../dist/public');
-    
-    // Serve static files with caching headers
-    app.use(express.static(publicPath, {
-      maxAge: '1d', // Cache static assets for 1 day
-      etag: true,
-      lastModified: true
-    }));
-    
-    // Handle client-side routing by serving index.html for all routes
-    app.get('*', (req, res) => {
-      // Don't cache the index.html file
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      
-      res.sendFile(path.join(publicPath, 'index.html'));
-    });
+    // Import and setup production configuration
+    const { setupProduction } = await import('./production.js');
+    setupProduction(app);
   }
 
   // Use port from environment variable, with different defaults for production/development
-  const PORT = Number(process.env.PORT) || (process.env.NODE_ENV === 'production' ? 3000 : 5000);
+  const PORT = process.env.NODE_ENV === 'production' ? 3000 : 5000;
   
   // Enhanced error handling for server startup
   const handleServerError = (error: Error) => {
