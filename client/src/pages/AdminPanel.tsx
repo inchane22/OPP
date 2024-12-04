@@ -276,16 +276,116 @@ export default function AdminPanel() {
                           </div>
                         </div>
                         <div className="space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => {
-                            // TODO: Toggle active state
-                          }}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/carousel/${item.id}/toggle`, {
+                                  method: 'POST',
+                                  credentials: 'include'
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to toggle carousel item state');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({
+                                  title: item.active ? "Item desactivado" : "Item activado",
+                                  variant: "default"
+                                });
+                              } catch (error) {
+                                console.error('Error toggling carousel item:', error);
+                                toast({
+                                  title: "Error al cambiar estado",
+                                  description: "No se pudo actualizar el estado del item",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
                             {item.active ? "Desactivar" : "Activar"}
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => {
-                            // TODO: Edit carousel item
-                          }}>
-                            Editar
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Editar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Editar Item del Carrusel</DialogTitle>
+                              </DialogHeader>
+                              <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const updatedItem = {
+                                  title: formData.get('title'),
+                                  embedUrl: formData.get('embedUrl'),
+                                  description: formData.get('description'),
+                                };
+
+                                try {
+                                  const response = await fetch(`/api/carousel/${item.id}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(updatedItem),
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to update carousel item');
+                                  }
+
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({
+                                    title: "Item actualizado",
+                                    variant: "default"
+                                  });
+                                } catch (error) {
+                                  console.error('Error updating carousel item:', error);
+                                  toast({
+                                    title: "Error al actualizar",
+                                    description: "No se pudo actualizar el item",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }} className="space-y-4 mt-4">
+                                <div>
+                                  <Label htmlFor="edit-title">Título</Label>
+                                  <Input 
+                                    id="edit-title" 
+                                    name="title" 
+                                    defaultValue={item.title}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="edit-embedUrl">URL de Embed</Label>
+                                  <Input 
+                                    id="edit-embedUrl" 
+                                    name="embedUrl" 
+                                    defaultValue={item.embedUrl}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="edit-description">Descripción</Label>
+                                  <Textarea 
+                                    id="edit-description" 
+                                    name="description" 
+                                    defaultValue={item.description || ''}
+                                  />
+                                </div>
+                                <DialogFooter>
+                                  <Button type="submit">Guardar Cambios</Button>
+                                </DialogFooter>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
                           <Button variant="destructive" size="sm" onClick={async () => {
                             try {
                               const response = await fetch(`/api/carousel/${item.id}`, {
@@ -581,11 +681,73 @@ export default function AdminPanel() {
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button variant="outline" size="sm">
-                            Editar
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/businesses/${business.id}`, {
+                                  method: 'PUT',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    verified: !business.verified
+                                  }),
+                                  credentials: 'include'
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to verify business');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({
+                                  title: business.verified ? "Negocio desverificado" : "Negocio verificado",
+                                  variant: "default"
+                                });
+                              } catch (error) {
+                                console.error('Error verifying business:', error);
+                                toast({
+                                  title: "Error al verificar",
+                                  description: "No se pudo actualizar el estado de verificación",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
+                            {business.verified ? "Desverificar" : "Verificar"}
                           </Button>
-                          {user.role !== 'admin' && (
-                            <Button variant="destructive" size="sm">
+                          {user.role === 'admin' && (
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/businesses/${business.id}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to delete business');
+                                  }
+
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({
+                                    title: "Negocio eliminado",
+                                    variant: "default"
+                                  });
+                                } catch (error) {
+                                  console.error('Error deleting business:', error);
+                                  toast({
+                                    title: "Error al eliminar",
+                                    description: "No se pudo eliminar el negocio",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                            >
                               Eliminar
                             </Button>
                           )}
