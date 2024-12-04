@@ -681,75 +681,80 @@ export default function AdminPanel() {
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/businesses/${business.id}`, {
-                                  method: 'PUT',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({
-                                    verified: !business.verified
-                                  }),
-                                  credentials: 'include'
-                                });
+                          {currentUser?.role === 'admin' && (
+                            <>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const newRole = user.role === 'admin' ? 'user' : 'admin';
+                                    const response = await fetch(`/api/users/${user.id}/role`, {
+                                      method: 'PUT',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        role: newRole
+                                      }),
+                                      credentials: 'include'
+                                    });
 
-                                if (!response.ok) {
-                                  throw new Error('Failed to verify business');
-                                }
+                                    if (!response.ok) {
+                                      throw new Error('Failed to update user role');
+                                    }
 
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                toast({
-                                  title: business.verified ? "Negocio desverificado" : "Negocio verificado",
-                                  variant: "default"
-                                });
-                              } catch (error) {
-                                console.error('Error verifying business:', error);
-                                toast({
-                                  title: "Error al verificar",
-                                  description: "No se pudo actualizar el estado de verificación",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
-                            {business.verified ? "Desverificar" : "Verificar"}
-                          </Button>
-                          {user.role === 'admin' && (
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/businesses/${business.id}`, {
-                                    method: 'DELETE',
-                                    credentials: 'include'
-                                  });
-
-                                  if (!response.ok) {
-                                    throw new Error('Failed to delete business');
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({
+                                      title: `Role updated to ${newRole}`,
+                                      variant: "default"
+                                    });
+                                  } catch (error) {
+                                    console.error('Error updating user role:', error);
+                                    toast({
+                                      title: "Error updating role",
+                                      description: "Could not update user role",
+                                      variant: "destructive"
+                                    });
                                   }
+                                }}
+                              >
+                                {user.role === 'admin' ? "Remove Admin" : "Make Admin"}
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={async () => {
+                                  if (!confirm('Are you sure you want to delete this user?')) return;
+                                  
+                                  try {
+                                    const response = await fetch(`/api/users/${user.id}`, {
+                                      method: 'DELETE',
+                                      credentials: 'include'
+                                    });
 
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                  toast({
-                                    title: "Negocio eliminado",
-                                    variant: "default"
-                                  });
-                                } catch (error) {
-                                  console.error('Error deleting business:', error);
-                                  toast({
-                                    title: "Error al eliminar",
-                                    description: "No se pudo eliminar el negocio",
-                                    variant: "destructive"
-                                  });
-                                }
-                              }}
-                            >
-                              Eliminar
-                            </Button>
+                                    if (!response.ok) {
+                                      throw new Error('Failed to delete user');
+                                    }
+
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({
+                                      title: "User deleted",
+                                      variant: "default"
+                                    });
+                                  } catch (error) {
+                                    console.error('Error deleting user:', error);
+                                    toast({
+                                      title: "Error deleting user",
+                                      description: "Could not delete user",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
