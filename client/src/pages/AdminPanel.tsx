@@ -13,15 +13,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
 import type { Post, User, Resource, Business } from "@db/schema";
 
+interface Event {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  date: string;
+  createdAt: Date;
+}
+
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
   totalEvents: number;
   totalBusinesses: number;
   users: User[];
-  posts: Post[];
-  resources: Resource[];
-  businesses: Business[];
+  posts: (Post & { author: { username: string } })[];
+  resources: (Resource & { author: { username: string } })[];
+  businesses: (Business & { submitter: { username: string } })[];
+  events: Event[];
   carouselItems: Array<{
     id: number;
     title: string;
@@ -324,14 +334,14 @@ export default function AdminPanel() {
                                 
                                 // Show success toast using useToast hook
                                 toast({
-                                  title: t('admin.post_deleted_success'),
+                                  title: "Post deleted successfully",
                                   description: post.title,
                                   variant: "default"
                                 });
                               } catch (error) {
                                 console.error('Error deleting post:', error);
                                 toast({
-                                  title: t('admin.post_deleted_error'),
+                                  title: "Failed to delete post",
                                   description: post.title,
                                   variant: "destructive"
                                 });
@@ -592,10 +602,16 @@ export default function AdminPanel() {
                                 });
                                 if (!response.ok) throw new Error('Failed to delete resource');
                                 queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                toast.success('Resource deleted successfully');
+                                toast({
+                                  title: "Resource deleted successfully",
+                                  variant: "default"
+                                });
                               } catch (error) {
                                 console.error('Error deleting resource:', error);
-                                toast.error('Failed to delete resource');
+                                toast({
+                                  title: "Failed to delete resource",
+                                  variant: "destructive"
+                                });
                               }
                             }}
                           >
