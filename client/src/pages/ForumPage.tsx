@@ -36,11 +36,11 @@ export default function ForumPage() {
   const { data: posts = [], isLoading, error } = useQuery({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
-    staleTime: 5000, // Keep data fresh for 5 seconds
+    staleTime: Infinity, // Prevent automatic refetches
     refetchOnWindowFocus: false,
-    refetchInterval: 3000, // Less frequent updates
+    refetchInterval: false, // Disable periodic refetches
     retry: 3,
-    gcTime: 5000
+    gcTime: Infinity
   });
 
   if (error instanceof Error) {
@@ -176,13 +176,10 @@ export default function ForumPage() {
 
                         const newComment = await response.json();
                         
-                        // Cancel any pending query refetches
-                        await queryClient.cancelQueries({ queryKey: ['posts'] });
-                        
                         // Update the cache with the new comment
                         queryClient.setQueryData(['posts'], (oldData: any) => {
                           if (!oldData) return oldData;
-                          return oldData.map((p: any) => {
+                          const updatedPosts = oldData.map((p: any) => {
                             if (p.id === post.id) {
                               return {
                                 ...p,
@@ -191,11 +188,7 @@ export default function ForumPage() {
                             }
                             return p;
                           });
-                        });
-                        
-                        // Mark the data as fresh to prevent immediate refetch
-                        queryClient.setQueryDefaults(['posts'], {
-                          staleTime: 5000
+                          return updatedPosts;
                         });
                         
                         toast({
