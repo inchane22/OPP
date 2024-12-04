@@ -36,11 +36,11 @@ export default function ForumPage() {
   const { data: posts = [], isLoading, error } = useQuery({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-    refetchInterval: 500, // More frequent updates for real-time sync
+    staleTime: 5000, // Keep data fresh for 5 seconds
+    refetchOnWindowFocus: false,
+    refetchInterval: 3000, // Less frequent updates
     retry: 3,
-    gcTime: 0
+    gcTime: 5000
   });
 
   if (error instanceof Error) {
@@ -176,7 +176,10 @@ export default function ForumPage() {
 
                         const newComment = await response.json();
                         
-                        // Optimistically update the UI
+                        // Cancel any pending query refetches
+                        await queryClient.cancelQueries({ queryKey: ['posts'] });
+                        
+                        // Update the cache with the new comment
                         queryClient.setQueryData(['posts'], (oldData: any) => {
                           if (!oldData) return oldData;
                           return oldData.map((p: any) => {
@@ -189,11 +192,11 @@ export default function ForumPage() {
                             return p;
                           });
                         });
-
-                        // Schedule a background refetch after a short delay
-                        setTimeout(() => {
-                          queryClient.invalidateQueries({ queryKey: ['posts'] });
-                        }, 1000);
+                        
+                        // Mark the data as fresh to prevent immediate refetch
+                        queryClient.setQueryDefaults(['posts'], {
+                          staleTime: 5000
+                        });
                         
                         toast({
                           title: "Comment added successfully",
