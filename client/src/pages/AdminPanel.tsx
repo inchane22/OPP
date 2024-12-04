@@ -14,19 +14,19 @@ import { useLanguage } from "../hooks/use-language";
 import type { Post, User, Resource, Business, Event } from "@db/schema";
 
 interface PostWithAuthor extends Post {
-  author: Pick<User, 'username'>;
+  author: Pick<User, 'username'> | null;
 }
 
 interface ResourceWithAuthor extends Resource {
-  author: Pick<User, 'username'>;
+  author: Pick<User, 'username'> | null;
 }
 
 interface BusinessWithSubmitter extends Business {
-  submitter: Pick<User, 'username'>;
+  submitter: Pick<User, 'username'> | null;
 }
 
 interface EventWithOrganizer extends Event {
-  organizer: Pick<User, 'username'>;
+  organizer: Pick<User, 'username'> | null;
 }
 
 interface CarouselItem {
@@ -37,6 +37,7 @@ interface CarouselItem {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  createdById?: number | null;
 }
 
 interface AdminStats {
@@ -55,8 +56,24 @@ interface AdminStats {
 
 async function fetchStats(): Promise<AdminStats> {
   const response = await fetch('/api/admin/stats');
-  if (!response.ok) throw new Error('Failed to fetch admin stats');
-  return response.json();
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to fetch admin stats: ${error}`);
+  }
+  const data = await response.json();
+  return {
+    totalUsers: data.totalUsers ?? 0,
+    totalResources: data.totalResources ?? 0,
+    totalEvents: data.totalEvents ?? 0,
+    totalBusinesses: data.totalBusinesses ?? 0,
+    totalPosts: data.totalPosts ?? 0,
+    users: data.users ?? [],
+    posts: data.posts ?? [],
+    resources: data.resources ?? [],
+    businesses: data.businesses ?? [],
+    events: data.events ?? [],
+    carouselItems: data.carouselItems ?? []
+  };
 }
 
 export default function AdminPanel() {

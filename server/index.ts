@@ -82,6 +82,19 @@ app.use((req, res, next) => {
 
   // Use port 80 in production, 5000 in development
   const PORT = process.env.NODE_ENV === 'production' ? 80 : 5000;
+  
+  // Ensure we're not already listening on the port
+  const handleServerError = (error: Error) => {
+    if ((error as any).code === 'EADDRINUSE') {
+      log(`Port ${PORT} is already in use. Trying again...`);
+      setTimeout(() => {
+        server.close();
+        server.listen(PORT, "0.0.0.0");
+      }, 1000);
+    }
+  };
+
+  server.on('error', handleServerError);
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
