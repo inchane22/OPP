@@ -44,6 +44,7 @@ interface AdminStats {
   totalResources: number;
   totalEvents: number;
   totalBusinesses: number;
+  totalPosts: number;
   users: User[];
   posts: PostWithAuthor[];
   resources: ResourceWithAuthor[];
@@ -330,24 +331,28 @@ export default function AdminPanel() {
                             variant="destructive" 
                             size="sm"
                             onClick={async () => {
+                              // Store previous states for rollback
+                              let previousStats: AdminStats | undefined;
+                              let previousPosts: Post[] | undefined;
+                              
                               try {
-                                // Store previous states for rollback
-                                const previousStats = queryClient.getQueryData<AdminStats>(['admin-stats']);
-                                const previousPosts = queryClient.getQueryData<Post[]>(['posts']);
+                                // Get current data states
+                                previousStats = queryClient.getQueryData<AdminStats>(['admin-stats']);
+                                previousPosts = queryClient.getQueryData<Post[]>(['posts']);
 
-                                // Type guard and optimistic updates
-                                if (previousStats?.posts) {
-                                  queryClient.setQueryData<AdminStats>(['admin-stats'], {
+                                // Only proceed with optimistic updates if we have valid data
+                                if (previousStats && 'posts' in previousStats) {
+                                  const updatedStats: AdminStats = {
                                     ...previousStats,
                                     posts: previousStats.posts.filter((p) => p.id !== post.id),
-                                    totalPosts: previousStats.totalPosts - 1
-                                  });
+                                    totalPosts: Math.max(0, previousStats.totalPosts - 1)
+                                  };
+                                  queryClient.setQueryData(['admin-stats'], updatedStats);
                                 }
 
-                                if (previousPosts?.length) {
-                                  queryClient.setQueryData<Post[]>(['posts'], 
-                                    previousPosts.filter((p) => p.id !== post.id)
-                                  );
+                                if (previousPosts && Array.isArray(previousPosts)) {
+                                  const updatedPosts = previousPosts.filter((p) => p.id !== post.id);
+                                  queryClient.setQueryData(['posts'], updatedPosts);
                                 }
 
                                 const response = await fetch(`/api/posts/${post.id}`, {
@@ -376,10 +381,10 @@ export default function AdminPanel() {
                                 
                                 // Restore previous states on error
                                 if (previousStats) {
-                                  queryClient.setQueryData<AdminStats>(['admin-stats'], previousStats);
+                                  queryClient.setQueryData(['admin-stats'], previousStats);
                                 }
                                 if (previousPosts) {
-                                  queryClient.setQueryData<Post[]>(['posts'], previousPosts);
+                                  queryClient.setQueryData(['posts'], previousPosts);
                                 }
                                 
                                 toast({
