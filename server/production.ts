@@ -4,6 +4,7 @@ import compression from "compression";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { setupAuth } from "./auth";
+import * as fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,7 +41,7 @@ export function setupProduction(app: express.Express) {
     }
 
     const requests = requestCounts.get(ip);
-    const recentRequests = requests.filter(time => time > windowStart);
+    const recentRequests = requests.filter((time: number) => time > windowStart);
     
     if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) {
       return res.status(429).json({
@@ -63,7 +64,6 @@ export function setupProduction(app: express.Express) {
   
   // Verify the public directory exists
   try {
-    const fs = require('fs');
     if (!fs.existsSync(publicPath)) {
       console.error(`Public directory not found at ${publicPath}`);
       process.exit(1);
