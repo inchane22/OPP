@@ -86,7 +86,7 @@ app.use((req, res, next) => {
   }
 
   // Use port from environment variable, with different defaults for production/development
-  const PORT = process.env.NODE_ENV === 'production' ? 3000 : 5000;
+  const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 5000));
   
   // Enhanced error handling for server startup
   const handleServerError = (error: Error) => {
@@ -126,9 +126,14 @@ app.use((req, res, next) => {
   process.on('SIGTERM', handleShutdown);
   process.on('SIGINT', handleShutdown);
   
-  // Start the server
-  server.listen(PORT, "0.0.0.0", () => {
-    log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    log(`Server address: http://0.0.0.0:${PORT}`);
-  });
+  // Start the server with enhanced error handling
+  try {
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+      log(`Server address: http://0.0.0.0:${PORT}`);
+    });
+  } catch (error) {
+    log(`Failed to start server: ${error}`);
+    process.exit(1);
+  }
 })();
