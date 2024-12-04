@@ -51,7 +51,9 @@ type TranslationKeys =
   | 'resources.login_to_submit'
   | 'resources.approved'
   | 'account.preferences'
-  | 'account.language_preference';
+  | 'account.language_preference'
+  | 'admin.posts.delete_success'
+  | 'admin.posts.delete_error';
 
 type Translations = {
   [K in Language]: {
@@ -107,7 +109,9 @@ const translations: Translations = {
     'resources.login_to_submit': 'Login to Submit Resource',
     'resources.approved': 'Approved Resources',
     'account.preferences': 'Preferences',
-    'account.language_preference': 'Language Preference'
+    'account.language_preference': 'Language Preference',
+    'admin.posts.delete_success': 'Post deleted successfully',
+    'admin.posts.delete_error': 'Failed to delete post'
   },
   es: {
     'nav.forum': 'Foro',
@@ -156,7 +160,9 @@ const translations: Translations = {
     'resources.login_to_submit': 'Inicia Sesión para Enviar Recurso',
     'resources.approved': 'Recursos Aprobados',
     'account.preferences': 'Preferencias',
-    'account.language_preference': 'Preferencia de Idioma'
+    'account.language_preference': 'Preferencia de Idioma',
+    'admin.posts.delete_success': 'Publicación eliminada exitosamente',
+    'admin.posts.delete_error': 'Error al eliminar la publicación'
   }
 };
 
