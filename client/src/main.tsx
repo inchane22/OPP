@@ -6,14 +6,16 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "./hooks/use-language";
-import HomePage from "./pages/HomePage";
-import AuthPage from "./pages/AuthPage";
-import ForumPage from "./pages/ForumPage";
-import EventsPage from "./pages/EventsPage";
-import ResourcesPage from "./pages/ResourcesPage";
-import BusinessesPage from "./pages/BusinessesPage";
-import AccountPage from "./pages/AccountPage";
-import AdminPanel from "./pages/AdminPanel";
+import { lazy, Suspense } from "react";
+
+const HomePage = lazy(() => import("./pages/HomePage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ForumPage = lazy(() => import("./pages/ForumPage"));
+const EventsPage = lazy(() => import("./pages/EventsPage"));
+const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
+const BusinessesPage = lazy(() => import("./pages/BusinessesPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 import { Loader2 } from "lucide-react";
 import { useUser } from "./hooks/use-user";
 import Navbar from "./components/Navbar";
@@ -71,42 +73,48 @@ function Router() {
             <Route path="/" component={HomePage} />
             <Route path="/login" component={AuthPage} />
             
-            {/* English routes */}
-            <Route path="/forum" component={ForumPage} />
-            <Route path="/events" component={EventsPage} />
-            <Route path="/resources" component={ResourcesPage} />
-            <Route path="/businesses" component={BusinessesPage} />
-            <Route path="/account">
-              <ProtectedRoute component={AccountPage} />
-            </Route>
-            
-            {/* Spanish routes */}
-            <Route path="/foro">
-              <Redirect to="/forum" />
-            </Route>
-            <Route path="/eventos">
-              <Redirect to="/events" />
-            </Route>
-            <Route path="/recursos">
-              <Redirect to="/resources" />
-            </Route>
-            <Route path="/negocios">
-              <Redirect to="/businesses" />
-            </Route>
-            <Route path="/cuenta">
-              <Redirect to="/account" />
-            </Route>
-
-            <Route path="/admin">
-              {user?.role === 'admin' ? <AdminPanel /> : <Redirect to="/" />}
-            </Route>
-
-            <Route>
-              <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-                <h1 className="text-4xl font-bold">404</h1>
-                <p className="text-muted-foreground">Page not found / Página no encontrada</p>
+            <Suspense fallback={
+              <div className="flex items-center justify-center min-h-[50vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            </Route>
+            }>
+              {/* English routes */}
+              <Route path="/forum" component={ForumPage} />
+              <Route path="/events" component={EventsPage} />
+              <Route path="/resources" component={ResourcesPage} />
+              <Route path="/businesses" component={BusinessesPage} />
+              <Route path="/account">
+                <ProtectedRoute component={AccountPage} />
+              </Route>
+            
+              {/* Spanish routes */}
+              <Route path="/foro">
+                <Redirect to="/forum" />
+              </Route>
+              <Route path="/eventos">
+                <Redirect to="/events" />
+              </Route>
+              <Route path="/recursos">
+                <Redirect to="/resources" />
+              </Route>
+              <Route path="/negocios">
+                <Redirect to="/businesses" />
+              </Route>
+              <Route path="/cuenta">
+                <Redirect to="/account" />
+              </Route>
+
+              <Route path="/admin">
+                {user?.role === 'admin' ? <AdminPanel /> : <Redirect to="/" />}
+              </Route>
+
+              <Route>
+                <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                  <h1 className="text-4xl font-bold">404</h1>
+                  <p className="text-muted-foreground">Page not found / Página no encontrada</p>
+                </div>
+              </Route>
+            </Suspense>
           </Switch>
         </main>
         <Footer />
