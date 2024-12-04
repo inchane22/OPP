@@ -16,9 +16,11 @@ export default function ForumPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const { data: posts = [], isLoading, error } = useQuery<Post[]>({
+  const { data: posts = [], isLoading, error, refetch } = useQuery<Post[]>({
     queryKey: ['posts'],
-    queryFn: fetchPosts
+    queryFn: fetchPosts,
+    staleTime: 0, // Ensure we always get fresh data
+    refetchOnWindowFocus: true // Refetch when window gains focus
   });
 
   if (error) {

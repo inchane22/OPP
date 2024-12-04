@@ -38,6 +38,10 @@ args = "Create Admin"
 task = "workflow.run"
 args = "Database Setup"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build and Start"
+
 [[workflows.workflow]]
 name = "Start fullstack app"
 author = "agent"
@@ -80,3 +84,18 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run db:push"
+
+[[workflows.workflow]]
+name = "Build and Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build && NODE_ENV=production npm start"
+waitForPort = 80

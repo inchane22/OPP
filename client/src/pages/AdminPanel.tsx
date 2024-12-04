@@ -340,24 +340,44 @@ export default function AdminPanel() {
                             size="sm"
                             onClick={async () => {
                               try {
+                                // Optimistically update the UI
+                                queryClient.setQueryData(['posts'], (oldData: Post[] | undefined) => {
+                                  return oldData ? oldData.filter(p => p.id !== post.id) : [];
+                                });
+                                
+                                queryClient.setQueryData(['admin-stats'], (oldData: any) => {
+                                  if (!oldData) return oldData;
+                                  return {
+                                    ...oldData,
+                                    posts: oldData.posts.filter((p: Post) => p.id !== post.id)
+                                  };
+                                });
+
                                 const response = await fetch(`/api/posts/${post.id}`, {
                                   method: 'DELETE',
                                   credentials: 'include'
                                 });
+                                
                                 if (!response.ok) throw new Error('Failed to delete post');
-                                
-                                // Invalidate queries immediately
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                queryClient.invalidateQueries({ queryKey: ['posts'] });
-                                
-                                // Show success toast using useToast hook
+
+                                // Show success toast
                                 toast({
                                   title: t('admin.posts.delete_success'),
                                   description: post.title,
                                   variant: "default"
                                 });
+
+                                // Invalidate queries to ensure consistency
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                  queryClient.invalidateQueries({ queryKey: ['posts'] })
+                                ]);
                               } catch (error) {
                                 console.error('Error deleting post:', error);
+                                // Revert optimistic updates
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                queryClient.invalidateQueries({ queryKey: ['posts'] });
+                                
                                 toast({
                                   title: t('admin.posts.delete_error'),
                                   description: post.title,

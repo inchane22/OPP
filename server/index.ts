@@ -66,11 +66,17 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    // In production, serve the static files from the dist directory
+    app.use(express.static('dist/client'));
+    
+    // Handle client-side routing by serving index.html for all routes
+    app.get('*', (req, res) => {
+      res.sendFile('dist/client/index.html', { root: '.' });
+    });
   }
 
-  // Always use port 5000 for consistency
-  const PORT = 5000;
+  // Use port 80 in production, 5000 in development
+  const PORT = process.env.NODE_ENV === 'production' ? 80 : 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });
