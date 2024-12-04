@@ -22,15 +22,33 @@ interface Event {
   createdAt: Date;
 }
 
+interface PostWithAuthor extends Post {
+  author: {
+    username: string;
+  };
+}
+
+interface ResourceWithAuthor extends Resource {
+  author: {
+    username: string;
+  };
+}
+
+interface BusinessWithSubmitter extends Business {
+  submitter: {
+    username: string;
+  };
+}
+
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
   totalEvents: number;
   totalBusinesses: number;
   users: User[];
-  posts: (Post & { author: { username: string } })[];
-  resources: (Resource & { author: { username: string } })[];
-  businesses: (Business & { submitter: { username: string } })[];
+  posts: PostWithAuthor[];
+  resources: ResourceWithAuthor[];
+  businesses: BusinessWithSubmitter[];
   events: Event[];
   carouselItems: Array<{
     id: number;
@@ -297,7 +315,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.posts?.map((post: Post) => (
+                  {stats?.posts?.map((post: PostWithAuthor) => (
                     <div key={post.id} className="border rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-start">
                         <div>
@@ -544,7 +562,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.resources?.map((resource: Resource) => (
+                  {stats?.resources?.map((resource: ResourceWithAuthor) => (
                     <div key={resource.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
@@ -636,7 +654,7 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.businesses?.map((business: Business) => (
+                  {stats?.businesses?.map((business: BusinessWithSubmitter) => (
                     <div key={business.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>

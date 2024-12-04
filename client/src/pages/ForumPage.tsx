@@ -97,6 +97,7 @@ export default function ForumPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
 
+  const queryClient = useQueryClient();
   const { data: posts = [], isLoading, isError, error } = useQuery<Post[]>({
     queryKey: ["posts"],
     queryFn: async () => {
@@ -108,8 +109,16 @@ export default function ForumPage() {
     },
     // Refresh data periodically and on window focus
     refetchOnWindowFocus: true,
-    refetchInterval: 5000, // Reduce interval to catch deletions faster
-    staleTime: 0 // Always refetch when queryClient.invalidateQueries is called
+    refetchInterval: 2000, // Faster refresh to catch deletions
+    staleTime: 0, // Always refetch when queryClient.invalidateQueries is called
+    retry: 3,
+    onError: (error) => {
+      toast({
+        title: "Error loading posts",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   });
 
   const form = useForm<InsertPost>({
@@ -147,8 +156,6 @@ export default function ForumPage() {
       </div>
     );
   }
-
-  const queryClient = useQueryClient();
 
   if (isError) {
     return (
