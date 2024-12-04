@@ -133,7 +133,7 @@ export default function ForumPage() {
               <CardHeader>
                 <CardTitle>{post.title}</CardTitle>
                 <CardDescription>
-                  {new Date(post.createdAt).toLocaleDateString()}
+                  Posted by {post.author?.username || 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
                 </CardDescription>
               </CardHeader>
               <CardContent>
