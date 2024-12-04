@@ -4,7 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useLanguage } from '../hooks/use-language';
-import type { Post } from '@db/schema';
+import { useUser } from '../hooks/use-user';
+import { useToast } from '@/hooks/use-toast';
+import { Link } from 'wouter';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import type { Post, InsertPost } from '@db/schema';
+import { insertPostSchema } from '@db/schema';
 
 async function fetchPosts(): Promise<Post[]> {
   const response = await fetch('/api/posts');
@@ -14,6 +29,8 @@ async function fetchPosts(): Promise<Post[]> {
 
 export default function ForumPage() {
   const { t } = useLanguage();
+  const { user } = useUser();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: posts = [], isLoading, error } = useQuery({
@@ -38,7 +55,71 @@ export default function ForumPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{t('forum.title')}</h1>
-        <Button variant="outline">{t('forum.create_post')}</Button>
+        {user ? (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">{t('forum.create_post')}</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('forum.create_post')}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const newPost = {
+                  title: formData.get('title'),
+                  content: formData.get('content'),
+                };
+                
+                try {
+                  const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(newPost),
+                    credentials: 'include'
+                  });
+
+                  if (!response.ok) {
+                    throw new Error('Failed to create post');
+                  }
+
+                  queryClient.invalidateQueries({ queryKey: ['posts'] });
+                  toast({
+                    title: "Post created successfully",
+                    variant: "default"
+                  });
+                  (e.target as HTMLFormElement).reset();
+                } catch (error) {
+                  console.error('Error creating post:', error);
+                  toast({
+                    title: "Error creating post",
+                    description: "Could not create the post. Please try again.",
+                    variant: "destructive"
+                  });
+                }
+              }} className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input id="title" name="title" required />
+                </div>
+                <div>
+                  <Label htmlFor="content">Content</Label>
+                  <Textarea id="content" name="content" required rows={5} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Create Post</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Button variant="outline" asChild>
+            <Link href="/login">{t('forum.login_to_post')}</Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6">
