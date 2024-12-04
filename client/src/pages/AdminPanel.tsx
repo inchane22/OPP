@@ -2,106 +2,40 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import { useUser } from "../hooks/use-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
-
-interface Post {
-  id: number;
-  title: string;
-  content: string;
-  createdAt: string;
-  author?: {
-    id: number;
-    username: string;
-  };
-}
-
-interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: string;
-  createdAt: string;
-  language: string;
-}
-
-interface Resource {
-  id: number;
-  title: string;
-  description: string;
-  url: string;
-  type: string;
-  approved: boolean;
-  createdAt: string;
-  author?: {
-    id: number;
-    username: string;
-  };
-}
-
-interface Business {
-  id: number;
-  name: string;
-  description: string;
-  address: string;
-  city: string;
-  phone?: string;
-  website?: string;
-  acceptsLightning: boolean;
-  verified: boolean;
-  createdAt: string;
-  submitter?: {
-    id: number;
-    username: string;
-  };
-}
-
-interface CarouselItem {
-  id: number;
-  title: string;
-  embedUrl: string;
-  description?: string;
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdById?: number;
-}
-
-interface Event {
-  id: number;
-  title: string;
-  description: string;
-  location: string;
-  date: string;
-  organizerId?: number;
-}
+import type { Post, User, Resource, Business } from "@db/schema";
 
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
   totalEvents: number;
   totalBusinesses: number;
-  posts: Post[];
   users: User[];
+  posts: Post[];
   resources: Resource[];
   businesses: Business[];
-  carouselItems: CarouselItem[];
-  events: Event[];
+  carouselItems: Array<{
+    id: number;
+    title: string;
+    embedUrl: string;
+    description?: string;
+    active: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 }
 
-async function fetchStats() {
-  const response = await fetch('/api/admin/stats', {
-    credentials: 'include'
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch stats');
-  }
+async function fetchStats(): Promise<AdminStats> {
+  const response = await fetch('/api/admin/stats');
+  if (!response.ok) throw new Error('Failed to fetch admin stats');
   return response.json();
 }
 
@@ -109,6 +43,7 @@ export default function AdminPanel() {
   const { user } = useUser();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Redirect if not admin
   useEffect(() => {
@@ -382,16 +317,24 @@ export default function AdminPanel() {
                                   credentials: 'include'
                                 });
                                 if (!response.ok) throw new Error('Failed to delete post');
+                                
                                 // Invalidate queries in all components
                                 await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                 await queryClient.invalidateQueries({ queryKey: ['posts'] });
-                                // Show success toast
-                                toast({ 
-                                  title: "Post deleted successfully",
-                                  description: "The post has been removed from all views"
+                                
+                                // Show success toast using useToast hook
+                                toast({
+                                  title: t('admin.post_deleted_success'),
+                                  description: post.title,
+                                  variant: "default"
                                 });
                               } catch (error) {
                                 console.error('Error deleting post:', error);
+                                toast({
+                                  title: t('admin.post_deleted_error'),
+                                  description: post.title,
+                                  variant: "destructive"
+                                });
                               }
                             }}
                           >
@@ -649,8 +592,10 @@ export default function AdminPanel() {
                                 });
                                 if (!response.ok) throw new Error('Failed to delete resource');
                                 queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast.success('Resource deleted successfully');
                               } catch (error) {
                                 console.error('Error deleting resource:', error);
+                                toast.error('Failed to delete resource');
                               }
                             }}
                           >

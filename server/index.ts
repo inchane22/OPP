@@ -69,8 +69,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use port from environment variable with fallback
-  const PORT = process.env.PORT || 5000;
+  // Use port 80 in production, 5000 in development
+  const PORT = app.get("env") === "production" ? 80 : 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });

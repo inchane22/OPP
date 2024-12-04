@@ -108,7 +108,8 @@ export default function ForumPage() {
     },
     // Refresh data periodically and on window focus
     refetchOnWindowFocus: true,
-    refetchInterval: 30000
+    refetchInterval: 5000, // Reduce interval to catch deletions faster
+    staleTime: 0 // Always refetch when queryClient.invalidateQueries is called
   });
 
   const form = useForm<InsertPost>({
@@ -146,6 +147,8 @@ export default function ForumPage() {
       </div>
     );
   }
+
+  const queryClient = useQueryClient();
 
   if (isError) {
     return (
