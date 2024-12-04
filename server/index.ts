@@ -4,6 +4,7 @@ import { setupVite, serveStatic } from "./vite";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from 'url';
+import compression from 'compression';
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -17,6 +18,7 @@ function log(message: string) {
 }
 
 const app = express();
+app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -56,10 +58,20 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    const message = process.env.NODE_ENV === 'production' 
+      ? 'Internal Server Error'  // Don't expose error details in production
+      : err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
+    // Log error details in production
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Error:', err);
+    }
+
+    res.status(status).json({ 
+      message,
+      status,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // importantly only setup vite in development and after
@@ -72,10 +84,20 @@ app.use((req, res, next) => {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const publicPath = path.join(__dirname, '../dist/public');
     
-    app.use(express.static(publicPath));
+    // Serve static files with caching headers
+    app.use(express.static(publicPath, {
+      maxAge: '1d', // Cache static assets for 1 day
+      etag: true,
+      lastModified: true
+    }));
     
     // Handle client-side routing by serving index.html for all routes
     app.get('*', (req, res) => {
+      // Don't cache the index.html file
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.sendFile(path.join(publicPath, 'index.html'));
     });
   }
@@ -83,20 +105,45 @@ app.use((req, res, next) => {
   // Use port from environment variable, with different defaults for production/development
   const PORT = Number(process.env.PORT) || (process.env.NODE_ENV === 'production' ? 3000 : 5000);
   
-  // Ensure we're not already listening on the port
+  // Enhanced error handling for server startup
   const handleServerError = (error: Error) => {
     if ((error as any).code === 'EADDRINUSE') {
-      log(`Port ${PORT} is already in use`);
+      log(`Error: Port ${PORT} is already in use`);
       process.exit(1);
     } else {
-      log(`Server error: ${error.message}`);
+      // Log detailed errors in development, sanitized in production
+      if (process.env.NODE_ENV === 'production') {
+        log(`Critical server error occurred. Check logs for details.`);
+        console.error(error);
+      } else {
+        log(`Server error: ${error.message}`);
+        console.error(error);
+      }
       process.exit(1);
     }
   };
 
+  // Graceful shutdown handler
+  const handleShutdown = () => {
+    log('Received shutdown signal. Closing server...');
+    server.close(() => {
+      log('Server closed successfully');
+      process.exit(0);
+    });
+
+    // Force close if graceful shutdown takes too long
+    setTimeout(() => {
+      log('Force closing server after timeout');
+      process.exit(1);
+    }, 10000);
+  };
+
+  // Register error handlers
   server.on('error', handleServerError);
+  process.on('SIGTERM', handleShutdown);
+  process.on('SIGINT', handleShutdown);
   
-  // Attempt to listen on the port
+  // Start the server
   server.listen(PORT, "0.0.0.0", () => {
     log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
     log(`Server address: http://0.0.0.0:${PORT}`);

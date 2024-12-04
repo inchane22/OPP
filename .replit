@@ -42,6 +42,10 @@ args = "Database Setup"
 task = "workflow.run"
 args = "Build and Start"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Build and Start"
+
 [[workflows.workflow]]
 name = "Start fullstack app"
 author = "agent"
@@ -99,3 +103,18 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "NODE_ENV=production npm run build && npm start"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Production Build and Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build && NODE_ENV=production npm start"
+waitForPort = 3000
