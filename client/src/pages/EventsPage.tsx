@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar, MapPin, Loader2, Heart, Share2, Instagram, X, Facebook } from "lucide-react";
+import { Calendar, MapPin, Loader2, Heart, Share2, Instagram, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function EventsPage() {
@@ -254,22 +254,7 @@ export default function EventsPage() {
                   >
                     <Instagram className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hover:text-[#4267B2]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(
-                        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                          window.location.href
-                        )}`,
-                        "_blank"
-                      );
-                    }}
-                  >
-                    <Facebook className="h-4 w-4" />
-                  </Button>
+                  
                 </div>
               </div>
               <Button 
