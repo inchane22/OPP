@@ -140,6 +140,7 @@ export default function AdminPanel() {
             <TabsTrigger value="overview">Vista General</TabsTrigger>
             <TabsTrigger value="carousel">Carrusel</TabsTrigger>
             <TabsTrigger value="posts">Foros</TabsTrigger>
+            <TabsTrigger value="events">Eventos</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
             <TabsTrigger value="businesses">Negocios</TabsTrigger>
@@ -384,6 +385,140 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <p className="text-sm">{post.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="events">
+            <Card className="bg-card text-card-foreground">
+              <CardHeader>
+                <CardTitle className="text-foreground">Gestión de Eventos</CardTitle>
+                <CardDescription className="text-muted-foreground">
+                  Administra los eventos de la plataforma
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.events?.map((event) => (
+                    <div key={event.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{event.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Fecha: {new Date(event.date).toLocaleDateString()} | Ubicación: {event.location}
+                          </p>
+                          <p className="text-sm mt-2">{event.description}</p>
+                        </div>
+                        <div className="space-x-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Editar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Editar Evento</DialogTitle>
+                              </DialogHeader>
+                              <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                const updatedEvent = {
+                                  title: formData.get('title'),
+                                  description: formData.get('description'),
+                                  location: formData.get('location'),
+                                  date: new Date(formData.get('date') as string),
+                                };
+
+                                try {
+                                  const response = await fetch(`/api/events/${event.id}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(updatedEvent),
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to update event');
+                                  }
+
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  queryClient.invalidateQueries({ queryKey: ['events'] });
+                                } catch (error) {
+                                  console.error('Error updating event:', error);
+                                }
+                              }} className="space-y-4 mt-4">
+                                <div>
+                                  <Label htmlFor="title">Título</Label>
+                                  <Input 
+                                    id="title" 
+                                    name="title" 
+                                    defaultValue={event.title}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="description">Descripción</Label>
+                                  <Textarea 
+                                    id="description" 
+                                    name="description" 
+                                    defaultValue={event.description}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="location">Ubicación</Label>
+                                  <Input 
+                                    id="location" 
+                                    name="location" 
+                                    defaultValue={event.location}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="date">Fecha</Label>
+                                  <Input 
+                                    type="datetime-local"
+                                    id="date" 
+                                    name="date" 
+                                    defaultValue={new Date(event.date).toISOString().slice(0, 16)}
+                                    required 
+                                  />
+                                </div>
+                                <Button type="submit">Guardar Cambios</Button>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/events/${event.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to delete event');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                queryClient.invalidateQueries({ queryKey: ['events'] });
+                              } catch (error) {
+                                console.error('Error deleting event:', error);
+                              }
+                            }}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
