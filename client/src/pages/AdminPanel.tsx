@@ -719,7 +719,7 @@ export default function AdminPanel() {
                           </div>
                           <div className="mt-2 flex gap-2">
                             {business.acceptsLightning && (
-                              <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
+                              <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-xs font-medium text-orange-700">
                                 Lightning Network
                               </span>
                             )}
