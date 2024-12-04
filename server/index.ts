@@ -69,8 +69,7 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Serve the app on port 80 for production and 5000 for development
-  // this serves both the API and the client
+  // Use port 5000 for development and 80 for production
   const PORT = process.env.NODE_ENV === 'production' ? 80 : 5000;
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);

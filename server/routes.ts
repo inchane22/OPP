@@ -159,6 +159,45 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Update event endpoint
+  app.put("/api/events/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      const [event] = await db
+        .update(events)
+        .set({
+          ...req.body,
+          updatedAt: new Date(),
+        })
+        .where(eq(events.id, parseInt(req.params.id)))
+        .returning();
+      res.json(event);
+    } catch (error) {
+      console.error("Failed to update event:", error);
+      res.status(500).json({ error: "Failed to update event" });
+    }
+  });
+
+  // Delete event endpoint
+  app.delete("/api/events/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .delete(events)
+        .where(eq(events.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+      res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
   app.post("/api/events/:id/like", async (req, res) => {
     try {
       const eventId = parseInt(req.params.id);
@@ -356,6 +395,23 @@ export function registerRoutes(app: Express) {
       .leftJoin(users, eq(businesses.submittedById, users.id))
       .orderBy(desc(businesses.createdAt));
 
+      const eventsData = await db.select({
+        id: events.id,
+        title: events.title,
+        description: events.description,
+        location: events.location,
+        date: events.date,
+        organizerId: events.organizerId,
+        createdAt: events.createdAt,
+        organizer: {
+          id: users.id,
+          username: users.username,
+        }
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .orderBy(desc(events.date));
+
       const stats = {
         totalUsers: totalUsers[0].count,
         totalResources: totalResources[0].count,
@@ -365,7 +421,8 @@ export function registerRoutes(app: Express) {
         users: usersData,
         resources: resourcesData,
         businesses: businessesData,
-        carouselItems: carouselItemsData
+        carouselItems: carouselItemsData,
+        events: eventsData
       };
 
       res.json(stats);
