@@ -29,6 +29,24 @@ export function registerRoutes(app: Express) {
       .leftJoin(users, eq(posts.authorId, users.id))
       .orderBy(desc(posts.createdAt));
 
+      // Fetch comments for each post
+      const postsWithComments = await Promise.all(
+        allPosts.map(async (post) => {
+          const postComments = await db
+            .select()
+            .from(comments)
+            .where(eq(comments.postId, post.id))
+            .orderBy(comments.createdAt);
+          
+          return {
+            ...post,
+            comments: postComments
+          };
+        })
+      );
+
+      allPosts = postsWithComments;
+
       // If no posts exist, insert some sample posts
       if (allPosts.length === 0) {
         const samplePosts = [
@@ -66,6 +84,24 @@ export function registerRoutes(app: Express) {
         .from(posts)
         .leftJoin(users, eq(posts.authorId, users.id))
         .orderBy(desc(posts.createdAt));
+
+        // Fetch comments for each post
+        const postsWithComments = await Promise.all(
+          allPosts.map(async (post) => {
+            const postComments = await db
+              .select()
+              .from(comments)
+              .where(eq(comments.postId, post.id))
+              .orderBy(comments.createdAt);
+            
+            return {
+              ...post,
+              comments: postComments
+            };
+          })
+        );
+
+        allPosts = postsWithComments;
       }
       
       res.json(allPosts);
