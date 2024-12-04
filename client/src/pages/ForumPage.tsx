@@ -38,7 +38,7 @@ export default function ForumPage() {
     queryFn: fetchPosts,
     staleTime: 0,
     refetchOnWindowFocus: true,
-    refetchInterval: 1000, // More frequent updates for real-time sync
+    refetchInterval: 500, // More frequent updates for real-time sync
     retry: 3,
     gcTime: 0
   });
