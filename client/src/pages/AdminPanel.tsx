@@ -73,6 +73,15 @@ interface CarouselItem {
   createdById?: number;
 }
 
+interface Event {
+  id: number;
+  title: string;
+  description: string;
+  location: string;
+  date: string;
+  organizerId?: number;
+}
+
 interface AdminStats {
   totalUsers: number;
   totalResources: number;
@@ -83,6 +92,7 @@ interface AdminStats {
   resources: Resource[];
   businesses: Business[];
   carouselItems: CarouselItem[];
+  events: Event[];
 }
 
 async function fetchStats() {
