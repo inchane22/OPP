@@ -12,12 +12,46 @@ export function setupProduction(app: express.Express) {
   // Enable compression for all requests
   app.use(compression());
 
-  // Security headers
+  // Security headers and rate limiting
   app.use((req, res, next) => {
+    // Enhanced security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:");
+    next();
+  });
+
+  // Basic rate limiting
+  const requestCounts = new Map();
+  const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+  const MAX_REQUESTS_PER_WINDOW = 100;
+
+  app.use((req, res, next) => {
+    const ip = req.ip;
+    const now = Date.now();
+    const windowStart = now - WINDOW_MS;
+
+    if (!requestCounts.has(ip)) {
+      requestCounts.set(ip, []);
+    }
+
+    const requests = requestCounts.get(ip);
+    const recentRequests = requests.filter(time => time > windowStart);
+    
+    if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) {
+      return res.status(429).json({
+        error: 'Too many requests, please try again later.',
+        retryAfter: Math.ceil((windowStart + WINDOW_MS - now) / 1000)
+      });
+    }
+
+    recentRequests.push(now);
+    requestCounts.set(ip, recentRequests);
+
     next();
   });
 
@@ -59,7 +93,23 @@ export function setupProduction(app: express.Express) {
 
   // The "catchall" handler: for any request that doesn't
   // match one above, send back React's index.html file.
-  app.get("*", (_req, res) => {
+  // Error handling middleware
+  app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(new Date().toISOString(), 'Error:', {
+      message: err.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
+      path: req.path,
+      method: req.method,
+    });
+
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+    });
+  });
+
+  // Catch-all route handler
+  app.get("*", (req, res) => {
     // Don't cache the index.html file
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -69,8 +119,15 @@ export function setupProduction(app: express.Express) {
     const indexPath = path.join(publicPath, 'index.html');
     res.sendFile(indexPath, (err) => {
       if (err) {
-        console.error('Error sending index.html:', err);
-        res.status(500).send('Error loading application');
+        console.error(new Date().toISOString(), 'Error sending index.html:', {
+          error: err.message,
+          path: req.path,
+          ip: req.ip
+        });
+        res.status(500).json({
+          error: 'Error loading application',
+          message: process.env.NODE_ENV === 'production' ? 'Failed to load application' : err.message
+        });
       }
     });
   });

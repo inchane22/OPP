@@ -72,6 +72,7 @@ export const carousel_items = pgTable("carousel_items", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   embedUrl: text("embed_url").notNull(),
+  description: text("description"),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
