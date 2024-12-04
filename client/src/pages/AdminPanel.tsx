@@ -340,12 +340,32 @@ export default function AdminPanel() {
                             size="sm"
                             onClick={async () => {
                               try {
+                                // Store previous states for rollback
+                                const previousStats = queryClient.getQueryData<AdminStats>(['admin-stats']);
+                                const previousPosts = queryClient.getQueryData<Post[]>(['posts']);
+
+                                // Optimistically update the UI
+                                if (previousStats) {
+                                  queryClient.setQueryData<AdminStats>(['admin-stats'], {
+                                    ...previousStats,
+                                    posts: previousStats.posts.filter((p) => p.id !== post.id)
+                                  });
+                                }
+
+                                if (previousPosts) {
+                                  queryClient.setQueryData<Post[]>(['posts'], 
+                                    previousPosts.filter((p) => p.id !== post.id)
+                                  );
+                                }
+
                                 const response = await fetch(`/api/posts/${post.id}`, {
                                   method: 'DELETE',
                                   credentials: 'include'
                                 });
                                 
-                                if (!response.ok) throw new Error('Failed to delete post');
+                                if (!response.ok) {
+                                  throw new Error('Failed to delete post');
+                                }
 
                                 // Show success toast
                                 toast({
@@ -354,16 +374,25 @@ export default function AdminPanel() {
                                   variant: "default"
                                 });
 
-                                // Invalidate queries to refresh the data
+                                // Invalidate queries to ensure consistency
                                 await Promise.all([
                                   queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
                                   queryClient.invalidateQueries({ queryKey: ['posts'] })
                                 ]);
                               } catch (error) {
                                 console.error('Error deleting post:', error);
+                                
+                                // Restore previous states on error
+                                if (previousStats) {
+                                  queryClient.setQueryData<AdminStats>(['admin-stats'], previousStats);
+                                }
+                                if (previousPosts) {
+                                  queryClient.setQueryData<Post[]>(['posts'], previousPosts);
+                                }
+                                
                                 toast({
                                   title: t('admin.posts.delete_error'),
-                                  description: post.title,
+                                  description: `Failed to delete post: ${post.title}`,
                                   variant: "destructive"
                                 });
                               }

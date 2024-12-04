@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import { createServer } from "http";
 import path from "path";
+import { fileURLToPath } from 'url';
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -68,11 +69,14 @@ app.use((req, res, next) => {
     await setupVite(app, server);
   } else {
     // In production, serve the static files from the dist/public directory
-    app.use(express.static(path.join(__dirname, '../dist/public')));
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const publicPath = path.join(__dirname, '../dist/public');
+    
+    app.use(express.static(publicPath));
     
     // Handle client-side routing by serving index.html for all routes
     app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, '../dist/public/index.html'));
+      res.sendFile(path.join(publicPath, 'index.html'));
     });
   }
 
