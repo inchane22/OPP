@@ -5,6 +5,7 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from 'url';
 import compression from 'compression';
+import cors from 'cors';
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -18,6 +19,30 @@ function log(message: string) {
 }
 
 const app = express();
+
+// Configure CORS
+const corsOptions = {
+  origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+      ? [process.env.PRODUCTION_URL || 'https://orange-pill-peru.com']
+      : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000'];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -87,22 +112,33 @@ app.use((req, res, next) => {
 
   // Use port from environment variable, with different defaults for production/development
   const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 5000));
-  
+  const HOST = '0.0.0.0';
+
   // Enhanced error handling for server startup
   const handleServerError = (error: Error) => {
     if ((error as any).code === 'EADDRINUSE') {
       log(`Error: Port ${PORT} is already in use`);
-      process.exit(1);
-    } else {
-      // Log detailed errors in development, sanitized in production
-      if (process.env.NODE_ENV === 'production') {
-        log(`Critical server error occurred. Check logs for details.`);
-        console.error(error);
-      } else {
-        log(`Server error: ${error.message}`);
-        console.error(error);
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          const newPort = PORT + 1;
+          log(`Attempting to use port ${newPort}`);
+          server.listen(newPort, HOST);
+          return;
+        } catch (retryError) {
+          log(`Failed to bind to alternate port: ${retryError.message}`);
+        }
       }
       process.exit(1);
+    }
+    
+    // Log detailed errors in development, sanitized in production
+    if (process.env.NODE_ENV === 'production') {
+      log(`Critical server error occurred. Check logs for details.`);
+      console.error(error);
+      process.exit(1);
+    } else {
+      log(`Server error: ${error.message}`);
+      console.error(error);
     }
   };
 
