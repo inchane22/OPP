@@ -10,7 +10,7 @@ export function registerRoutes(app: Express) {
   setupAuth(app);
 
   // Posts routes
-  app.get("/api/posts", async (_req, res) => {
+  app.get("/api/posts", async (_req, res): Promise<void> => {
     try {
       let allPosts = await db.select({
         id: posts.id,
@@ -124,9 +124,10 @@ export function registerRoutes(app: Express) {
           authorId: req.user.id,
         })
         .returning();
-      res.json(post);
+      return res.json(post);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create post" });
+      console.error("Failed to create post:", error);
+      return res.status(500).json({ error: "Failed to create post" });
     }
   });
 
@@ -189,9 +190,9 @@ export function registerRoutes(app: Express) {
           organizerId: req.user.id,
         })
         .returning();
-      res.json(event);
+      return res.json(event);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create event" });
+      return res.status(500).json({ error: "Failed to create event" });
     }
   });
 
@@ -210,10 +211,10 @@ export function registerRoutes(app: Express) {
         })
         .where(eq(events.id, parseInt(req.params.id)))
         .returning();
-      res.json(event);
+      return res.json(event);
     } catch (error) {
       console.error("Failed to update event:", error);
-      res.status(500).json({ error: "Failed to update event" });
+      return res.status(500).json({ error: "Failed to update event" });
     }
   });
 
@@ -227,10 +228,10 @@ export function registerRoutes(app: Express) {
       await db
         .delete(events)
         .where(eq(events.id, parseInt(req.params.id)));
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete event:", error);
-      res.status(500).json({ error: "Failed to delete event" });
+      return res.status(500).json({ error: "Failed to delete event" });
     }
   });
 
@@ -314,9 +315,9 @@ export function registerRoutes(app: Express) {
           authorId: req.user.id,
         })
         .returning();
-      res.json(resource);
+      return res.json(resource);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create resource" });
+      return res.status(500).json({ error: "Failed to create resource" });
     }
   });
 
@@ -461,10 +462,10 @@ export function registerRoutes(app: Express) {
         events: eventsData
       };
 
-      res.json(stats);
+      return res.json(stats);
     } catch (error) {
       console.error("Failed to fetch admin stats:", error);
-      res.status(500).json({ error: "Failed to fetch admin stats" });
+      return res.status(500).json({ error: "Failed to fetch admin stats" });
     }
   });
   // Admin delete post endpoint
@@ -477,10 +478,10 @@ export function registerRoutes(app: Express) {
       await db
         .delete(posts)
         .where(eq(posts.id, parseInt(req.params.id)));
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete post:", error);
-      res.status(500).json({ error: "Failed to delete post" });
+      return res.status(500).json({ error: "Failed to delete post" });
     }
   });
 
@@ -496,10 +497,10 @@ export function registerRoutes(app: Express) {
         .set({ approved: true })
         .where(eq(resources.id, parseInt(req.params.id)))
         .returning();
-      res.json(resource);
+      return res.json(resource);
     } catch (error) {
       console.error("Failed to approve resource:", error);
-      res.status(500).json({ error: "Failed to approve resource" });
+      return res.status(500).json({ error: "Failed to approve resource" });
     }
   });
 
@@ -513,10 +514,10 @@ export function registerRoutes(app: Express) {
       await db
         .delete(resources)
         .where(eq(resources.id, parseInt(req.params.id)));
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete resource:", error);
-      res.status(500).json({ error: "Failed to delete resource" });
+      return res.status(500).json({ error: "Failed to delete resource" });
     }
   });
 
@@ -537,14 +538,14 @@ export function registerRoutes(app: Express) {
         .set({ language })
         .where(eq(users.id, req.user.id));
       
-      res.json({ message: "Language updated successfully" });
+      return res.json({ message: "Language updated successfully" });
     } catch (error) {
-      res.status(500).send("Failed to update language preference");
+      return res.status(500).send("Failed to update language preference");
     }
   });
 
   // Businesses routes
-  app.get("/api/businesses", async (req, res) => {
+  app.get("/api/businesses", async (_req, res) => {
     try {
       let allBusinesses = await db
         .select()
@@ -671,10 +672,10 @@ export function registerRoutes(app: Express) {
       await db
         .delete(carousel_items)
         .where(eq(carousel_items.id, parseInt(req.params.id)));
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete carousel item:", error);
-      res.status(500).json({ error: "Failed to delete carousel item" });
+      return res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
 }

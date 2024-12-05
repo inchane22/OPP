@@ -1,5 +1,5 @@
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
-import { insertResourceSchema, type InsertResource, type Resource } from "@db/schema";
-import { zodResolver } from "@hookform/resolvers/zod";
+import type { Resource, CreateResourceInput } from "../types/resources";
+// Removed unused import
 import { Book, Link as LinkIcon, Video, Loader2 } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
@@ -39,8 +39,7 @@ export default function ResourcesPage() {
     queryFn: () => fetch("/api/resources").then(res => res.json())
   });
 
-  const form = useForm<InsertResource>({
-    resolver: zodResolver(insertResourceSchema),
+  const form = useForm<CreateResourceInput>({
     defaultValues: {
       title: "",
       description: "",
@@ -52,7 +51,7 @@ export default function ResourcesPage() {
   });
 
   const createResource = useMutation({
-    mutationFn: (data: InsertResource) =>
+    mutationFn: (data: CreateResourceInput) =>
       fetch("/api/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

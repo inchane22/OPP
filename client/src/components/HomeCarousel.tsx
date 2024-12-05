@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -15,7 +15,7 @@ interface CarouselItem {
 }
 
 export default function HomeCarousel() {
-  const { t } = useLanguage();
+  const { t: _ } = useLanguage(); // We'll keep the import but ignore the variable for now
   
   function getEmbedUrl(url: string): string {
     try {
@@ -100,7 +100,7 @@ export default function HomeCarousel() {
               delay: 5000,
               stopOnInteraction: false,
               stopOnMouseEnter: true,
-            }) as any
+            }) as unknown as CarouselApi
           ]}
         >
           <CarouselContent>
