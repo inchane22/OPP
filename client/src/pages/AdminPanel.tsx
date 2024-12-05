@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { Link } from "wouter";
 import { useUser } from "../hooks/use-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -81,13 +81,81 @@ export default function AdminPanel() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
-  // Redirect if not admin
+  // Show loading state when transitions are pending
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      window.location.href = '/';
+    if (isPending) {
+      toast({
+        title: "Loading...",
+        description: "Please wait while we process your request",
+        variant: "default"
+      });
     }
-  }, [user]);
+  }, [isPending, toast]);
+
+  // Display loading indicator for pending operations
+  if (isPending) {
+    return <div className="flex items-center justify-center p-4">Loading...</div>;
+  }
+
+  // Enhanced authentication check with proper error handling
+  useEffect(() => {
+    let isSubscribed = true;
+
+    const checkAndRedirect = async () => {
+      if (!isSubscribed) return;
+
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access the admin panel",
+          variant: "destructive"
+        });
+        window.location.href = '/auth?redirect=/admin';
+        return;
+      }
+
+      if (user.role !== 'admin') {
+        toast({
+          title: "Access Denied",
+          description: "This page is only accessible to administrators",
+          variant: "destructive"
+        });
+        window.location.href = '/';
+        return;
+      }
+    };
+
+    checkAndRedirect();
+    return () => {
+      isSubscribed = false;
+    };
+  }, [user, toast]);
+
+  // Early return with loading state
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="text-lg">Checking authentication...</div>
+          <div className="text-sm text-muted-foreground">Please wait</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return for non-admin users
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="text-lg text-destructive">Access Denied</div>
+          <div className="text-sm text-muted-foreground">You don't have permission to view this page</div>
+        </div>
+      </div>
+    );
+  }
 
   const { data: stats } = useQuery<AdminStats>({
     queryKey: ['admin-stats'],
@@ -571,12 +639,16 @@ export default function AdminPanel() {
                                     posts: previousStats.posts.filter((p) => p.id !== post.id),
                                     totalPosts: Math.max(0, previousStats.totalPosts - 1)
                                   };
+                                  startTransition(() => {
                                   queryClient.setQueryData(['admin-stats'], updatedStats);
+                                });
                                 }
 
                                 if (previousPosts && Array.isArray(previousPosts)) {
                                   const updatedPosts = previousPosts.filter((p) => p.id !== post.id);
+                                  startTransition(() => {
                                   queryClient.setQueryData(['posts'], updatedPosts);
+                                });
                                 }
 
                                 const response = await fetch(`/api/posts/${post.id}`, {

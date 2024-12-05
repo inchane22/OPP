@@ -334,11 +334,31 @@ export async function setupProduction(app: express.Express) {
     fallthrough: false
   }));
 
-  // Error handling middleware
+  // Enhanced error handling middleware with authentication support
   app.use((error: Error | DatabaseError, request: Request, response: Response, _next: (err?: any) => void) => {
     const requestId = request.headers['x-request-id'] || crypto.randomUUID();
     
     errorLogger(error, request);
+
+    // Handle authentication errors
+    if (error instanceof Error && error.message.includes('Authentication')) {
+      return response.status(401).json({
+        error: 'Authentication Required',
+        message: 'Please log in to access this resource',
+        requestId,
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    // Handle authorization errors
+    if (error instanceof Error && error.message.includes('Authorization')) {
+      return response.status(403).json({
+        error: 'Access Denied',
+        message: 'You do not have permission to access this resource',
+        requestId,
+        code: 'ACCESS_DENIED'
+      });
+    }
 
     if ('code' in error) {
       const dbErrors: Record<string, { status: number; message: string }> = {
@@ -402,33 +422,79 @@ export async function setupProduction(app: express.Express) {
     });
   });
 
-  // Request timeout middleware
-  app.use((_request: Request, response: Response, next: () => void) => {
-    response.setTimeout(30000, () => {
-      response.status(408).json({ error: 'Request timeout' });
-    });
-    next();
-  });
+  // Request timeout middleware with enhanced logging
+  app.use((req: Request, res: Response, next: () => void) => {
+    // Log incoming request for timeout tracking
+    const startTime = Date.now();
+    const requestPath = req.path;
+    const requestMethod = req.method;
+    const requestIP = req.ip;
+
+    // Set request timeout
     res.setTimeout(30000, () => {
-      res.status(408).json({ error: 'Request timeout' });
+      const duration = Date.now() - startTime;
+      logger('Request timeout', {
+        method: requestMethod,
+        path: requestPath,
+        duration: duration,
+        ip: requestIP,
+        headers: req.headers
+      });
+      res.status(408).json({ 
+        error: 'Request timeout',
+        message: `The request to ${requestPath} exceeded 30 seconds`,
+        duration: `${duration}ms`
+      });
     });
     next();
   });
 
-  // Database health check
+  // Database health check with detailed diagnostics
   app.get('/api/health', async (req, res) => {
+    const startTime = Date.now();
     try {
       const client = await pool.connect();
       try {
         await client.query('SELECT 1');
-        logger('Database health check passed');
-        res.json({ status: 'healthy', database: 'connected' });
+        const responseTime = Date.now() - startTime;
+        
+        logger('Database health check passed', {
+          responseTime,
+          poolStats: {
+            totalConnections: pool.totalCount,
+            idleConnections: pool.idleCount,
+            waitingRequests: pool.waitingCount
+          }
+        });
+        
+        res.json({
+          status: 'healthy',
+          database: 'connected',
+          diagnostics: {
+            responseTime: `${responseTime}ms`,
+            timestamp: new Date().toISOString(),
+            connections: {
+              total: pool.totalCount,
+              idle: pool.idleCount,
+              waiting: pool.waitingCount
+            }
+          }
+        });
       } finally {
         client.release();
       }
     } catch (error) {
+      const responseTime = Date.now() - startTime;
       errorLogger(error as Error, req);
-      res.status(503).json({ status: 'unhealthy', database: 'disconnected' });
+      res.status(503).json({ 
+        status: 'unhealthy', 
+        database: 'disconnected',
+        error: process.env.NODE_ENV === 'production' ? 'Database connection failed' : (error as Error).message,
+        diagnostics: {
+          responseTime: `${responseTime}ms`,
+          timestamp: new Date().toISOString()
+        }
+      });
     }
   });
-}
+};
