@@ -1,15 +1,15 @@
-import express from "express";
-import path from "path";
-import compression from "compression";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
+import express, { Response, Request } from 'express';
 import * as path from 'path';
-import express, { Response, Request, NextFunction } from 'express';
+import compression from 'compression';
+import cors from 'cors';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
-import compression from 'compression';
-import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import { Pool } from 'pg';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
+import * as fs from 'fs';
+import { setupAuth } from "./auth";
 
 // Custom type declarations
 declare global {
@@ -20,6 +20,28 @@ declare global {
     }
   }
 }
+
+// Database types
+interface DatabaseError extends Error {
+  code?: string;
+  column?: string;
+  constraint?: string;
+  detail?: string;
+  schema?: string;
+  table?: string;
+}
+
+type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
+  _startTime?: number;
+};
+
+type CustomResponse = Response & {
+  end: {
+    (cb?: (() => void)): Response;
+    (chunk: any, cb?: (() => void)): Response;
+    (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
+  };
+};
 
 // Environment validation
 function validateEnvironment() {
@@ -40,17 +62,12 @@ function validateEnvironment() {
 // Validate environment variables immediately
 validateEnvironment();
 
-type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
-  _startTime?: number;
-};
-
-type CustomResponse = Response & {
-  end: {
-    (cb?: (() => void)): Response;
-    (chunk: any, cb?: (() => void)): Response;
-    (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
-  };
-};
+// Constants
+const MAX_POOL_SIZE = 20;
+const IDLE_TIMEOUT_MS = 30000;
+const CONNECTION_TIMEOUT_MS = 5000;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_REQUESTS_PER_WINDOW = 100;
 
 // Logger function
 function logger(message: string, data: Record<string, any> = {}) {
@@ -63,13 +80,15 @@ function logger(message: string, data: Record<string, any> = {}) {
 }
 
 // Error logger
-function errorLogger(error: Error, req: CustomRequest) {
+function errorLogger(error: Error | DatabaseError, req: Request) {
   console.error(JSON.stringify({
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     error: {
       message: error.message,
       stack: process.env.NODE_ENV === 'production' ? undefined : error.stack,
+      ...(('code' in error) && { code: error.code }),
+      ...(('detail' in error) && { detail: error.detail }),
     },
     request: {
       method: req.method,
@@ -79,42 +98,15 @@ function errorLogger(error: Error, req: CustomRequest) {
     },
   }));
 }
-import { setupAuth } from "./auth";
-import * as fs from 'fs';
-import rateLimit from 'express-rate-limit';
-import cors from 'cors';
-import helmet from 'helmet';
-import { Pool } from 'pg';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Database types
-interface DatabaseError extends Error {
-  code?: string;
-  column?: string;
-  constraint?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-}
-
-// Database connection configuration
-const MAX_POOL_SIZE = 20;
-const IDLE_TIMEOUT_MS = 30000;
-const CONNECTION_TIMEOUT_MS = 5000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-
-// Initialize connection pool with enhanced error handling and retries
+// Initialize connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: MAX_POOL_SIZE,
   idleTimeoutMillis: IDLE_TIMEOUT_MS,
   connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
-  // Add SSL if in production
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-  }).on('error', (err: DatabaseError) => {
+}).on('error', (err: DatabaseError) => {
   logger('Unexpected database error', {
     code: err.code,
     detail: err.detail,
@@ -122,20 +114,16 @@ const pool = new Pool({
     message: err.message,
     timestamp: new Date().toISOString()
   });
-}).on('connect', () => {
-  logger('New database connection established');
-}).on('remove', () => {
-  logger('Database connection removed from pool');
 });
 
-// Monitor pool health
+// Monitor pool health - Retained from original code for pool health monitoring
 setInterval(() => {
   logger('Database pool status', {
     totalCount: pool.totalCount,
     idleCount: pool.idleCount,
     waitingCount: pool.waitingCount
   });
-}, 60000); // Log every minute
+}, 60000);
 
 export async function setupProduction(app: express.Express) {
   // Validate environment before setup
@@ -157,11 +145,9 @@ export async function setupProduction(app: express.Express) {
     logger('Received shutdown signal');
     
     try {
-      // Close database pool
       await pool.end();
       logger('Database pool closed');
       
-      // Allow ongoing requests to complete (wait max 10s)
       const shutdownDelay = setTimeout(() => {
         logger('Forced shutdown after timeout');
         process.exit(1);
@@ -178,37 +164,21 @@ export async function setupProduction(app: express.Express) {
   // Register shutdown handlers
   process.on('SIGTERM', gracefulShutdown);
   process.on('SIGINT', gracefulShutdown);
+
   // Enhanced compression with proper filtering
   app.use(compression({
     filter: (req, res) => {
-      // Don't compress already compressed formats
       if (req.path.match(/\.(jpg|jpeg|png|gif|zip|gz|br|webp|mp4|webm)$/i)) {
         return false;
       }
-      // Use compression for all other responses
       return compression.filter(req, res);
     },
-    level: 6, // Balanced compression level
-    threshold: 1024 // Only compress responses above 1KB
+    level: 6,
+    threshold: 1024
   }));
-
-  // Error boundary for compression errors
-  app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (err.message.includes('compression')) {
-      logger('Compression error', { 
-        path: req.path,
-        error: err.message
-      });
-      // Continue without compression
-      next();
-    } else {
-      next(err);
-    }
-  });
 
   // Request logging middleware
   app.use((req: CustomRequest, res: CustomResponse, next) => {
-    // Set start time
     req._startTime = Date.now();
     
     logger('Incoming request', {
@@ -218,7 +188,6 @@ export async function setupProduction(app: express.Express) {
       userAgent: req.get('user-agent')
     });
     
-    // Capture response data
     const originalEnd = res.end.bind(res);
     
     const endHandler = function(
@@ -242,15 +211,14 @@ export async function setupProduction(app: express.Express) {
         return originalEnd(chunk, cb);
       }
       
-      return originalEnd(chunk, encoding as BufferEncoding, cb);
+      return originalEnd(chunk, encoding, cb);
     };
 
     res.end = endHandler as CustomResponse['end'];
-    
     next();
   });
 
-  // Enhanced security headers
+  // Security headers
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -264,7 +232,7 @@ export async function setupProduction(app: express.Express) {
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         formAction: ["'self'"],
-        upgradeInsecureRequests: [],
+        upgradeInsecureRequests: [], //Retained from original for enhanced security
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -282,10 +250,10 @@ export async function setupProduction(app: express.Express) {
     permittedCrossDomainPolicies: { permittedPolicies: "none" },
   }));
 
-  // Add request ID middleware
-  app.use((req, res, next) => {
-    req.id = req.headers['x-request-id'] || crypto.randomUUID();
-    res.setHeader('X-Request-ID', req.id);
+  // Request ID middleware
+  app.use((req: Request, res: Response, next) => {
+    const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-ID', requestId);
     next();
   });
 
@@ -295,22 +263,158 @@ export async function setupProduction(app: express.Express) {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
-    maxAge: 86400, // 24 hours
+    maxAge: 86400,
   }));
 
-  // API rate limiting
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+  // Unified rate limiting for all routes
+  const limiter = rateLimit({
+    windowMs: WINDOW_MS,
+    max: MAX_REQUESTS_PER_WINDOW,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req: Request) => req.ip || req.socket.remoteAddress || 'unknown',
+    handler: (_req: Request, res: Response) => {
+      const retryAfter = Math.ceil(WINDOW_MS / 1000);
+      res.status(429).json({
+        error: 'Too many requests, please try again later.',
+        retryAfter
+      });
+    }
   });
 
-  // Apply rate limiting to API routes
-  app.use('/api/', apiLimiter);
+  app.use(limiter);
 
-  // Database health check
+
+  // Set up authentication
+  setupAuth(app);
+
+  // Serve static files
+  const publicPath = path.join(__dirname, '../dist/public');
+  
+  try {
+    if (!fs.existsSync(publicPath)) {
+      console.error(`Public directory not found at ${publicPath}`);
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('Error checking public directory:', error);
+    process.exit(1);
+  }
+
+  // Static files middleware
+  app.use(express.static(publicPath, {
+    setHeaders: (res, filePath) => {
+      // Security headers - Retained most of the original security headers.
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      
+      // Cache control based on file type
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        if (filePath.match(/\.(js|css)$/)) {
+          res.setHeader('Link', `<${filePath}>; rel=preload; as=${filePath.endsWith('.js') ? 'script' : 'style'}`);
+        }
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      }
+
+      if (filePath.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
+      }
+    },
+    etag: true,
+    lastModified: true,
+    index: false,
+    maxAge: '1y',
+    immutable: true,
+    fallthrough: false
+  }));
+
+  // Error handling middleware
+  app.use((err: Error | DatabaseError, req: Request, res: Response) => {
+    const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+    
+    errorLogger(err, req);
+
+    if ('code' in err) {
+      const dbErrors: Record<string, { status: number; message: string }> = {
+        'ECONNREFUSED': { status: 503, message: 'Database service unavailable' },
+        'ETIMEDOUT': { status: 504, message: 'Database connection timeout' },
+        '23505': { status: 409, message: 'Resource already exists' },
+        '23503': { status: 400, message: 'Invalid reference' },
+        '23502': { status: 400, message: 'Required field missing' },
+        '42P01': { status: 500, message: 'Database schema error' }, //Retained from original
+        '28P01': { status: 500, message: 'Database authentication failed' } //Retained from original
+      };
+
+      const errorInfo = dbErrors[err.code as string] || { status: 500, message: 'Database error' };
+      
+      return res.status(errorInfo.status).json({
+        error: errorInfo.message,
+        requestId,
+        ...(process.env.NODE_ENV !== 'production' && { detail: err.detail })
+      });
+    }
+
+    if (err instanceof URIError) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid URL',
+        requestId
+      });
+    }
+
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: process.env.NODE_ENV === 'production' ? 
+        'An unexpected error occurred' : 
+        err.message,
+      requestId,
+      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+    });
+  });
+
+  // Catch-all route
+  app.get("*", (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    const indexPath = path.join(publicPath, 'index.html');
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        logger('Error sending index.html', {
+          error: err.message,
+          path: req.path,
+          ip: req.ip
+        });
+        res.status(500).json({
+          error: 'Error loading application',
+          message: process.env.NODE_ENV === 'production' ? 
+            'Failed to load application' : 
+            err.message
+        });
+      }
+    });
+  });
+  // Rate limiting memory cleanup is now handled by express-rate-limit
+
+  // Request timeout middleware - Retained from original
+  app.use((req, res, next) => {
+    req.setTimeout(30000, () => {
+      res.status(408).json({ error: 'Request timeout' });
+    });
+    next();
+  });
+
+    // Database health check - Retained from original
   app.get('/api/health', async (req, res) => {
     try {
       const client = await pool.connect();
@@ -327,229 +431,5 @@ export async function setupProduction(app: express.Express) {
     }
   });
 
-  // Monitor database pool
-  pool.on('error', (err: Error) => {
-    logger('Unexpected database error', { error: err.message });
-  });
-
-  // Basic rate limiting
-  const requestCounts = new Map();
-  const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-  const MAX_REQUESTS_PER_WINDOW = 100;
-
-  app.use((req, res, next) => {
-    const ip = req.ip;
-    const now = Date.now();
-    const windowStart = now - WINDOW_MS;
-
-    if (!requestCounts.has(ip)) {
-      requestCounts.set(ip, []);
-    }
-
-    const requests = requestCounts.get(ip);
-    const recentRequests = requests.filter((time: number) => time > windowStart);
-    
-    if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) {
-      return res.status(429).json({
-        error: 'Too many requests, please try again later.',
-        retryAfter: Math.ceil((windowStart + WINDOW_MS - now) / 1000)
-      });
-    }
-
-    recentRequests.push(now);
-    requestCounts.set(ip, recentRequests);
-
-    return next();
-  });
-
-  // Set up authentication
-  setupAuth(app);
-
-  // Serve static files from the React app with proper caching
-  const publicPath = path.join(__dirname, '../dist/public');
-  
-  // Verify the public directory exists
-  try {
-    if (!fs.existsSync(publicPath)) {
-      console.error(`Public directory not found at ${publicPath}`);
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error('Error checking public directory:', error);
-    process.exit(1);
-  }
-
-  // Memory leak prevention - clear expired sessions periodically
-  const clearExpiredSessions = () => {
-    const now = Date.now();
-    requestCounts.forEach((times, ip) => {
-      const validTimes = times.filter((time: number) => time > now - WINDOW_MS);
-      if (validTimes.length === 0) {
-        requestCounts.delete(ip);
-      } else {
-        requestCounts.set(ip, validTimes);
-      }
-    });
-  };
-  setInterval(clearExpiredSessions, 60000); // Run every minute
-
-  // Enhanced static file serving with proper cache control
-  app.use((req, res, next) => {
-    // Add security headers for all responses
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    next();
-  });
-
-  // Request timeout middleware
-  app.use((req, res, next) => {
-    // Set timeout to 30 seconds
-    req.setTimeout(30000, () => {
-      res.status(408).json({ error: 'Request timeout' });
-    });
-    next();
-  });
-
-  // Static files middleware with enhanced security and optimization
-  app.use(express.static(publicPath, {
-    setHeaders: (res, path) => {
-      // Set security headers
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('X-XSS-Protection', '1; mode=block');
-      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-      
-      // Set cache control based on file type
-      if (path.endsWith('.html')) {
-        // HTML files - no cache
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-      } else if (path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
-        // Static assets - cache for 1 year with immutable
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        // Add preload hints for critical assets
-        if (path.match(/\.(js|css)$/)) {
-          res.setHeader('Link', `<${path}>; rel=preload; as=${path.endsWith('.js') ? 'script' : 'style'}`);
-        }
-      } else {
-        // Other static files - cache for 1 day
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-      }
-
-      // Set content type for WebAssembly files
-      if (path.endsWith('.wasm')) {
-        res.setHeader('Content-Type', 'application/wasm');
-      }
-    },
-    etag: true,
-    lastModified: true,
-    index: false,
-    maxAge: '1y',
-    immutable: true,
-    fallthrough: false // Return 404 for missing files
-  }));
-
-  // API routes should be handled before the catch-all
-  app.use('/api', (req, _res, next) => {
-    if (!req.path.startsWith('/api')) {
-      return next();
-    }
-    // Let the API routes handle their own responses
-    next();
-  });
-
-  // The "catchall" handler: for any request that doesn't
-  // match one above, send back React's index.html file.
-  // Enhanced error handling middleware with structured logging
-  app.use((err: Error | DatabaseError | NodeJS.ErrnoException, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    const errorContext = {
-      path: req.path,
-      method: req.method,
-      query: req.query,
-      timestamp: new Date().toISOString(),
-      requestId: req.headers['x-request-id'] || crypto.randomUUID()
-    };
-
-    errorLogger(err, req);
-
-    // Database connection errors with detailed handling
-    if ('code' in err) {
-      const dbErrorMapping: Record<string, { status: number; message: string }> = {
-        'ECONNREFUSED': { status: 503, message: 'Database service temporarily unavailable' },
-        'ETIMEDOUT': { status: 504, message: 'Database connection timeout' },
-        '23505': { status: 409, message: 'Resource already exists' },
-        '23503': { status: 400, message: 'Invalid reference to related resource' },
-        '23502': { status: 400, message: 'Required field is missing' },
-        '42P01': { status: 500, message: 'Database schema error' },
-        '28P01': { status: 500, message: 'Database authentication failed' }
-      };
-
-      const errorInfo = dbErrorMapping[err.code] || { status: 500, message: 'Database error occurred' };
-      
-      logger('Database error details', {
-        ...errorContext,
-        errorCode: err.code,
-        errorDetail: err.detail,
-        errorTable: err.table,
-        errorSchema: err.schema
-      });
-
-      return res.status(errorInfo.status).json({
-        error: errorInfo.message,
-        requestId: errorContext.requestId,
-        ...(process.env.NODE_ENV !== 'production' && { detail: err.detail })
-      });
-    }
-
-    // URI parsing errors
-    if (err instanceof URIError) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'Invalid request URL'
-      });
-    }
-
-    // Authentication errors
-    if (err instanceof Error && err.message.toLowerCase().includes('unauthorized')) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authentication required'
-      });
-    }
-
-    // Default error response
-    return res.status(500).json({
-      error: 'Internal Server Error',
-      message: process.env.NODE_ENV === 'production' ? 
-        'An unexpected error occurred' : 
-        err.message,
-      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-    });
-  });
-
-  // Catch-all route handler
-  app.get("*", (req, res) => {
-    // Don't cache the index.html file
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    // Use an absolute path to ensure correct file serving
-    const indexPath = path.join(publicPath, 'index.html');
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        console.error(new Date().toISOString(), 'Error sending index.html:', {
-          error: err.message,
-          path: req.path,
-          ip: req.ip
-        });
-        res.status(500).json({
-          error: 'Error loading application',
-          message: process.env.NODE_ENV === 'production' ? 'Failed to load application' : err.message
-        });
-      }
-    });
-  });
+  // Security headers are now handled by helmet middleware above
 }
