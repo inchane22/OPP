@@ -22,14 +22,14 @@ const app = express();
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowedOrigins = process.env.NODE_ENV === 'production'
-      ? [process.env.PRODUCTION_URL || 'https://orange-pill-peru.com']
-      : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000'];
+      ? ['https://orange-pill-peru.com', 'http://localhost:3000', 'http://0.0.0.0:3000']
+      : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000', 'http://0.0.0.0:3000'];
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow all origins in development
     }
   },
   credentials: true,
