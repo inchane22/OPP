@@ -165,14 +165,23 @@ app.use((req, res, next) => {
   try {
     const startServer = () => {
       return new Promise((resolve, reject) => {
-        server.listen(PORT, "0.0.0.0", () => {
-          log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-          log(`Server address: http://0.0.0.0:${PORT}`);
+        const serverInstance = server.listen(PORT, "0.0.0.0", () => {
+          const address = serverInstance.address();
+          const actualPort = typeof address === 'object' && address ? address.port : PORT;
+          log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${actualPort}`);
+          log(`Server address: http://0.0.0.0:${actualPort}`);
           resolve(true);
-        }).on('error', (err: NodeJS.ErrnoException) => {
+        });
+
+        serverInstance.on('error', (err: NodeJS.ErrnoException) => {
           if (err.code === 'EADDRINUSE') {
             log(`Port ${PORT} is in use, attempting to use port ${PORT + 1}`);
-            server.listen(PORT + 1, "0.0.0.0");
+            const retryServer = server.listen(PORT + 1, "0.0.0.0", () => {
+              const retryAddress = retryServer.address();
+              const retryPort = typeof retryAddress === 'object' && retryAddress ? retryAddress.port : PORT + 1;
+              log(`Server successfully started on alternate port ${retryPort}`);
+              resolve(true);
+            });
           } else {
             reject(err);
           }

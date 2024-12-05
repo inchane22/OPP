@@ -7,12 +7,11 @@ import type { ParsedQs } from 'qs';
 import helmet from 'helmet';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import pkg from 'pg';
-const { Pool } = pkg;
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
+import { Pool, type PoolConfig, type PoolClient } from 'pg';
 
-// Type declarations from pg
+// Type declarations
 interface DatabaseError extends Error {
   code?: string;
   column?: string;
@@ -22,43 +21,31 @@ interface DatabaseError extends Error {
   table?: string;
 }
 
-type PoolConfig = pkg.PoolConfig;
-type PoolClient = pkg.PoolClient;
-
-// Database error interface for enhanced error handling
 interface DatabaseConnError extends DatabaseError {
   code?: string;
   detail?: string;
   table?: string;
 }
 
-// Constants
-const MAX_POOL_SIZE = 20;
-const IDLE_TIMEOUT_MS = 30000;
-const CONNECTION_TIMEOUT_MS = 5000;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS_PER_WINDOW = 100;
+// Constants for database configuration
+const DB_CONFIG = {
+  MAX_POOL_SIZE: 20,
+  IDLE_TIMEOUT_MS: 30000,
+  CONNECTION_TIMEOUT_MS: 5000
+} as const;
 
-// Database error interface for enhanced error handling
-interface DatabaseConnError extends DatabaseError {
-  code?: string;
-  detail?: string;
-  table?: string;
-}
-
-// Constants
-const MAX_POOL_SIZE = 20;
-const IDLE_TIMEOUT_MS = 30000;
-const CONNECTION_TIMEOUT_MS = 5000;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS_PER_WINDOW = 100;
+// Constants for rate limiting
+const RATE_LIMIT = {
+  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+  MAX_REQUESTS_PER_WINDOW: 100
+} as const;
 
 // Type-safe pool configuration
 const poolConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL!,
-  max: MAX_POOL_SIZE,
-  idleTimeoutMillis: IDLE_TIMEOUT_MS,
-  connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+  max: DB_CONFIG.MAX_POOL_SIZE,
+  idleTimeoutMillis: DB_CONFIG.IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: DB_CONFIG.CONNECTION_TIMEOUT_MS,
   ...(process.env.NODE_ENV === 'production' ? {
     ssl: { rejectUnauthorized: false }
   } : {})
@@ -103,6 +90,14 @@ class DatabasePool {
   private static retryCount = 0;
   private static readonly MAX_RETRIES = 5;
   private static readonly RETRY_DELAY = 5000;
+  private static pg: typeof import('pg') | null = null;
+
+  private static async loadPg(): Promise<typeof import('pg')> {
+    if (!DatabasePool.pg) {
+      DatabasePool.pg = await import('pg');
+    }
+    return DatabasePool.pg;
+  }
 
   private static async setupPoolEventHandlers(pool: Pool): Promise<void> {
     pool.on('error', (err: Error & { code?: string; detail?: string; table?: string }) => {
@@ -146,6 +141,7 @@ class DatabasePool {
 
       const connect = async (): Promise<Pool> => {
         try {
+          const { Pool } = await DatabasePool.loadPg();
           const pool = new Pool(poolConfig);
           await DatabasePool.setupPoolEventHandlers(pool);
           DatabasePool.retryCount = 0;
@@ -254,7 +250,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize pool for the application
   let pool: Pool;
   try {
+    // Initialize database pool
     pool = await DatabasePool.getInstance();
+    
+    // Verify database connection
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      logger('Database connection verified');
+    } finally {
+      client.release();
+    }
     
     // Monitor pool health
     const monitorInterval = setInterval(() => {
@@ -267,8 +273,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
     }, 60000);
 
     // Clean up interval on process exit
-    process.on('SIGTERM', () => clearInterval(monitorInterval));
-    process.on('SIGINT', () => clearInterval(monitorInterval));
+    process.on('SIGTERM', () => {
+      clearInterval(monitorInterval);
+      DatabasePool.end();
+    });
+    process.on('SIGINT', () => {
+      clearInterval(monitorInterval);
+      DatabasePool.end();
+    });
   } catch (error) {
     logger('Failed to initialize database pool', {
       error: (error as Error).message,
@@ -277,14 +289,20 @@ export async function setupProduction(app: express.Express): Promise<void> {
     throw error;
   }
   // Validate environment and port configuration
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT || 3000);
   
   // Enhanced environment validation
   validateEnvironment();
 
+  // Ensure port is a valid number
+  if (isNaN(PORT) || PORT <= 0) {
+    throw new Error(`Invalid port configuration: ${process.env.PORT}`);
+  }
+
   logger('Starting production server', {
     port: PORT,
     nodeEnv: process.env.NODE_ENV,
+    host: '0.0.0.0',
     timestamp: new Date().toISOString()
   });
 
@@ -441,14 +459,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Unified rate limiting for all routes
   const limiter = rateLimit({
-    windowMs: WINDOW_MS,
-    max: MAX_REQUESTS_PER_WINDOW,
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    max: RATE_LIMIT.MAX_REQUESTS_PER_WINDOW,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => req.ip || req.socket.remoteAddress || 'unknown',
     handler: (_req: Request, res: Response) => {
-      const retryAfter = Math.ceil(WINDOW_MS / 1000);
+      const retryAfter = Math.ceil(RATE_LIMIT.WINDOW_MS / 1000);
       res.status(429).json({
         error: 'Too many requests, please try again later.',
         retryAfter
