@@ -129,15 +129,29 @@ export async function setupProduction(app: express.Express) {
   // Validate environment before setup
   validateEnvironment();
 
-  // Initialize error handlers for uncaught exceptions
+  // Enhanced error handlers for uncaught exceptions with graceful shutdown
   process.on('uncaughtException', (error) => {
-    logger('Uncaught Exception', { error: error.message, stack: error.stack });
-    process.exit(1);
+    logger('Uncaught Exception', { 
+      error: error.message, 
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    // Attempt graceful shutdown
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000).unref();
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger('Unhandled Rejection', { reason, promise });
-    process.exit(1);
+    logger('Unhandled Rejection', { 
+      reason, 
+      promise,
+      timestamp: new Date().toISOString()
+    });
+    // Attempt graceful shutdown
+    setTimeout(() => {
+      process.exit(1);
+    }, 1000).unref();
   });
 
   // Graceful shutdown handler

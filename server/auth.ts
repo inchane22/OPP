@@ -1,6 +1,6 @@
 import passport from "passport";
 import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
-import { type Express } from "express";
+import { type Express, type Request, type Response } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -41,20 +41,24 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
-  // Setup session store with memory store
+  // Enhanced session store with better security settings
   const MemoryStore = createMemoryStore(session);
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID || "orange-pill-peru-secret",
-    resave: true,
-    saveUninitialized: true,
+    secret: process.env.SESSION_SECRET || process.env.REPL_ID || "orange-pill-peru-secret",
+    resave: false,
+    saveUninitialized: false,
+    name: 'sessionId',
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: "lax",
+      sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
-      httpOnly: true
+      httpOnly: true,
+      path: '/'
     },
     store: new MemoryStore({
       checkPeriod: 86400000, // Prune expired entries every 24h
+      ttl: 24 * 60 * 60, // Match cookie maxAge
+      stale: false
     }),
   };
 
@@ -181,33 +185,52 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
-      if (err) {
-        return next(err);
-      }
-
-      if (!user) {
-        return res.status(400).json({ error: info.message ?? "Error al iniciar sesión" });
-      }
-
-      req.login(user, (err) => {
-        if (err) {
-          return next(err);
-        }
-
-        return res.json({
-          message: "Inicio de sesión exitoso",
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            language: user.language,
-            role: user.role
-          },
+  app.post("/api/login", async (req, res, next) => {
+    try {
+      const authenticate = (req: Request, res: Response): Promise<Express.User> =>
+        new Promise((resolve, reject) => {
+          passport.authenticate("local", { session: true }, (err: any, user: Express.User, info: IVerifyOptions) => {
+            if (err) return reject(err);
+            if (!user) return reject(new Error(info?.message || "Authentication failed"));
+            resolve(user);
+          })(req, res, next);
         });
+
+      const loginUser = (req: Request, user: Express.User): Promise<void> =>
+        new Promise((resolve, reject) => {
+          req.login(user, (err: Error | null) => {
+            if (err) return reject(err);
+            resolve();
+          });
+        });
+
+      const user = await authenticate(req, res);
+      await loginUser(req, user);
+
+      // Set security headers
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+
+      return res.json({
+        message: "Inicio de sesión exitoso",
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          language: user.language,
+          role: user.role
+        },
       });
-    })(req, res, next);
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(401).json({ 
+        error: "Error al iniciar sesión",
+        message: process.env.NODE_ENV === 'production' 
+          ? "Credenciales inválidas" 
+          : (error as Error).message
+      });
+    }
   });
 
   app.post("/api/logout", (req, res): Promise<void> => {

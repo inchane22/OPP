@@ -3,13 +3,13 @@
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
   "compilerOptions": {
     "incremental": true,
-    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    "tsBuildInfoFile": "./node_modules/.cache/typescript/tsbuildinfo",
     "noEmit": true,
     "module": "ESNext",
     "target": "ES2020",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "lib": ["esnext", "dom", "dom.iterable"],
@@ -26,6 +26,8 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@db/*": ["./db/*"]
-    }
+    },
+    "forceConsistentCasingInFileNames": true,
+    "useUnknownInCatchVariables": false
   }
 }

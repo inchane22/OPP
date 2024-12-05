@@ -163,10 +163,24 @@ app.use((req, res, next) => {
   
   // Start the server with enhanced error handling
   try {
-    server.listen(PORT, "0.0.0.0", () => {
-      log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-      log(`Server address: http://0.0.0.0:${PORT}`);
-    });
+    const startServer = () => {
+      return new Promise((resolve, reject) => {
+        server.listen(PORT, "0.0.0.0", () => {
+          log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+          log(`Server address: http://0.0.0.0:${PORT}`);
+          resolve(true);
+        }).on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            log(`Port ${PORT} is in use, attempting to use port ${PORT + 1}`);
+            server.listen(PORT + 1, "0.0.0.0");
+          } else {
+            reject(err);
+          }
+        });
+      });
+    };
+
+    await startServer();
   } catch (error) {
     log(`Failed to start server: ${error}`);
     process.exit(1);
