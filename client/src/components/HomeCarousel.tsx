@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
+import Autoplay, { AutoplayOptionsType } from "embla-carousel-autoplay";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -101,7 +101,7 @@ export default function HomeCarousel() {
               delay: 5000,
               stopOnInteraction: false,
               stopOnMouseEnter: true,
-            }) as { delay: number; stopOnInteraction: boolean; stopOnMouseEnter: boolean }
+            } as AutoplayOptionsType)
           ]}
         >
           <CarouselContent>

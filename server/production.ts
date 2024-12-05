@@ -3,27 +3,169 @@ import path from "path";
 import compression from "compression";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+// Custom types for request and response
+import { Response, Request } from 'express';
+import type { ParamsDictionary } from 'express-serve-static-core';
+import type { ParsedQs } from 'qs';
+
+type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
+  _startTime?: number;
+};
+
+type CustomResponse = Response & {
+  end: {
+    (cb?: (() => void)): Response;
+    (chunk: any, cb?: (() => void)): Response;
+    (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
+  };
+};
+
+// Logger function
+function logger(message: string, data: Record<string, any> = {}) {
+  console.log(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    ...data,
+    message,
+  }));
+}
+
+// Error logger
+function errorLogger(error: Error, req: CustomRequest) {
+  console.error(JSON.stringify({
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    error: {
+      message: error.message,
+      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack,
+    },
+    request: {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      ip: req.ip,
+    },
+  }));
+}
 import { setupAuth } from "./auth";
 import * as fs from 'fs';
+import rateLimit from 'express-rate-limit';
+import cors from 'cors';
+import helmet from 'helmet';
+import { Pool } from 'pg';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Initialize connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
 
 export function setupProduction(app: express.Express) {
   // Enable compression for all requests
   app.use(compression());
 
-  // Security headers and rate limiting
-  app.use((_req, res, next) => {
-    // Enhanced security headers
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:");
+  // Request logging middleware
+  app.use((req: CustomRequest, res: CustomResponse, next) => {
+    // Set start time
+    req._startTime = Date.now();
+    
+    logger('Incoming request', {
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      userAgent: req.get('user-agent')
+    });
+    
+    // Capture response data
+    const originalEnd = res.end.bind(res);
+    
+    const endHandler = function(
+      this: CustomResponse,
+      chunk?: any,
+      encoding?: BufferEncoding | (() => void),
+      cb?: () => void
+    ): Response {
+      logger('Response sent', {
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        responseTime: Date.now() - (req._startTime || Date.now())
+      });
+
+      if (typeof encoding === 'function') {
+        return originalEnd(chunk, encoding);
+      }
+      
+      return originalEnd(chunk, encoding as BufferEncoding | undefined, cb);
+    };
+
+    res.end = endHandler as CustomResponse['end'];
+    
     next();
+  });
+
+  // Enhanced security with helmet
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "https:"],
+        frameSrc: ["'self'", "https://www.youtube.com", "https://platform.twitter.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }));
+
+  // CORS configuration
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400, // 24 hours
+  }));
+
+  // API rate limiting
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: { error: 'Too many requests, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Apply rate limiting to API routes
+  app.use('/api/', apiLimiter);
+
+  // Database health check
+  app.get('/api/health', async (req, res) => {
+    try {
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT 1');
+        logger('Database health check passed');
+        res.json({ status: 'healthy', database: 'connected' });
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      errorLogger(error as Error, req);
+      res.status(503).json({ status: 'unhealthy', database: 'disconnected' });
+    }
+  });
+
+  // Monitor database pool
+  pool.on('error', (err: Error) => {
+    logger('Unexpected database error', { error: err.message });
   });
 
   // Basic rate limiting
@@ -95,13 +237,24 @@ export function setupProduction(app: express.Express) {
   // match one above, send back React's index.html file.
   // Error handling middleware
   app.use((err: Error | NodeJS.ErrnoException, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error(new Date().toISOString(), 'Error:', {
-      message: err.message,
-      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
-      path: req.path,
-      method: req.method,
-    });
+    errorLogger(err, req);
 
+    // Handle specific error types
+    if ('code' in err && err.code === 'ECONNREFUSED') {
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'Database connection failed'
+      });
+    }
+
+    if (err instanceof URIError) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Invalid request URL'
+      });
+    }
+
+    // Default error response
     return res.status(500).json({
       error: 'Internal Server Error',
       message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
