@@ -1,4 +1,3 @@
-import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +17,7 @@ import { useForm } from "react-hook-form";
 import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { Calendar, MapPin, Loader2, Heart, Share2, Instagram, X } from "lucide-react";
+import { Calendar, MapPin, Loader2, Heart, Instagram, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function EventsPage() {

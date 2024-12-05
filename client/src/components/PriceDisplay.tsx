@@ -12,8 +12,6 @@ async function fetchBitcoinPrice() {
 }
 
 export default function PriceDisplay() {
-  const { t } = useLanguage();
-  
   const { data, isLoading, error } = useQuery({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
