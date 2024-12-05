@@ -88,7 +88,9 @@ export const carousel_items_backup_history = pgTable("carousel_items_backup_hist
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").references(() => users.id)
+  createdById: integer("created_by_id").references(() => users.id),
+  backup_date: timestamp("backup_date").defaultNow().notNull(),
+  item_id: integer("item_id")
 });
 
 export const insertCarouselItemSchema = createInsertSchema(carousel_items);
