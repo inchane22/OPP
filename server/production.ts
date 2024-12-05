@@ -116,7 +116,7 @@ const pool = new Pool({
   });
 });
 
-// Monitor pool health - Retained from original code for pool health monitoring
+// Monitor pool health
 setInterval(() => {
   logger('Database pool status', {
     totalCount: pool.totalCount,
@@ -232,7 +232,7 @@ export async function setupProduction(app: express.Express) {
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
         formAction: ["'self'"],
-        upgradeInsecureRequests: [], //Retained from original for enhanced security
+        upgradeInsecureRequests: [],
       },
     },
     crossOriginEmbedderPolicy: false,
@@ -285,7 +285,6 @@ export async function setupProduction(app: express.Express) {
 
   app.use(limiter);
 
-
   // Set up authentication
   setupAuth(app);
 
@@ -305,13 +304,11 @@ export async function setupProduction(app: express.Express) {
   // Static files middleware
   app.use(express.static(publicPath, {
     setHeaders: (res, filePath) => {
-      // Security headers - Retained most of the original security headers.
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('X-XSS-Protection', '1; mode=block');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       
-      // Cache control based on file type
       if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
@@ -338,46 +335,46 @@ export async function setupProduction(app: express.Express) {
   }));
 
   // Error handling middleware
-  app.use((err: Error | DatabaseError, req: Request, res: Response) => {
-    const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  app.use((error: Error | DatabaseError, request: Request, response: Response, _next: (err?: any) => void) => {
+    const requestId = request.headers['x-request-id'] || crypto.randomUUID();
     
-    errorLogger(err, req);
+    errorLogger(error, request);
 
-    if ('code' in err) {
+    if ('code' in error) {
       const dbErrors: Record<string, { status: number; message: string }> = {
         'ECONNREFUSED': { status: 503, message: 'Database service unavailable' },
         'ETIMEDOUT': { status: 504, message: 'Database connection timeout' },
         '23505': { status: 409, message: 'Resource already exists' },
         '23503': { status: 400, message: 'Invalid reference' },
         '23502': { status: 400, message: 'Required field missing' },
-        '42P01': { status: 500, message: 'Database schema error' }, //Retained from original
-        '28P01': { status: 500, message: 'Database authentication failed' } //Retained from original
+        '42P01': { status: 500, message: 'Database schema error' },
+        '28P01': { status: 500, message: 'Database authentication failed' }
       };
 
-      const errorInfo = dbErrors[err.code as string] || { status: 500, message: 'Database error' };
+      const errorInfo = dbErrors[error.code as string] || { status: 500, message: 'Database error' };
       
-      return res.status(errorInfo.status).json({
+      return response.status(errorInfo.status).json({
         error: errorInfo.message,
         requestId,
-        ...(process.env.NODE_ENV !== 'production' && { detail: err.detail })
+        ...(process.env.NODE_ENV !== 'production' && { detail: error.detail })
       });
     }
 
-    if (err instanceof URIError) {
-      return res.status(400).json({
+    if (error instanceof URIError) {
+      return response.status(400).json({
         error: 'Bad Request',
         message: 'Invalid URL',
         requestId
       });
     }
 
-    return res.status(500).json({
+    return response.status(500).json({
       error: 'Internal Server Error',
       message: process.env.NODE_ENV === 'production' ? 
         'An unexpected error occurred' : 
-        err.message,
+        error.message,
       requestId,
-      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
     });
   });
 
@@ -404,17 +401,21 @@ export async function setupProduction(app: express.Express) {
       }
     });
   });
-  // Rate limiting memory cleanup is now handled by express-rate-limit
 
-  // Request timeout middleware - Retained from original
-  app.use((req, res, next) => {
-    req.setTimeout(30000, () => {
+  // Request timeout middleware
+  app.use((_request: Request, response: Response, next: () => void) => {
+    response.setTimeout(30000, () => {
+      response.status(408).json({ error: 'Request timeout' });
+    });
+    next();
+  });
+    res.setTimeout(30000, () => {
       res.status(408).json({ error: 'Request timeout' });
     });
     next();
   });
 
-    // Database health check - Retained from original
+  // Database health check
   app.get('/api/health', async (req, res) => {
     try {
       const client = await pool.connect();
@@ -430,6 +431,4 @@ export async function setupProduction(app: express.Express) {
       res.status(503).json({ status: 'unhealthy', database: 'disconnected' });
     }
   });
-
-  // Security headers are now handled by helmet middleware above
 }
