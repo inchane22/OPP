@@ -1,9 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic } from "./vite";
+import { setupVite } from "./vite";
 import { createServer } from "http";
-import path from "path";
-import { fileURLToPath } from 'url';
 import compression from 'compression';
 import cors from 'cors';
 
@@ -115,8 +113,8 @@ app.use((req, res, next) => {
   const HOST = '0.0.0.0';
 
   // Enhanced error handling for server startup
-  const handleServerError = (error: Error) => {
-    if ((error as any).code === 'EADDRINUSE') {
+  const handleServerError = (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
       log(`Error: Port ${PORT} is already in use`);
       if (process.env.NODE_ENV !== 'production') {
         try {
@@ -125,7 +123,8 @@ app.use((req, res, next) => {
           server.listen(newPort, HOST);
           return;
         } catch (retryError) {
-          log(`Failed to bind to alternate port: ${retryError.message}`);
+          const typedError = retryError as Error;
+          log(`Failed to bind to alternate port: ${typedError.message}`);
         }
       }
       process.exit(1);

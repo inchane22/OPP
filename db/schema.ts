@@ -79,6 +79,18 @@ export const carousel_items = pgTable("carousel_items", {
   createdById: integer("created_by_id").references(() => users.id)
 });
 
+export const carousel_items_backup_history = pgTable("carousel_items_backup_history", {
+  id: serial("id").primaryKey(),
+  carousel_item_id: integer("carousel_item_id").references(() => carousel_items.id),
+  title: text("title").notNull(),
+  embedUrl: text("embed_url").notNull(),
+  description: text("description"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdById: integer("created_by_id").references(() => users.id)
+});
+
 export const insertCarouselItemSchema = createInsertSchema(carousel_items);
 export const selectCarouselItemSchema = createSelectSchema(carousel_items);
 export type InsertCarouselItem = z.infer<typeof insertCarouselItemSchema>;

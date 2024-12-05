@@ -14,7 +14,7 @@ export function setupProduction(app: express.Express) {
   app.use(compression());
 
   // Security headers and rate limiting
-  app.use((req, res, next) => {
+  app.use((_req, res, next) => {
     // Enhanced security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -53,7 +53,7 @@ export function setupProduction(app: express.Express) {
     recentRequests.push(now);
     requestCounts.set(ip, recentRequests);
 
-    next();
+    return next();
   });
 
   // Set up authentication
@@ -94,7 +94,7 @@ export function setupProduction(app: express.Express) {
   // The "catchall" handler: for any request that doesn't
   // match one above, send back React's index.html file.
   // Error handling middleware
-  app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((err: Error | NodeJS.ErrnoException, req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(new Date().toISOString(), 'Error:', {
       message: err.message,
       stack: process.env.NODE_ENV === 'production' ? undefined : err.stack,
@@ -102,7 +102,7 @@ export function setupProduction(app: express.Express) {
       method: req.method,
     });
 
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal Server Error',
       message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
     });

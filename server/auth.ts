@@ -157,23 +157,27 @@ export function setupAuth(app: Express) {
         .returning();
 
       // Log in after registration
-      req.login(newUser, (err) => {
-        if (err) {
-          return next(err);
-        }
-        return res.json({
-          message: "Registro exitoso",
-          user: { 
-            id: newUser.id, 
-            username: newUser.username,
-            email: newUser.email,
-            language: newUser.language,
-            role: newUser.role
-          },
+      return new Promise<void>((resolve, reject) => {
+        req.login(newUser, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          res.json({
+            message: "Registro exitoso",
+            user: { 
+              id: newUser.id, 
+              username: newUser.username,
+              email: newUser.email,
+              language: newUser.language,
+              role: newUser.role
+            },
+          });
+          resolve();
         });
       });
     } catch (error) {
-      next(error);
+      return next(error);
     }
   });
 
@@ -206,12 +210,16 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Error al cerrar sesión" });
-      }
-      res.json({ message: "Sesión cerrada exitosamente" });
+  app.post("/api/logout", (req, res): Promise<void> => {
+    return new Promise<void>((resolve) => {
+      req.logout((err) => {
+        if (err) {
+          res.status(500).json({ error: "Error al cerrar sesión" });
+        } else {
+          res.json({ message: "Sesión cerrada exitosamente" });
+        }
+        resolve();
+      });
     });
   });
 
@@ -227,6 +235,6 @@ export function setupAuth(app: Express) {
         avatar: user.avatar
       });
     }
-    res.status(401).json({ error: "No has iniciado sesión" });
+    return res.status(401).json({ error: "No has iniciado sesión" });
   });
 }
