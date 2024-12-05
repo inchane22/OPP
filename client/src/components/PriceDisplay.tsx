@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { useLanguage } from "../hooks/use-language";
+
 
 async function fetchBitcoinPrice() {
   const response = await fetch('https://api.coindesk.com/v1/bpi/currentprice/PEN.json');

@@ -10,7 +10,7 @@ export function registerRoutes(app: Express) {
   setupAuth(app);
 
   // Posts routes
-  app.get("/api/posts", async (req, res) => {
+  app.get("/api/posts", async (_req, res) => {
     try {
       let allPosts = await db.select({
         id: posts.id,
@@ -131,7 +131,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Events routes
-  app.get("/api/events", async (req, res) => {
+  app.get("/api/events", async (_req, res) => {
     try {
       let allEvents = await db.select().from(events).orderBy(events.date);
       
@@ -250,7 +250,7 @@ export function registerRoutes(app: Express) {
   });
 
   // Resources routes
-  app.get("/api/resources", async (req, res) => {
+  app.get("/api/resources", async (_req, res) => {
     try {
       let allResources = await db
         .select()
@@ -602,22 +602,22 @@ export function registerRoutes(app: Express) {
           verified: false // New submissions start as unverified
         })
         .returning();
-      res.json(business);
+      return res.json(business);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create business" });
+      return res.status(500).json({ error: "Failed to create business" });
     }
   });
   // Carousel routes
-  app.get("/api/carousel", async (req, res) => {
+  app.get("/api/carousel", async (_req, res) => {
     try {
       const items = await db.query.carousel_items.findMany({
         where: eq(carousel_items.active, true),
         orderBy: [desc(carousel_items.createdAt)]
       });
-      res.json(items);
+      return res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error);
-      res.status(500).json({ error: "Failed to fetch carousel items" });
+      return res.status(500).json({ error: "Failed to fetch carousel items" });
     }
   });
 
@@ -634,10 +634,10 @@ export function registerRoutes(app: Express) {
           createdById: req.user.id,
         })
         .returning();
-      res.json(item);
+      return res.json(item);
     } catch (error) {
       console.error("Failed to create carousel item:", error);
-      res.status(500).json({ error: "Failed to create carousel item" });
+      return res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
 
@@ -655,10 +655,10 @@ export function registerRoutes(app: Express) {
         })
         .where(eq(carousel_items.id, parseInt(req.params.id)))
         .returning();
-      res.json(item);
+      return res.json(item);
     } catch (error) {
       console.error("Failed to update carousel item:", error);
-      res.status(500).json({ error: "Failed to update carousel item" });
+      return res.status(500).json({ error: "Failed to update carousel item" });
     }
   });
 

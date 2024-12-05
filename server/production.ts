@@ -83,7 +83,7 @@ export function setupProduction(app: express.Express) {
   }));
 
   // API routes should be handled before the catch-all
-  app.use('/api', (req, res, next) => {
+  app.use('/api', (req, _res, next) => {
     if (!req.path.startsWith('/api')) {
       return next();
     }

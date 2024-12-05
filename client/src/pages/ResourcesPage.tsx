@@ -1,5 +1,5 @@
-import { Link } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

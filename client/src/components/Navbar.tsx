@@ -86,36 +86,28 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
               <nav className="flex flex-col gap-2">
                 <Link 
                   href={language === 'es' ? '/foro' : '/forum'} 
-                  onClick={(e) => {
-                    setTimeout(() => setOpen(false), 150);
-                  }} 
+                  onClick={() => setTimeout(() => setOpen(false), 150)} 
                   className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
                 >
                   {t('nav.forum')}
                 </Link>
                 <Link 
                   href={language === 'es' ? '/eventos' : '/events'} 
-                  onClick={(e) => {
-                    setTimeout(() => setOpen(false), 150);
-                  }} 
+                  onClick={() => setTimeout(() => setOpen(false), 150)} 
                   className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
                 >
                   {t('nav.events')}
                 </Link>
                 <Link 
                   href={language === 'es' ? '/recursos' : '/resources'} 
-                  onClick={(e) => {
-                    setTimeout(() => setOpen(false), 150);
-                  }} 
+                  onClick={() => setTimeout(() => setOpen(false), 150)} 
                   className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
                 >
                   {t('nav.resources')}
                 </Link>
                 <Link 
                   href={language === 'es' ? '/negocios' : '/businesses'} 
-                  onClick={(e) => {
-                    setTimeout(() => setOpen(false), 150);
-                  }} 
+                  onClick={() => setTimeout(() => setOpen(false), 150)} 
                   className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
                 >
                   {t('nav.businesses')}
@@ -123,9 +115,7 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
                 {user?.role === 'admin' && (
                   <Link 
                     href="/admin" 
-                    onClick={(e) => {
-                      setTimeout(() => setOpen(false), 150);
-                    }} 
+                    onClick={() => setTimeout(() => setOpen(false), 150)} 
                     className="flex items-center py-2 text-sm font-medium hover:text-primary transition-colors"
                   >
                     Admin Panel
