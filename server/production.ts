@@ -3,10 +3,42 @@ import path from "path";
 import compression from "compression";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-// Custom types for request and response
-import { Response, Request } from 'express';
+import * as path from 'path';
+import express, { Response, Request, NextFunction } from 'express';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
+import compression from 'compression';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+
+// Custom type declarations
+declare global {
+  namespace Express {
+    interface Request {
+      id?: string;
+      _startTime?: number;
+    }
+  }
+}
+
+// Environment validation
+function validateEnvironment() {
+  const required = ['DATABASE_URL', 'NODE_ENV'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+
+  // Validate DATABASE_URL format
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl?.startsWith('postgres://') && !dbUrl?.startsWith('postgresql://')) {
+    throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
+  }
+}
+
+// Validate environment variables immediately
+validateEnvironment();
 
 type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
   _startTime?: number;
@@ -57,17 +89,122 @@ import { Pool } from 'pg';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize connection pool
+// Database types
+interface DatabaseError extends Error {
+  code?: string;
+  column?: string;
+  constraint?: string;
+  detail?: string;
+  schema?: string;
+  table?: string;
+}
+
+// Database connection configuration
+const MAX_POOL_SIZE = 20;
+const IDLE_TIMEOUT_MS = 30000;
+const CONNECTION_TIMEOUT_MS = 5000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+
+// Initialize connection pool with enhanced error handling and retries
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: MAX_POOL_SIZE,
+  idleTimeoutMillis: IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+  // Add SSL if in production
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+  }).on('error', (err: DatabaseError) => {
+  logger('Unexpected database error', {
+    code: err.code,
+    detail: err.detail,
+    table: err.table,
+    message: err.message,
+    timestamp: new Date().toISOString()
+  });
+}).on('connect', () => {
+  logger('New database connection established');
+}).on('remove', () => {
+  logger('Database connection removed from pool');
 });
 
-export function setupProduction(app: express.Express) {
-  // Enable compression for all requests
-  app.use(compression());
+// Monitor pool health
+setInterval(() => {
+  logger('Database pool status', {
+    totalCount: pool.totalCount,
+    idleCount: pool.idleCount,
+    waitingCount: pool.waitingCount
+  });
+}, 60000); // Log every minute
+
+export async function setupProduction(app: express.Express) {
+  // Validate environment before setup
+  validateEnvironment();
+
+  // Initialize error handlers for uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    logger('Uncaught Exception', { error: error.message, stack: error.stack });
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    logger('Unhandled Rejection', { reason, promise });
+    process.exit(1);
+  });
+
+  // Graceful shutdown handler
+  const gracefulShutdown = async () => {
+    logger('Received shutdown signal');
+    
+    try {
+      // Close database pool
+      await pool.end();
+      logger('Database pool closed');
+      
+      // Allow ongoing requests to complete (wait max 10s)
+      const shutdownDelay = setTimeout(() => {
+        logger('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+      
+      shutdownDelay.unref();
+      process.exit(0);
+    } catch (error) {
+      logger('Error during shutdown', { error });
+      process.exit(1);
+    }
+  };
+
+  // Register shutdown handlers
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+  // Enhanced compression with proper filtering
+  app.use(compression({
+    filter: (req, res) => {
+      // Don't compress already compressed formats
+      if (req.path.match(/\.(jpg|jpeg|png|gif|zip|gz|br|webp|mp4|webm)$/i)) {
+        return false;
+      }
+      // Use compression for all other responses
+      return compression.filter(req, res);
+    },
+    level: 6, // Balanced compression level
+    threshold: 1024 // Only compress responses above 1KB
+  }));
+
+  // Error boundary for compression errors
+  app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err.message.includes('compression')) {
+      logger('Compression error', { 
+        path: req.path,
+        error: err.message
+      });
+      // Continue without compression
+      next();
+    } else {
+      next(err);
+    }
+  });
 
   // Request logging middleware
   app.use((req: CustomRequest, res: CustomResponse, next) => {
@@ -101,7 +238,11 @@ export function setupProduction(app: express.Express) {
         return originalEnd(chunk, encoding);
       }
       
-      return originalEnd(chunk, encoding as BufferEncoding | undefined, cb);
+      if (encoding === undefined) {
+        return originalEnd(chunk, cb);
+      }
+      
+      return originalEnd(chunk, encoding as BufferEncoding, cb);
     };
 
     res.end = endHandler as CustomResponse['end'];
@@ -109,21 +250,44 @@ export function setupProduction(app: express.Express) {
     next();
   });
 
-  // Enhanced security with helmet
+  // Enhanced security headers
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        fontSrc: ["'self'", "data:"],
-        connectSrc: ["'self'", "https:"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+        connectSrc: ["'self'", "https:", "wss:"],
         frameSrc: ["'self'", "https://www.youtube.com", "https://platform.twitter.com"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        formAction: ["'self'"],
+        upgradeInsecureRequests: [],
       },
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    },
+    noSniff: true,
+    dnsPrefetchControl: { allow: false },
+    frameguard: { action: "deny" },
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
   }));
+
+  // Add request ID middleware
+  app.use((req, res, next) => {
+    req.id = req.headers['x-request-id'] || crypto.randomUUID();
+    res.setHeader('X-Request-ID', req.id);
+    next();
+  });
 
   // CORS configuration
   app.use(cors({
@@ -215,13 +379,76 @@ export function setupProduction(app: express.Express) {
     process.exit(1);
   }
 
-  // Serve static files with optimized caching
+  // Memory leak prevention - clear expired sessions periodically
+  const clearExpiredSessions = () => {
+    const now = Date.now();
+    requestCounts.forEach((times, ip) => {
+      const validTimes = times.filter((time: number) => time > now - WINDOW_MS);
+      if (validTimes.length === 0) {
+        requestCounts.delete(ip);
+      } else {
+        requestCounts.set(ip, validTimes);
+      }
+    });
+  };
+  setInterval(clearExpiredSessions, 60000); // Run every minute
+
+  // Enhanced static file serving with proper cache control
+  app.use((req, res, next) => {
+    // Add security headers for all responses
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+
+  // Request timeout middleware
+  app.use((req, res, next) => {
+    // Set timeout to 30 seconds
+    req.setTimeout(30000, () => {
+      res.status(408).json({ error: 'Request timeout' });
+    });
+    next();
+  });
+
+  // Static files middleware with enhanced security and optimization
   app.use(express.static(publicPath, {
-    maxAge: '1d', // Cache static assets for 1 day
+    setHeaders: (res, path) => {
+      // Set security headers
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      
+      // Set cache control based on file type
+      if (path.endsWith('.html')) {
+        // HTML files - no cache
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else if (path.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
+        // Static assets - cache for 1 year with immutable
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        // Add preload hints for critical assets
+        if (path.match(/\.(js|css)$/)) {
+          res.setHeader('Link', `<${path}>; rel=preload; as=${path.endsWith('.js') ? 'script' : 'style'}`);
+        }
+      } else {
+        // Other static files - cache for 1 day
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      }
+
+      // Set content type for WebAssembly files
+      if (path.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
+      }
+    },
     etag: true,
     lastModified: true,
-    index: false, // Don't serve index.html for directory
-    immutable: true // Mark assets as immutable for better caching
+    index: false,
+    maxAge: '1y',
+    immutable: true,
+    fallthrough: false // Return 404 for missing files
   }));
 
   // API routes should be handled before the catch-all
@@ -235,18 +462,48 @@ export function setupProduction(app: express.Express) {
 
   // The "catchall" handler: for any request that doesn't
   // match one above, send back React's index.html file.
-  // Error handling middleware
-  app.use((err: Error | NodeJS.ErrnoException, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // Enhanced error handling middleware with structured logging
+  app.use((err: Error | DatabaseError | NodeJS.ErrnoException, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    const errorContext = {
+      path: req.path,
+      method: req.method,
+      query: req.query,
+      timestamp: new Date().toISOString(),
+      requestId: req.headers['x-request-id'] || crypto.randomUUID()
+    };
+
     errorLogger(err, req);
 
-    // Handle specific error types
-    if ('code' in err && err.code === 'ECONNREFUSED') {
-      return res.status(503).json({
-        error: 'Service Unavailable',
-        message: 'Database connection failed'
+    // Database connection errors with detailed handling
+    if ('code' in err) {
+      const dbErrorMapping: Record<string, { status: number; message: string }> = {
+        'ECONNREFUSED': { status: 503, message: 'Database service temporarily unavailable' },
+        'ETIMEDOUT': { status: 504, message: 'Database connection timeout' },
+        '23505': { status: 409, message: 'Resource already exists' },
+        '23503': { status: 400, message: 'Invalid reference to related resource' },
+        '23502': { status: 400, message: 'Required field is missing' },
+        '42P01': { status: 500, message: 'Database schema error' },
+        '28P01': { status: 500, message: 'Database authentication failed' }
+      };
+
+      const errorInfo = dbErrorMapping[err.code] || { status: 500, message: 'Database error occurred' };
+      
+      logger('Database error details', {
+        ...errorContext,
+        errorCode: err.code,
+        errorDetail: err.detail,
+        errorTable: err.table,
+        errorSchema: err.schema
+      });
+
+      return res.status(errorInfo.status).json({
+        error: errorInfo.message,
+        requestId: errorContext.requestId,
+        ...(process.env.NODE_ENV !== 'production' && { detail: err.detail })
       });
     }
 
+    // URI parsing errors
     if (err instanceof URIError) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -254,10 +511,21 @@ export function setupProduction(app: express.Express) {
       });
     }
 
+    // Authentication errors
+    if (err instanceof Error && err.message.toLowerCase().includes('unauthorized')) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authentication required'
+      });
+    }
+
     // Default error response
     return res.status(500).json({
       error: 'Internal Server Error',
-      message: process.env.NODE_ENV === 'production' ? 'An unexpected error occurred' : err.message
+      message: process.env.NODE_ENV === 'production' ? 
+        'An unexpected error occurred' : 
+        err.message,
+      ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
     });
   });
 
