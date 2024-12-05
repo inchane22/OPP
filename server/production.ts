@@ -7,19 +7,12 @@ import type { ParsedQs } from 'qs';
 import helmet from 'helmet';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import pg from 'pg';
-import type { PoolConfig } from 'pg';
+import pkg from 'pg';
+const { Pool } = pkg;
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
 
-// Constants
-const MAX_POOL_SIZE = 20;
-const IDLE_TIMEOUT_MS = 30000;
-const CONNECTION_TIMEOUT_MS = 5000;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS_PER_WINDOW = 100;
-
-// Database error interface
+// Type declarations from pg
 interface DatabaseError extends Error {
   code?: string;
   column?: string;
@@ -29,7 +22,38 @@ interface DatabaseError extends Error {
   table?: string;
 }
 
-// Type-safe pool configuration using pg types
+type PoolConfig = pkg.PoolConfig;
+type PoolClient = pkg.PoolClient;
+
+// Database error interface for enhanced error handling
+interface DatabaseConnError extends DatabaseError {
+  code?: string;
+  detail?: string;
+  table?: string;
+}
+
+// Constants
+const MAX_POOL_SIZE = 20;
+const IDLE_TIMEOUT_MS = 30000;
+const CONNECTION_TIMEOUT_MS = 5000;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_REQUESTS_PER_WINDOW = 100;
+
+// Database error interface for enhanced error handling
+interface DatabaseConnError extends DatabaseError {
+  code?: string;
+  detail?: string;
+  table?: string;
+}
+
+// Constants
+const MAX_POOL_SIZE = 20;
+const IDLE_TIMEOUT_MS = 30000;
+const CONNECTION_TIMEOUT_MS = 5000;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_REQUESTS_PER_WINDOW = 100;
+
+// Type-safe pool configuration
 const poolConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL!,
   max: MAX_POOL_SIZE,
@@ -74,14 +98,14 @@ declare global {
 
 // Database connection singleton with enhanced error handling and connection management
 class DatabasePool {
-  private static instance: pg.Pool | null = null;
+  private static instance: Pool | null = null;
   private static isInitialized = false;
   private static retryCount = 0;
   private static readonly MAX_RETRIES = 5;
   private static readonly RETRY_DELAY = 5000;
 
-  private static async setupPoolEventHandlers(pool: pg.Pool): Promise<void> {
-    pool.on('error', (err: DatabaseError) => {
+  private static async setupPoolEventHandlers(pool: Pool): Promise<void> {
+    pool.on('error', (err: Error & { code?: string; detail?: string; table?: string }) => {
       logger('Unexpected database error', {
         code: err.code,
         detail: err.detail,
@@ -91,7 +115,7 @@ class DatabasePool {
       });
     });
 
-    pool.on('connect', (client) => {
+    pool.on('connect', (client: PoolClient) => {
       logger('New client connected to pool', {
         totalConnections: pool.totalCount,
         timestamp: new Date().toISOString()
@@ -116,13 +140,13 @@ class DatabasePool {
     }
   }
 
-  public static async getInstance(): Promise<pg.Pool> {
+  public static async getInstance(): Promise<Pool> {
     if (!DatabasePool.instance) {
       validateEnvironment();
 
-      const connect = async (): Promise<pg.Pool> => {
+      const connect = async (): Promise<Pool> => {
         try {
-          const pool = new pg.Pool(poolConfig);
+          const pool = new Pool(poolConfig);
           await DatabasePool.setupPoolEventHandlers(pool);
           DatabasePool.retryCount = 0;
           
@@ -226,22 +250,20 @@ function errorLogger(error: Error | DatabaseError, req: Request) {
   }));
 }
 
-export async function setupProduction(app: express.Express) {
+export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize pool for the application
-  let pool: pg.Pool;
+  let pool: Pool;
   try {
     pool = await DatabasePool.getInstance();
     
     // Monitor pool health
     const monitorInterval = setInterval(() => {
-      if (pool) {
-        logger('Database pool status', {
-          totalCount: pool.totalCount,
-          idleCount: pool.idleCount,
-          waitingCount: pool.waitingCount,
-          timestamp: new Date().toISOString()
-        });
-      }
+      logger('Database pool status', {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount,
+        timestamp: new Date().toISOString()
+      });
     }, 60000);
 
     // Clean up interval on process exit
