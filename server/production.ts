@@ -5,9 +5,10 @@ import cors from 'cors';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
 import helmet from 'helmet';
-import { Pool } from 'pg';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+// Dynamic import for pg module
+const { Pool } = await import('pg').then(pg => pg.default);
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
 
