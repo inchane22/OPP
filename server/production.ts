@@ -7,20 +7,27 @@ import type { ParsedQs } from 'qs';
 import helmet from 'helmet';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-// Dynamic import for pg module
-const { Pool } = await import('pg').then(pg => pg.default);
+import { Pool as PgPool } from 'pg';
+import type { PoolConfig as PostgresPoolConfig, DatabaseError } from 'pg';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
 
-// Custom type declarations
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-      _startTime?: number;
-    }
-  }
-}
+// Constants
+const MAX_POOL_SIZE = 20;
+const IDLE_TIMEOUT_MS = 30000;
+const CONNECTION_TIMEOUT_MS = 5000;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_REQUESTS_PER_WINDOW = 100;
+
+// Type-safe pool configuration using pg types
+type PoolConfig = PostgresPoolConfig & {
+  max: number;
+  idleTimeoutMillis: number;
+  connectionTimeoutMillis: number;
+  ssl?: {
+    rejectUnauthorized: boolean;
+  };
+};
 
 // Database types
 interface DatabaseError extends Error {
@@ -44,6 +51,125 @@ type CustomResponse = Response & {
   };
 };
 
+// Custom type declarations
+declare global {
+  namespace Express {
+    interface Request {
+      id?: string;
+      _startTime?: number;
+    }
+  }
+}
+
+const poolConfig: PoolConfig = {
+  connectionString: process.env.DATABASE_URL!,
+  max: MAX_POOL_SIZE,
+  idleTimeoutMillis: IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+  ...(process.env.NODE_ENV === 'production' ? {
+    ssl: { rejectUnauthorized: false }
+  } : {})
+};
+
+// Database connection singleton with enhanced error handling and connection management
+class DatabasePool {
+  private static instance: PgPool | null = null;
+  private static isInitialized = false;
+  private static retryCount = 0;
+  private static readonly MAX_RETRIES = 5;
+  private static readonly RETRY_DELAY = 5000;
+
+  private static async setupPoolEventHandlers(pool: PgPool): Promise<void> {
+    pool.on('error', (err: DatabaseError) => {
+      logger('Unexpected database error', {
+        code: err.code,
+        detail: err.detail,
+        table: err.table,
+        message: err.message,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    pool.on('connect', (client) => {
+      logger('New client connected to pool', {
+        totalConnections: pool.totalCount,
+        timestamp: new Date().toISOString()
+      });
+
+      client.on('error', (err: Error) => {
+        logger('Client connection error', {
+          error: err.message,
+          timestamp: new Date().toISOString()
+        });
+      });
+    });
+
+    // Verify pool connection
+    try {
+      const client = await pool.connect();
+      await client.query('SELECT 1');
+      client.release();
+      logger('Database pool initialized successfully');
+    } catch (error) {
+      throw new Error(`Failed to verify pool connection: ${(error as Error).message}`);
+    }
+  }
+
+  public static async getInstance(): Promise<PgPool> {
+    if (!DatabasePool.instance) {
+      validateEnvironment();
+
+      const connect = async (): Promise<PgPool> => {
+        try {
+          const pool = new PgPool(poolConfig);
+          await DatabasePool.setupPoolEventHandlers(pool);
+          DatabasePool.retryCount = 0;
+          return pool;
+        } catch (error) {
+          if (DatabasePool.retryCount < DatabasePool.MAX_RETRIES) {
+            DatabasePool.retryCount++;
+            logger('Retrying database connection', {
+              attempt: DatabasePool.retryCount,
+              maxRetries: DatabasePool.MAX_RETRIES,
+              delay: DatabasePool.RETRY_DELAY
+            });
+            await new Promise(resolve => setTimeout(resolve, DatabasePool.RETRY_DELAY));
+            return connect();
+          }
+          throw new Error(`Failed to initialize database pool after ${DatabasePool.MAX_RETRIES} attempts: ${(error as Error).message}`);
+        }
+      };
+
+      DatabasePool.instance = await connect();
+
+      // Set up pool health monitoring
+      if (!DatabasePool.isInitialized) {
+        setInterval(() => {
+          const pool = DatabasePool.instance;
+          if (pool) {
+            logger('Database pool status', {
+              totalCount: pool.totalCount,
+              idleCount: pool.idleCount,
+              waitingCount: pool.waitingCount,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }, 60000);
+        DatabasePool.isInitialized = true;
+      }
+    }
+    return DatabasePool.instance;
+  }
+
+  public static async end(): Promise<void> {
+    if (DatabasePool.instance) {
+      await DatabasePool.instance.end();
+      DatabasePool.instance = null;
+      DatabasePool.isInitialized = false;
+    }
+  }
+}
+
 // Environment validation
 function validateEnvironment() {
   const required = ['DATABASE_URL', 'NODE_ENV'];
@@ -59,16 +185,6 @@ function validateEnvironment() {
     throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
   }
 }
-
-// Validate environment variables immediately
-validateEnvironment();
-
-// Constants
-const MAX_POOL_SIZE = 20;
-const IDLE_TIMEOUT_MS = 30000;
-const CONNECTION_TIMEOUT_MS = 5000;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const MAX_REQUESTS_PER_WINDOW = 100;
 
 // Logger function
 function logger(message: string, data: Record<string, any> = {}) {
@@ -100,35 +216,45 @@ function errorLogger(error: Error | DatabaseError, req: Request) {
   }));
 }
 
-// Initialize connection pool
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: MAX_POOL_SIZE,
-  idleTimeoutMillis: IDLE_TIMEOUT_MS,
-  connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-}).on('error', (err: DatabaseError) => {
-  logger('Unexpected database error', {
-    code: err.code,
-    detail: err.detail,
-    table: err.table,
-    message: err.message,
+export async function setupProduction(app: express.Express) {
+  // Initialize pool for the application
+  let pool: PgPool;
+  try {
+    pool = await DatabasePool.getInstance();
+    
+    // Monitor pool health
+    const monitorInterval = setInterval(() => {
+      if (pool) {
+        logger('Database pool status', {
+          totalCount: pool.totalCount,
+          idleCount: pool.idleCount,
+          waitingCount: pool.waitingCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }, 60000);
+
+    // Clean up interval on process exit
+    process.on('SIGTERM', () => clearInterval(monitorInterval));
+    process.on('SIGINT', () => clearInterval(monitorInterval));
+  } catch (error) {
+    logger('Failed to initialize database pool', {
+      error: (error as Error).message,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
+  // Validate environment and port configuration
+  const PORT = process.env.PORT || 3000;
+  
+  // Enhanced environment validation
+  validateEnvironment();
+
+  logger('Starting production server', {
+    port: PORT,
+    nodeEnv: process.env.NODE_ENV,
     timestamp: new Date().toISOString()
   });
-});
-
-// Monitor pool health
-setInterval(() => {
-  logger('Database pool status', {
-    totalCount: pool.totalCount,
-    idleCount: pool.idleCount,
-    waitingCount: pool.waitingCount
-  });
-}, 60000);
-
-export async function setupProduction(app: express.Express) {
-  // Validate environment before setup
-  validateEnvironment();
 
   // Enhanced error handlers for uncaught exceptions with graceful shutdown
   process.on('uncaughtException', (error) => {
@@ -160,7 +286,7 @@ export async function setupProduction(app: express.Express) {
     logger('Received shutdown signal');
     
     try {
-      await pool.end();
+      await DatabasePool.end();
       logger('Database pool closed');
       
       const shutdownDelay = setTimeout(() => {
