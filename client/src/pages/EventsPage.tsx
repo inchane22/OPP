@@ -27,9 +27,11 @@ export default function EventsPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const { data: events, isLoading } = useQuery<Event[]>({
+  const { data: events, isLoading, isFetching } = useQuery<Event[]>({
     queryKey: ["events"],
-    queryFn: () => fetch("/api/events").then(res => res.json())
+    queryFn: () => fetch("/api/events").then(res => res.json()),
+    staleTime: 5000,
+    refetchOnWindowFocus: false
   });
 
   // Function to get the next 21st date

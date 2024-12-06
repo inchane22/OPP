@@ -41,11 +41,11 @@ export default function ForumPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: posts = [], isLoading, error } = useQuery<PostWithAuthor[]>({
+  const { data: posts = [], isLoading, isFetching, error } = useQuery<PostWithAuthor[]>({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
     staleTime: 5000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 3
   });
@@ -133,6 +133,10 @@ export default function ForumPage() {
         {isLoading ? (
           <div className="flex justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : posts.length === 0 ? (
+          <div className="text-center p-8 text-muted-foreground">
+            No posts yet. Be the first to create one!
           </div>
         ) : (
           posts?.map((post) => (

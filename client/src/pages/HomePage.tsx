@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
 import PriceDisplay from "../components/PriceDisplay";
 import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
 import HomeCarousel from "../components/HomeCarousel";
+import { Loader2 } from "lucide-react";
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -12,7 +14,11 @@ export default function HomePage() {
       <Hero />
       
       {/* Featured Content Carousel */}
-      <HomeCarousel />
+      <section className="w-full">
+        <div className="container mx-auto">
+          <HomeCarousel />
+        </div>
+      </section>
 
       {/* Price Display and Bitcoin Tools */}
       <section className="py-8">

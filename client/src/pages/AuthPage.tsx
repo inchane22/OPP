@@ -20,14 +20,15 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const { login, register } = useUser();
+  const { login, register, isLoading: isAuthLoading } = useUser();
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
@@ -43,6 +44,7 @@ export default function AuthPage() {
   const onSubmit = async (data: InsertUser) => {
     try {
       setIsLoading(true);
+      startTransition(() => {}); // Mark the transition start
       const result = await (isLogin ? login(data) : register(data));
       
       if (!result.ok) {
@@ -118,7 +120,7 @@ export default function AuthPage() {
                   )}
                 />
               )}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || isPending || isAuthLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-
 async function fetchBitcoinPrice() {
   const response = await fetch('https://api.coindesk.com/v1/bpi/currentprice/PEN.json');
   if (!response.ok) {
@@ -11,33 +10,7 @@ async function fetchBitcoinPrice() {
   return response.json();
 }
 
-export default function PriceDisplay() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['bitcoin-price'],
-    queryFn: fetchBitcoinPrice,
-    refetchInterval: 60000, // Refresh every minute
-  });
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex justify-center items-center h-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="text-center text-destructive p-4">
-          Error loading price data
-        </CardContent>
-      </Card>
-    );
-  }
-
+function PriceContent({ data }: { data: any }) {
   const penPrice = data?.bpi?.PEN?.rate_float.toLocaleString('es-PE', {
     style: 'currency',
     currency: 'PEN'
@@ -54,4 +27,34 @@ export default function PriceDisplay() {
       </CardContent>
     </Card>
   );
+}
+
+export default function PriceDisplay() {
+  const { data, error } = useQuery({
+    queryKey: ['bitcoin-price'],
+    queryFn: fetchBitcoinPrice,
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="text-center text-destructive p-4">
+          Error loading price data
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <CardContent className="flex justify-center items-center h-24">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return <PriceContent data={data} />;
 }
