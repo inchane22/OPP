@@ -6,6 +6,7 @@ import { useLanguage } from '../hooks/use-language';
 import { useUser } from '../hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
+
 import {
   Dialog,
   DialogContent,
@@ -40,15 +41,13 @@ export default function ForumPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { data: posts = [], isLoading, error } = useQuery({
+  const { data: posts = [], isLoading, error } = useQuery<PostWithAuthor[]>({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
-    staleTime: Infinity, // Prevent automatic refetches
-    refetchOnWindowFocus: false,
-    refetchInterval: false, // Disable periodic refetches
-    retry: 3,
-    gcTime: Infinity
+    staleTime: 5000,
+    refetchOnWindowFocus: true,
+    refetchInterval: false,
+    retry: 3
   });
 
   if (error instanceof Error) {

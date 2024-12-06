@@ -25,7 +25,13 @@ export default function BusinessesPage() {
 
   const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
-    queryFn: () => fetch("/api/businesses").then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch("/api/businesses");
+      if (!response.ok) {
+        throw new Error('Failed to fetch businesses');
+      }
+      return response.json();
+    },
     staleTime: 5000,
     refetchOnWindowFocus: false
   });

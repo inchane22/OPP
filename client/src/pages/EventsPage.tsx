@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,8 +79,10 @@ export default function EventsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center min-h-[400px] items-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
@@ -178,7 +181,12 @@ export default function EventsPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {events?.map(event => (
+        <Suspense fallback={
+          <div className="col-span-2 flex justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }>
+          {events?.map(event => (
           <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
             <CardHeader>
               <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
@@ -294,6 +302,7 @@ export default function EventsPage() {
             </CardContent>
           </Card>
         ))}
+        </Suspense>
       </div>
     </div>
   );
