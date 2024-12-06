@@ -9,8 +9,8 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
-// Will dynamically import pg
-const { Pool } = await import('pg');
+// Dynamic import for ESM compatibility
+import { DatabasePool } from './db/pool.js';
 
 // Type declarations
 interface DatabaseError extends Error {
@@ -48,47 +48,7 @@ const RATE_LIMIT = {
   MAX_REQUESTS: 100
 } as const;
 
-// Database Connection
-let pool: Pool | null = null;
-
-async function getPool(): Promise<Pool> {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
-    });
-
-    pool.on('error', (err: Error) => {
-      logger('Unexpected error on idle client', { error: err.message });
-    });
-
-    // Verify connection
-    try {
-      const client = await pool.connect();
-      try {
-        await client.query('SELECT 1');
-        logger('Database connection verified');
-      } finally {
-        client.release();
-      }
-    } catch (error) {
-      const typedError = error as Error;
-      logger('Failed to connect to database', { error: typedError.message });
-      throw error;
-    }
-  }
-  return pool;
-}
-
-async function closePool(): Promise<void> {
-  if (pool) {
-    await pool.end();
-    pool = null;
-  }
-}
+// Import necessary database configuration from connection module
 
 // Logger utility
 function logger(message: string, data: Record<string, any> = {}) {
@@ -101,12 +61,16 @@ function logger(message: string, data: Record<string, any> = {}) {
 }
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize database pool
+  // Initialize database connection
   try {
-    await getPool();
-    logger('Database pool initialized successfully');
+    const db = DatabasePool.getInstance();
+    await db.getPool();
+    logger('Database connection initialized successfully');
   } catch (error) {
-    logger('Failed to initialize database pool', { error: (error as Error).message });
+    logger('Critical database initialization error', { 
+      error: (error as Error).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+    });
     process.exit(1);
   }
 
@@ -208,7 +172,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // Cleanup on shutdown
   const cleanup = async () => {
     logger('Shutting down');
-    await closePool();
+    await DatabasePool.end();
     process.exit(0);
   };
 

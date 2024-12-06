@@ -1,9 +1,10 @@
-import { Pool, PoolConfig } from 'pg';
+import type { PoolConfig, PoolClient } from 'pg';
+const pg = await import('pg').then(module => module.default || module);
 import { logger } from '../utils/logger';
 
 export class DatabasePool {
   private static instance: DatabasePool;
-  private pool: Pool | null = null;
+  private pool: pg.Pool | null = null;
   private retryCount = 0;
   private readonly maxRetries = 5;
   private readonly retryDelay = 5000;
@@ -17,14 +18,14 @@ export class DatabasePool {
     return DatabasePool.instance;
   }
 
-  async getPool(): Promise<Pool> {
+  async getPool(): Promise<pg.Pool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<Pool> {
+  private async createPool(): Promise<pg.Pool> {
     const poolConfig: PoolConfig = {
       connectionString: process.env.DATABASE_URL,
       max: 20,
@@ -33,7 +34,7 @@ export class DatabasePool {
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
     };
 
-    const pool = new Pool(poolConfig);
+    const pool = new pg.Pool(poolConfig);
 
     pool.on('error', (err: Error) => {
       logger('Unexpected error on idle client', { error: err.message });
