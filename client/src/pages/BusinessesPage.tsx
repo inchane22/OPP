@@ -23,9 +23,11 @@ export default function BusinessesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [acceptsLightningFilter, setAcceptsLightningFilter] = useState<boolean | null>(null);
 
-  const { data: businesses, isLoading } = useQuery<Business[]>({
+  const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
-    queryFn: () => fetch("/api/businesses").then(res => res.json())
+    queryFn: () => fetch("/api/businesses").then(res => res.json()),
+    staleTime: 5000,
+    refetchOnWindowFocus: false
   });
 
   const filteredBusinesses = businesses?.filter(business => {
@@ -89,23 +91,32 @@ export default function BusinessesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
+
+  const isRefetching = !isLoading && isFetching;
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="relative h-[300px] rounded-lg overflow-hidden">
         <div className="flex flex-col sm:flex-row gap-4 absolute top-4 left-4 right-4 z-10">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <Input
               placeholder="Buscar por nombre, descripción o ciudad..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="max-w-md bg-white/90 backdrop-blur-sm"
+              className="max-w-md bg-white/90 backdrop-blur-sm pr-8"
             />
+            {isRefetching && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              </div>
+            )}
           </div>
           <div className="flex gap-2 items-center">
             <Button
@@ -248,9 +259,19 @@ export default function BusinessesPage() {
                         </FormItem>
                       )}
                     />
-                    <Button type="submit" disabled={createBusiness.isPending}>
-                      {createBusiness.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Registrar Negocio
+                    <Button 
+                      type="submit" 
+                      disabled={createBusiness.isPending || isRefetching}
+                      className="w-full"
+                    >
+                      {createBusiness.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Registrando...
+                        </>
+                      ) : (
+                        "Registrar Negocio"
+                      )}
                     </Button>
                   </form>
                 </Form>

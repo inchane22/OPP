@@ -20,10 +20,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { login, register } = useUser();
   const { toast } = useToast();
 
@@ -38,12 +40,11 @@ export default function AuthPage() {
     },
   });
 
-  const [isPending, startTransition] = useTransition();
-
   const onSubmit = async (data: InsertUser) => {
     try {
-      startTransition(() => {}); // Start transition to show loading state
+      setIsLoading(true);
       const result = await (isLogin ? login(data) : register(data));
+      
       if (!result.ok) {
         toast({
           variant: "destructive",
@@ -57,6 +58,8 @@ export default function AuthPage() {
         title: "Error",
         description: error.message,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -115,8 +118,15 @@ export default function AuthPage() {
                   )}
                 />
               )}
-              <Button type="submit" className="w-full">
-                {isLogin ? "Login" : "Register"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isLogin ? "Logging in..." : "Registering..."}
+                  </>
+                ) : (
+                  isLogin ? "Login" : "Register"
+                )}
               </Button>
             </form>
           </Form>
@@ -125,6 +135,7 @@ export default function AuthPage() {
             <Button
               variant="link"
               onClick={() => setIsLogin(!isLogin)}
+              disabled={isLoading}
             >
               {isLogin
                 ? "Need an account? Register"
