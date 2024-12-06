@@ -1,4 +1,4 @@
-import type { PoolConfig } from 'pg';
+import type { Pool as PgPool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
 // Configuration constants
@@ -12,7 +12,7 @@ const POOL_CONFIG = {
 
 export class DatabasePool {
   private static instance: DatabasePool;
-  private pool: typeof Pool | null = null;
+  private pool: PgPool | null = null;
   private Pool: any = null;
 
   private constructor() {}
@@ -24,14 +24,14 @@ export class DatabasePool {
     return DatabasePool.instance;
   }
 
-  async getPool(): Promise<typeof Pool> {
+  async getPool(): Promise<PgPool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<typeof Pool> {
+  private async createPool(): Promise<PgPool> {
     try {
       // Dynamic import for ESM compatibility
       if (!this.Pool) {
@@ -68,7 +68,7 @@ export class DatabasePool {
     }
   }
 
-  private async verifyConnection(pool: any): Promise<void> {
+  private async verifyConnection(pool: PgPool): Promise<void> {
     for (let attempt = 1; attempt <= POOL_CONFIG.MAX_RETRIES; attempt++) {
       try {
         const client = await pool.connect();
