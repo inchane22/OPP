@@ -9,49 +9,10 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
-import { Pool, type PoolConfig, type PoolClient } from 'pg';
+// Will dynamically import pg
+const { Pool } = await import('pg');
 
 // Type declarations
-interface DatabaseError extends Error {
-  code?: string;
-  column?: string;
-  constraint?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-}
-
-interface DatabaseConnError extends DatabaseError {
-  code?: string;
-  detail?: string;
-  table?: string;
-}
-
-// Constants for database configuration
-const DB_CONFIG = {
-  MAX_POOL_SIZE: 20,
-  IDLE_TIMEOUT_MS: 30000,
-  CONNECTION_TIMEOUT_MS: 5000
-} as const;
-
-// Constants for rate limiting
-const RATE_LIMIT = {
-  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
-  MAX_REQUESTS_PER_WINDOW: 100
-} as const;
-
-// Type-safe pool configuration
-const poolConfig: PoolConfig = {
-  connectionString: process.env.DATABASE_URL!,
-  max: DB_CONFIG.MAX_POOL_SIZE,
-  idleTimeoutMillis: DB_CONFIG.IDLE_TIMEOUT_MS,
-  connectionTimeoutMillis: DB_CONFIG.CONNECTION_TIMEOUT_MS,
-  ...(process.env.NODE_ENV === 'production' ? {
-    ssl: { rejectUnauthorized: false }
-  } : {})
-};
-
-// Database types
 interface DatabaseError extends Error {
   code?: string;
   column?: string;
@@ -73,619 +34,189 @@ type CustomResponse = Response & {
   };
 };
 
-// Custom type declarations
-declare global {
-  namespace Express {
-    interface Request {
-      id?: string;
-      _startTime?: number;
-    }
-  }
-}
+// Constants
+const DB_CONFIG = {
+  MAX_POOL_SIZE: 20,
+  IDLE_TIMEOUT_MS: 30000,
+  CONNECTION_TIMEOUT_MS: 5000,
+  MAX_RETRIES: 5,
+  RETRY_DELAY_MS: 5000
+} as const;
 
-// Database connection singleton with enhanced error handling and connection management
-class DatabasePool {
-  private static instance: Pool | null = null;
-  private static isInitialized = false;
-  private static retryCount = 0;
-  private static readonly MAX_RETRIES = 5;
-  private static readonly RETRY_DELAY = 5000;
-  private static pg: typeof import('pg') | null = null;
+const RATE_LIMIT = {
+  WINDOW_MS: 15 * 60 * 1000,
+  MAX_REQUESTS: 100
+} as const;
 
-  private static async loadPg(): Promise<typeof import('pg')> {
-    if (!DatabasePool.pg) {
-      DatabasePool.pg = await import('pg');
-    }
-    return DatabasePool.pg;
-  }
+// Database Connection
+let pool: Pool | null = null;
 
-  private static async setupPoolEventHandlers(pool: Pool): Promise<void> {
-    pool.on('error', (err: Error & { code?: string; detail?: string; table?: string }) => {
-      logger('Unexpected database error', {
-        code: err.code,
-        detail: err.detail,
-        table: err.table,
-        message: err.message,
-        timestamp: new Date().toISOString()
-      });
+async function getPool(): Promise<Pool> {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
     });
 
-    pool.on('connect', (client: PoolClient) => {
-      logger('New client connected to pool', {
-        totalConnections: pool.totalCount,
-        timestamp: new Date().toISOString()
-      });
-
-      client.on('error', (err: Error) => {
-        logger('Client connection error', {
-          error: err.message,
-          timestamp: new Date().toISOString()
-        });
-      });
+    pool.on('error', (err: Error) => {
+      logger('Unexpected error on idle client', { error: err.message });
     });
 
-    // Verify pool connection
+    // Verify connection
     try {
       const client = await pool.connect();
-      await client.query('SELECT 1');
-      client.release();
-      logger('Database pool initialized successfully');
-    } catch (error) {
-      throw new Error(`Failed to verify pool connection: ${(error as Error).message}`);
-    }
-  }
-
-  public static async getInstance(): Promise<Pool> {
-    if (!DatabasePool.instance) {
-      validateEnvironment();
-
-      const connect = async (): Promise<Pool> => {
-        try {
-          const { Pool } = await DatabasePool.loadPg();
-          const pool = new Pool(poolConfig);
-          await DatabasePool.setupPoolEventHandlers(pool);
-          DatabasePool.retryCount = 0;
-          
-          // Verify connection
-          const client = await pool.connect();
-          try {
-            await client.query('SELECT NOW()');
-          } finally {
-            client.release();
-          }
-          
-          return pool;
-        } catch (error) {
-          if (DatabasePool.retryCount < DatabasePool.MAX_RETRIES) {
-            DatabasePool.retryCount++;
-            logger('Retrying database connection', {
-              attempt: DatabasePool.retryCount,
-              maxRetries: DatabasePool.MAX_RETRIES,
-              delay: DatabasePool.RETRY_DELAY
-            });
-            await new Promise(resolve => setTimeout(resolve, DatabasePool.RETRY_DELAY));
-            return connect();
-          }
-          throw new Error(`Failed to initialize database pool after ${DatabasePool.MAX_RETRIES} attempts: ${(error as Error).message}`);
-        }
-      };
-
-      DatabasePool.instance = await connect();
-
-      // Set up pool health monitoring
-      if (!DatabasePool.isInitialized) {
-        setInterval(() => {
-          const pool = DatabasePool.instance;
-          if (pool) {
-            logger('Database pool status', {
-              totalCount: pool.totalCount,
-              idleCount: pool.idleCount,
-              waitingCount: pool.waitingCount,
-              timestamp: new Date().toISOString()
-            });
-          }
-        }, 60000);
-        DatabasePool.isInitialized = true;
+      try {
+        await client.query('SELECT 1');
+        logger('Database connection verified');
+      } finally {
+        client.release();
       }
+    } catch (error) {
+      const typedError = error as Error;
+      logger('Failed to connect to database', { error: typedError.message });
+      throw error;
     }
-    return DatabasePool.instance;
   }
+  return pool;
+}
 
-  public static async end(): Promise<void> {
-    if (DatabasePool.instance) {
-      await DatabasePool.instance.end();
-      DatabasePool.instance = null;
-      DatabasePool.isInitialized = false;
-    }
+async function closePool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
 }
 
-// Environment validation
-function validateEnvironment() {
-  const required = ['DATABASE_URL', 'NODE_ENV'];
-  const missing = required.filter(key => !process.env[key]);
-  
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
-
-  // Validate DATABASE_URL format
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl?.startsWith('postgres://') && !dbUrl?.startsWith('postgresql://')) {
-    throw new Error('DATABASE_URL must be a valid PostgreSQL connection string');
-  }
-}
-
-// Logger function
+// Logger utility
 function logger(message: string, data: Record<string, any> = {}) {
   console.log(JSON.stringify({
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    ...data,
     message,
-  }));
-}
-
-// Error logger
-function errorLogger(error: Error | DatabaseError, req: Request) {
-  console.error(JSON.stringify({
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    error: {
-      message: error.message,
-      stack: process.env.NODE_ENV === 'production' ? undefined : error.stack,
-      ...(('code' in error) && { code: error.code }),
-      ...(('detail' in error) && { detail: error.detail }),
-    },
-    request: {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      ip: req.ip,
-    },
+    ...data
   }));
 }
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize pool for the application
-  let pool: Pool;
+  // Initialize database pool
   try {
-    // Initialize database pool
-    pool = await DatabasePool.getInstance();
-    
-    // Verify database connection
-    const client = await pool.connect();
-    try {
-      await client.query('SELECT 1');
-      logger('Database connection verified');
-    } finally {
-      client.release();
-    }
-    
-    // Monitor pool health
-    const monitorInterval = setInterval(() => {
-      logger('Database pool status', {
-        totalCount: pool.totalCount,
-        idleCount: pool.idleCount,
-        waitingCount: pool.waitingCount,
-        timestamp: new Date().toISOString()
-      });
-    }, 60000);
-
-    // Clean up interval on process exit
-    process.on('SIGTERM', () => {
-      clearInterval(monitorInterval);
-      DatabasePool.end();
-    });
-    process.on('SIGINT', () => {
-      clearInterval(monitorInterval);
-      DatabasePool.end();
-    });
+    await getPool();
+    logger('Database pool initialized successfully');
   } catch (error) {
-    logger('Failed to initialize database pool', {
-      error: (error as Error).message,
-      timestamp: new Date().toISOString()
-    });
-    throw error;
-  }
-  // Validate environment and port configuration
-  const PORT = Number(process.env.PORT || 3000);
-  
-  // Enhanced environment validation
-  validateEnvironment();
-
-  // Ensure port is a valid number
-  if (isNaN(PORT) || PORT <= 0) {
-    throw new Error(`Invalid port configuration: ${process.env.PORT}`);
+    logger('Failed to initialize database pool', { error: (error as Error).message });
+    process.exit(1);
   }
 
-  logger('Starting production server', {
-    port: PORT,
-    nodeEnv: process.env.NODE_ENV,
-    host: '0.0.0.0',
-    timestamp: new Date().toISOString()
-  });
-
-  // Enhanced error handlers for uncaught exceptions with graceful shutdown
-  process.on('uncaughtException', (error) => {
-    logger('Uncaught Exception', { 
-      error: error.message, 
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    });
-    // Attempt graceful shutdown
-    setTimeout(() => {
-      process.exit(1);
-    }, 1000).unref();
-  });
-
-  process.on('unhandledRejection', (reason, promise) => {
-    logger('Unhandled Rejection', { 
-      reason, 
-      promise,
-      timestamp: new Date().toISOString()
-    });
-    // Attempt graceful shutdown
-    setTimeout(() => {
-      process.exit(1);
-    }, 1000).unref();
-  });
-
-  // Graceful shutdown handler
-  const gracefulShutdown = async () => {
-    logger('Received shutdown signal');
-    
-    try {
-      await DatabasePool.end();
-      logger('Database pool closed');
-      
-      const shutdownDelay = setTimeout(() => {
-        logger('Forced shutdown after timeout');
-        process.exit(1);
-      }, 10000);
-      
-      shutdownDelay.unref();
-      process.exit(0);
-    } catch (error) {
-      logger('Error during shutdown', { error });
-      process.exit(1);
-    }
-  };
-
-  // Register shutdown handlers
-  process.on('SIGTERM', gracefulShutdown);
-  process.on('SIGINT', gracefulShutdown);
-
-  // Enhanced compression with proper filtering
-  app.use(compression({
-    filter: (req, res) => {
-      if (req.path.match(/\.(jpg|jpeg|png|gif|zip|gz|br|webp|mp4|webm)$/i)) {
-        return false;
-      }
-      return compression.filter(req, res);
-    },
-    level: 6,
-    threshold: 1024
-  }));
-
-  // Request logging middleware
-  app.use((req: CustomRequest, res: CustomResponse, next) => {
-    req._startTime = Date.now();
-    
-    logger('Incoming request', {
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      userAgent: req.get('user-agent')
-    });
-    
-    const originalEnd = res.end.bind(res);
-    
-    const endHandler = function(
-      this: CustomResponse,
-      chunk?: any,
-      encoding?: BufferEncoding | (() => void),
-      cb?: () => void
-    ): Response {
-      logger('Response sent', {
-        method: req.method,
-        path: req.path,
-        statusCode: res.statusCode,
-        responseTime: Date.now() - (req._startTime || Date.now())
-      });
-
-      if (typeof encoding === 'function') {
-        return originalEnd(chunk, encoding);
-      }
-      
-      if (encoding === undefined) {
-        return originalEnd(chunk, cb);
-      }
-      
-      return originalEnd(chunk, encoding, cb);
-    };
-
-    res.end = endHandler as CustomResponse['end'];
-    next();
-  });
-
-  // Security headers
+  // Security middleware
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        imgSrc: ["'self'", "data:", "https:", "blob:"],
-        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
-        connectSrc: ["'self'", "https:", "wss:"],
-        frameSrc: ["'self'", "https://www.youtube.com", "https://platform.twitter.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'"],
-        formAction: ["'self'"],
-        upgradeInsecureRequests: [],
-      },
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true
-    },
-    noSniff: true,
-    dnsPrefetchControl: { allow: false },
-    frameguard: { action: "deny" },
-    permittedCrossDomainPolicies: { permittedPolicies: "none" },
+        frameSrc: ["'none'"]
+      }
+    }
   }));
 
-  // Request ID middleware
-  app.use((req: Request, res: Response, next) => {
-    const requestId = req.headers['x-request-id'] || crypto.randomUUID();
-    res.setHeader('X-Request-ID', requestId);
-    next();
+  // Rate limiting
+  const limiter = rateLimit({
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    max: RATE_LIMIT.MAX_REQUESTS,
+    standardHeaders: true,
+    legacyHeaders: false
   });
+  app.use(limiter);
 
   // CORS configuration
   app.use(cors({
     origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    maxAge: 86400,
+    credentials: true
   }));
 
-  // Unified rate limiting for all routes
-  const limiter = rateLimit({
-    windowMs: RATE_LIMIT.WINDOW_MS,
-    max: RATE_LIMIT.MAX_REQUESTS_PER_WINDOW,
-    message: { error: 'Too many requests, please try again later' },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req: Request) => req.ip || req.socket.remoteAddress || 'unknown',
-    handler: (_req: Request, res: Response) => {
-      const retryAfter = Math.ceil(RATE_LIMIT.WINDOW_MS / 1000);
-      res.status(429).json({
-        error: 'Too many requests, please try again later.',
-        retryAfter
+  // Compression
+  app.use(compression());
+
+  // Request logging
+  app.use((req: CustomRequest, res: CustomResponse, next) => {
+    req._startTime = Date.now();
+    const cleanup = () => {
+      res.removeListener('finish', logRequest);
+      res.removeListener('error', logError);
+      res.removeListener('close', cleanup);
+    };
+
+    const logRequest = () => {
+      cleanup();
+      const responseTime = Date.now() - (req._startTime || Date.now());
+      logger('Request completed', {
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        responseTime
       });
-    }
-  });
+    };
 
-  app.use(limiter);
-
-  // Set up authentication
-  setupAuth(app);
-
-  // Serve static files
-  const publicPath = path.join(__dirname, '../dist/public');
-  
-  try {
-    if (!fs.existsSync(publicPath)) {
-      console.error(`Public directory not found at ${publicPath}`);
-      process.exit(1);
-    }
-  } catch (error) {
-    console.error('Error checking public directory:', error);
-    process.exit(1);
-  }
-
-  // Static files middleware
-  app.use(express.static(publicPath, {
-    setHeaders: (res, filePath) => {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('X-Frame-Options', 'DENY');
-      res.setHeader('X-XSS-Protection', '1; mode=block');
-      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-      
-      if (filePath.endsWith('.html')) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-      } else if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        if (filePath.match(/\.(js|css)$/)) {
-          res.setHeader('Link', `<${filePath}>; rel=preload; as=${filePath.endsWith('.js') ? 'script' : 'style'}`);
-        }
-      } else {
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-      }
-
-      if (filePath.endsWith('.wasm')) {
-        res.setHeader('Content-Type', 'application/wasm');
-      }
-    },
-    etag: true,
-    lastModified: true,
-    index: false,
-    maxAge: '1y',
-    immutable: true,
-    fallthrough: false
-  }));
-
-  // Enhanced error handling middleware with authentication support
-  app.use((error: Error | DatabaseError, request: Request, response: Response, _next: (err?: any) => void) => {
-    const requestId = request.headers['x-request-id'] || crypto.randomUUID();
-    
-    errorLogger(error, request);
-
-    // Handle authentication errors
-    if (error instanceof Error && error.message.includes('Authentication')) {
-      return response.status(401).json({
-        error: 'Authentication Required',
-        message: 'Please log in to access this resource',
-        requestId,
-        code: 'AUTH_REQUIRED'
+    const logError = (error: Error) => {
+      cleanup();
+      logger('Request error', {
+        method: req.method,
+        path: req.path,
+        error: error.message
       });
-    }
+    };
 
-    // Handle authorization errors
-    if (error instanceof Error && error.message.includes('Authorization')) {
-      return response.status(403).json({
-        error: 'Access Denied',
-        message: 'You do not have permission to access this resource',
-        requestId,
-        code: 'ACCESS_DENIED'
-      });
-    }
-
-    if ('code' in error) {
-      const dbErrors: Record<string, { status: number; message: string }> = {
-        'ECONNREFUSED': { status: 503, message: 'Database service unavailable' },
-        'ETIMEDOUT': { status: 504, message: 'Database connection timeout' },
-        '23505': { status: 409, message: 'Resource already exists' },
-        '23503': { status: 400, message: 'Invalid reference' },
-        '23502': { status: 400, message: 'Required field missing' },
-        '42P01': { status: 500, message: 'Database schema error' },
-        '28P01': { status: 500, message: 'Database authentication failed' }
-      };
-
-      const errorInfo = dbErrors[error.code as string] || { status: 500, message: 'Database error' };
-      
-      return response.status(errorInfo.status).json({
-        error: errorInfo.message,
-        requestId,
-        ...(process.env.NODE_ENV !== 'production' && { detail: error.detail })
-      });
-    }
-
-    if (error instanceof URIError) {
-      return response.status(400).json({
-        error: 'Bad Request',
-        message: 'Invalid URL',
-        requestId
-      });
-    }
-
-    return response.status(500).json({
-      error: 'Internal Server Error',
-      message: process.env.NODE_ENV === 'production' ? 
-        'An unexpected error occurred' : 
-        error.message,
-      requestId,
-      ...(process.env.NODE_ENV !== 'production' && { stack: error.stack })
-    });
-  });
-
-  // Catch-all route
-  app.get("*", (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    const indexPath = path.join(publicPath, 'index.html');
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        logger('Error sending index.html', {
-          error: err.message,
-          path: req.path,
-          ip: req.ip
-        });
-        res.status(500).json({
-          error: 'Error loading application',
-          message: process.env.NODE_ENV === 'production' ? 
-            'Failed to load application' : 
-            err.message
-        });
-      }
-    });
-  });
-
-  // Request timeout middleware with enhanced logging
-  app.use((req: Request, res: Response, next: () => void) => {
-    // Log incoming request for timeout tracking
-    const startTime = Date.now();
-    const requestPath = req.path;
-    const requestMethod = req.method;
-    const requestIP = req.ip;
-
-    // Set request timeout
-    res.setTimeout(30000, () => {
-      const duration = Date.now() - startTime;
-      logger('Request timeout', {
-        method: requestMethod,
-        path: requestPath,
-        duration: duration,
-        ip: requestIP,
-        headers: req.headers
-      });
-      res.status(408).json({ 
-        error: 'Request timeout',
-        message: `The request to ${requestPath} exceeded 30 seconds`,
-        duration: `${duration}ms`
-      });
-    });
+    res.on('finish', logRequest);
+    res.on('error', logError);
+    res.on('close', cleanup);
     next();
   });
 
-  // Database health check with detailed diagnostics
-  app.get('/api/health', async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const client = await pool.connect();
-      try {
-        await client.query('SELECT 1');
-        const responseTime = Date.now() - startTime;
-        
-        logger('Database health check passed', {
-          responseTime,
-          poolStats: {
-            totalConnections: pool.totalCount,
-            idleConnections: pool.idleCount,
-            waitingRequests: pool.waitingCount
-          }
-        });
-        
-        res.json({
-          status: 'healthy',
-          database: 'connected',
-          diagnostics: {
-            responseTime: `${responseTime}ms`,
-            timestamp: new Date().toISOString(),
-            connections: {
-              total: pool.totalCount,
-              idle: pool.idleCount,
-              waiting: pool.waitingCount
-            }
-          }
-        });
-      } finally {
-        client.release();
-      }
-    } catch (error) {
-      const responseTime = Date.now() - startTime;
-      errorLogger(error as Error, req);
-      res.status(503).json({ 
-        status: 'unhealthy', 
-        database: 'disconnected',
-        error: process.env.NODE_ENV === 'production' ? 'Database connection failed' : (error as Error).message,
-        diagnostics: {
-          responseTime: `${responseTime}ms`,
-          timestamp: new Date().toISOString()
-        }
-      });
-    }
+  // Static file serving
+  const publicPath = path.join(__dirname, '../dist/public');
+  if (!fs.existsSync(publicPath)) {
+    throw new Error(`Public directory not found: ${publicPath}`);
+  }
+
+  app.use(express.static(publicPath, {
+    maxAge: '1y',
+    etag: true
+  }));
+
+  // Error handling
+  app.use((error: Error, req: Request, res: Response, next: Function) => {
+    logger('Error occurred', {
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+
+    res.status(500).json({
+      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
+    });
   });
-};
+
+  // Cleanup on shutdown
+  const cleanup = async () => {
+    logger('Shutting down');
+    await closePool();
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+
+  // Serve index.html for client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+  });
+}

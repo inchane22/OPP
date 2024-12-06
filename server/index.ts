@@ -164,28 +164,39 @@ app.use((req, res, next) => {
   // Start the server with enhanced error handling
   try {
     const startServer = () => {
-      return new Promise((resolve, reject) => {
-        const serverInstance = server.listen(PORT, "0.0.0.0", () => {
-          const address = serverInstance.address();
-          const actualPort = typeof address === 'object' && address ? address.port : PORT;
-          log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${actualPort}`);
-          log(`Server address: http://0.0.0.0:${actualPort}`);
-          resolve(true);
-        });
+      return new Promise<void>((resolve, reject) => {
+        const tryPort = (port: number) => {
+          const serverInstance = server.listen(port, "0.0.0.0", () => {
+            const address = serverInstance.address();
+            const actualPort = typeof address === 'object' && address ? address.port : port;
+            log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${actualPort}`);
+            log(`Server address: http://0.0.0.0:${actualPort}`);
+            resolve();
+          });
 
-        serverInstance.on('error', (err: NodeJS.ErrnoException) => {
-          if (err.code === 'EADDRINUSE') {
-            log(`Port ${PORT} is in use, attempting to use port ${PORT + 1}`);
-            const retryServer = server.listen(PORT + 1, "0.0.0.0", () => {
-              const retryAddress = retryServer.address();
-              const retryPort = typeof retryAddress === 'object' && retryAddress ? retryAddress.port : PORT + 1;
-              log(`Server successfully started on alternate port ${retryPort}`);
-              resolve(true);
+          serverInstance.on('error', (err: NodeJS.ErrnoException) => {
+            serverInstance.close();
+            if (err.code === 'EADDRINUSE') {
+              log(`Port ${port} is in use, attempting to use port ${port + 1}`);
+              tryPort(port + 1);
+            } else {
+              reject(err);
+            }
+          });
+
+          // Handle server shutdown
+          const cleanup = () => {
+            serverInstance.close(() => {
+              log('Server closed');
+              process.exit(0);
             });
-          } else {
-            reject(err);
-          }
-        });
+          };
+
+          process.on('SIGTERM', cleanup);
+          process.on('SIGINT', cleanup);
+        };
+
+        tryPort(PORT);
       });
     };
 
