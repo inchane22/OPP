@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, startTransition } from "react";
 import { createRoot } from "react-dom/client";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import "./index.css";
@@ -6,7 +6,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "./hooks/use-language";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useTransition } from "react";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -44,7 +44,9 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 function Router() {
   const { user, isLoading } = useUser();
   const [location] = useLocation();
+  const [isPending, startPageTransition] = useTransition();
 
+  // Handle initial auth loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -53,12 +55,10 @@ function Router() {
     );
   }
 
-  // If user is logged in, redirect from login page
-  if (user) {
-    if (location === "/login") {
-      // Redirect admins to admin panel, others to home
-      return <Redirect to={user.role === 'admin' ? "/admin" : "/"} />;
-    }
+  // Handle redirects for authenticated users
+  if (user && location === "/login") {
+    // Use immediate redirect instead of transition for auth redirects
+    return <Redirect to={user.role === 'admin' ? "/admin" : "/"} />;
   }
 
   return (
@@ -67,7 +67,8 @@ function Router() {
       <div className="flex flex-col min-h-screen">
         <main className={cn(
           "container mx-auto px-4 py-8 flex-1",
-          "animate-in fade-in-50 duration-500"
+          "animate-in fade-in-50 duration-500",
+          isPending && "opacity-70 transition-opacity"
         )}>
           <Switch>
             <Route path="/" component={HomePage} />

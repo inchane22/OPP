@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -38,8 +38,11 @@ export default function AuthPage() {
     },
   });
 
+  const [isPending, startTransition] = useTransition();
+
   const onSubmit = async (data: InsertUser) => {
     try {
+      startTransition(() => {}); // Start transition to show loading state
       const result = await (isLogin ? login(data) : register(data));
       if (!result.ok) {
         toast({

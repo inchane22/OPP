@@ -55,7 +55,7 @@ export class DatabaseConnection {
     }
   }
 
-  private async verifyConnection(pool: typeof Pool): Promise<void> {
+  private async verifyConnection(pool: PgPool): Promise<void> {
     try {
       const client = await pool.connect();
       try {

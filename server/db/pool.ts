@@ -1,4 +1,4 @@
-import type { Pool as PgPool, PoolConfig } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
 // Configuration constants
@@ -12,8 +12,7 @@ const POOL_CONFIG = {
 
 export class DatabasePool {
   private static instance: DatabasePool;
-  private pool: PgPool | null = null;
-  private Pool: any = null;
+  private pool: Pool | null = null;
 
   private constructor() {}
 
@@ -24,21 +23,15 @@ export class DatabasePool {
     return DatabasePool.instance;
   }
 
-  async getPool(): Promise<PgPool> {
+  async getPool(): Promise<Pool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<PgPool> {
+  private async createPool(): Promise<Pool> {
     try {
-      // Dynamic import for ESM compatibility
-      if (!this.Pool) {
-        const { Pool } = await import('pg');
-        this.Pool = Pool;
-      }
-      
       const config: PoolConfig = {
         connectionString: process.env.DATABASE_URL,
         max: POOL_CONFIG.MAX_SIZE,
@@ -49,7 +42,7 @@ export class DatabasePool {
           : undefined
       };
 
-      const pool = new this.Pool(config);
+      const pool = new Pool(config);
 
       pool.on('error', (err: Error) => {
         logger('Unexpected error on idle client', { 
@@ -68,7 +61,7 @@ export class DatabasePool {
     }
   }
 
-  private async verifyConnection(pool: PgPool): Promise<void> {
+  private async verifyConnection(pool: Pool): Promise<void> {
     for (let attempt = 1; attempt <= POOL_CONFIG.MAX_RETRIES; attempt++) {
       try {
         const client = await pool.connect();

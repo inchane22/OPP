@@ -9,9 +9,9 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
-// Dynamic import of database configuration
-const { Pool } = await import('pg').then(module => module.default || module);
-const { DatabasePool } = await import('./db/pool.js').then(module => module.default || module);
+// Import database configuration
+import { DatabasePool } from './db/pool';
+import type { Pool } from 'pg';
 
 interface DatabaseError extends Error {
   code?: string;
@@ -167,15 +167,19 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Static file serving
-  const publicPath = path.join(__dirname, '../dist/public');
+  // Static file serving with proper path resolution
+  const publicPath = path.resolve(__dirname, '../dist');
+  const indexPath = path.join(publicPath, 'index.html');
+  
   if (!fs.existsSync(publicPath)) {
-    throw new Error(`Public directory not found: ${publicPath}`);
+    logger('Building client application...');
+    throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
 
   app.use(express.static(publicPath, {
-    maxAge: '1y',
-    etag: true
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+    etag: true,
+    index: false // We'll handle serving index.html manually
   }));
 
   // Error handling

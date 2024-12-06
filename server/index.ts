@@ -108,8 +108,8 @@ app.use((req, res, next) => {
     setupProduction(app);
   }
 
-  // Use port from environment variable, with different defaults for production/development
-  const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'production' ? 3000 : 5000));
+  // Use consistent port configuration
+  const PORT = Number(process.env.PORT || 5000);
   const HOST = '0.0.0.0';
 
   // Enhanced error handling for server startup
