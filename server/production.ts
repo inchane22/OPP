@@ -9,8 +9,9 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
-// Dynamic import for ESM compatibility
+// Import database pool with proper extension handling
 import { DatabasePool } from './db/pool.js';
+import type { Pool } from 'pg';
 
 // Type declarations
 interface DatabaseError extends Error {
@@ -61,16 +62,42 @@ function logger(message: string, data: Record<string, any> = {}) {
 }
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize database connection
-  try {
+  // Initialize database connection with enhanced retry logic and error boundary
+  const initializeDatabase = async (retries = 5, delay = 5000): Promise<void> => {
     const db = DatabasePool.getInstance();
-    await db.getPool();
-    logger('Database connection initialized successfully');
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await db.getPool();
+        logger('Database connection initialized successfully', {
+          attempt,
+          environment: process.env.NODE_ENV
+        });
+        return;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        
+        logger('Database connection attempt failed', {
+          attempt,
+          retries,
+          error: errorMessage,
+          stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
+        });
+
+        if (attempt === retries) {
+          throw new Error(`Failed to initialize database after ${retries} attempts: ${errorMessage}`);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, delay * Math.min(attempt, 3)));
+      }
+    }
+  };
+
+  try {
+    await initializeDatabase();
   } catch (error) {
-    logger('Critical database initialization error', { 
-      error: (error as Error).message,
-      stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
-    });
+    logger('Failed to initialize database after all retries');
     process.exit(1);
   }
 
