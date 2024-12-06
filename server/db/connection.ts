@@ -6,7 +6,7 @@ const { Pool } = pg;
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
-  private pool: Pool | null = null;
+  private pool: typeof Pool | null = null;
   private retryCount = 0;
   private readonly maxRetries = 5;
   private readonly retryDelay = 5000;
@@ -20,14 +20,15 @@ export class DatabaseConnection {
     return DatabaseConnection.instance;
   }
 
-  async getPool(): Promise<Pool> {
+  async getPool(): Promise<typeof Pool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<Pool> {
+  private async createPool(): Promise<typeof Pool> {
+    const { Pool } = await import('pg');
     const poolConfig = {
       connectionString: process.env.DATABASE_URL,
       max: 20,
@@ -53,7 +54,7 @@ export class DatabaseConnection {
     }
   }
 
-  private async verifyConnection(pool: Pool): Promise<void> {
+  private async verifyConnection(pool: typeof Pool): Promise<void> {
     try {
       const client = await pool.connect();
       try {

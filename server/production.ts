@@ -9,11 +9,10 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
-// Import database pool with proper extension handling
-import { DatabasePool } from './db/pool.js';
-import type { Pool } from 'pg';
+// Dynamic import of database configuration
+const { Pool } = await import('pg').then(module => module.default || module);
+const { DatabasePool } = await import('./db/pool.js').then(module => module.default || module);
 
-// Type declarations
 interface DatabaseError extends Error {
   code?: string;
   column?: string;
@@ -62,34 +61,29 @@ function logger(message: string, data: Record<string, any> = {}) {
 }
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize database connection with enhanced retry logic and error boundary
-  const initializeDatabase = async (retries = 5, delay = 5000): Promise<void> => {
-    const db = DatabasePool.getInstance();
-    
+  // Initialize database connection
+  const initializeDatabase = async (): Promise<void> => {
+    const retries = 3;
+    const retryDelay = 2000;
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
+        const db = DatabasePool.getInstance();
         await db.getPool();
-        logger('Database connection initialized successfully', {
-          attempt,
-          environment: process.env.NODE_ENV
-        });
+        logger('Database connection initialized successfully', { attempt });
         return;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        
         logger('Database connection attempt failed', {
           attempt,
-          retries,
-          error: errorMessage,
-          stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
         });
 
         if (attempt === retries) {
-          throw new Error(`Failed to initialize database after ${retries} attempts: ${errorMessage}`);
+          throw new Error('Failed to initialize database after all retries');
         }
 
-        await new Promise(resolve => setTimeout(resolve, delay * Math.min(attempt, 3)));
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
   };

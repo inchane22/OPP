@@ -1,28 +1,20 @@
-import type { Pool, PoolConfig, PoolClient } from 'pg';
+import type { PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Type guard for Pool instance
-function isPool(pool: any): pool is Pool {
-  return pool && typeof pool === 'object' && 'connect' in pool;
-}
-
-// Singleton pool loader with proper ESM/CommonJS handling
-const loadPgPool = async (): Promise<typeof Pool> => {
-  try {
-    const pg = await import('pg');
-    return (pg.default || pg).Pool;
-  } catch (error) {
-    logger('Failed to load pg module', { error: (error as Error).message });
-    throw new Error('Failed to initialize database module');
-  }
-};
+// Configuration constants
+const POOL_CONFIG = {
+  MAX_SIZE: 20,
+  IDLE_TIMEOUT: 30000,
+  CONNECTION_TIMEOUT: 5000,
+  MAX_RETRIES: 5,
+  RETRY_DELAY: 5000
+} as const;
 
 export class DatabasePool {
   private static instance: DatabasePool;
-  private pool: Pool | null = null;
-  private retryCount = 0;
-  private readonly maxRetries = 5;
-  private readonly retryDelay = 5000;
+  private pool: typeof Pool | null = null;
+  private Pool: any = null;
+
   private constructor() {}
 
   static getInstance(): DatabasePool {
@@ -32,29 +24,32 @@ export class DatabasePool {
     return DatabasePool.instance;
   }
 
-  async getPool(): Promise<Pool> {
+  async getPool(): Promise<typeof Pool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<Pool> {
+  private async createPool(): Promise<typeof Pool> {
     try {
-      const poolConfig: PoolConfig = {
+      // Dynamic import for ESM compatibility
+      if (!this.Pool) {
+        const { Pool } = await import('pg');
+        this.Pool = Pool;
+      }
+      
+      const config: PoolConfig = {
         connectionString: process.env.DATABASE_URL,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
+        max: POOL_CONFIG.MAX_SIZE,
+        idleTimeoutMillis: POOL_CONFIG.IDLE_TIMEOUT,
+        connectionTimeoutMillis: POOL_CONFIG.CONNECTION_TIMEOUT,
+        ssl: process.env.NODE_ENV === 'production' 
+          ? { rejectUnauthorized: false } 
+          : undefined
       };
 
-      const PgPool = await loadPgPool();
-      const pool = new PgPool(poolConfig);
-
-      if (!isPool(pool)) {
-        throw new Error('Failed to create valid pool instance');
-      }
+      const pool = new this.Pool(config);
 
       pool.on('error', (err: Error) => {
         logger('Unexpected error on idle client', { 
@@ -64,35 +59,58 @@ export class DatabasePool {
         this.handlePoolError(err);
       });
 
-      // Verify connection immediately
       await this.verifyConnection(pool);
-
-    try {
-      const client = await pool.connect();
-      try {
-        await client.query('SELECT 1');
-        logger('Database connection verified');
-        this.retryCount = 0;
-      } finally {
-        client.release();
-      }
+      return pool;
     } catch (error) {
-      if (this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        logger(`Retrying database connection`, { attempt: this.retryCount, maxRetries: this.maxRetries });
-        await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-        return this.createPool();
-      }
-      throw new Error(`Failed to connect to database after ${this.maxRetries} attempts`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger('Failed to create pool', { error: errorMessage });
+      throw error;
     }
+  }
 
-    return pool;
+  private async verifyConnection(pool: any): Promise<void> {
+    for (let attempt = 1; attempt <= POOL_CONFIG.MAX_RETRIES; attempt++) {
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query('SELECT 1');
+          logger('Database connection verified', { attempt });
+          return;
+        } finally {
+          client.release();
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger('Connection verification failed', { 
+          attempt,
+          error: errorMessage,
+          maxAttempts: POOL_CONFIG.MAX_RETRIES
+        });
+        
+        if (attempt === POOL_CONFIG.MAX_RETRIES) {
+          throw new Error(`Failed to verify connection after ${POOL_CONFIG.MAX_RETRIES} attempts`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, POOL_CONFIG.RETRY_DELAY));
+      }
+    }
+  }
+
+  private handlePoolError(error: Error): void {
+    logger('Pool error occurred', { error: error.message });
+    if (this.pool) {
+      this.pool.end().catch(err => {
+        logger('Error while ending pool', { error: err.message });
+      });
+      this.pool = null;
+    }
   }
 
   async cleanup(): Promise<void> {
     if (this.pool) {
       await this.pool.end();
       this.pool = null;
+      logger('Database pool cleaned up');
     }
   }
 
@@ -102,3 +120,6 @@ export class DatabasePool {
     }
   }
 }
+
+// Export singleton instance
+export const db = DatabasePool.getInstance();
