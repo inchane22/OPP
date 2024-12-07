@@ -1,25 +1,26 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite } from "./vite.js";
-import path from "path";
 import { createServer } from "http";
 import compression from 'compression';
 import cors from 'cors';
+import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
+// ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour12: false,
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: true,
   });
-
-  console.log(`${formattedTime} [express] ${message}`);
+  console.log(`[${formattedTime}] ${message}`);
 }
 
 const app = express();
@@ -47,7 +48,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(compression());
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -78,16 +79,19 @@ app.use((req, res, next) => {
   next();
 });
 
+
+// Async IIFE for better error handling
 (async () => {
   try {
-    // Register API routes first
-    registerRoutes(app);
     const server = createServer(app);
 
-    // Global error handler for Express
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = process.env.NODE_ENV === 'production' 
+    // Register API routes
+    await registerRoutes(app);
+
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      const status = err instanceof Error ? 500 : 400;
+      const message = process.env.NODE_ENV === 'production'
         ? 'Internal Server Error'
         : err.message || "Internal Server Error";
 
@@ -95,8 +99,7 @@ app.use((req, res, next) => {
 
       res.status(status).json({ 
         message,
-        status,
-        timestamp: new Date().toISOString()
+        ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
       });
     });
 
@@ -112,7 +115,6 @@ app.use((req, res, next) => {
 
     const PORT = Number(process.env.PORT || 5000);
     const HOST = '0.0.0.0';
-    let currentPort = PORT;
 
     // Clean up function for server shutdown with proper error handling
     const cleanup = async (server: any): Promise<void> => {
@@ -200,10 +202,7 @@ app.use((req, res, next) => {
     process.once('SIGINT', handleShutdown);
 
     log('Starting server...');
-    server.listen(currentPort, HOST, () => {
-      log(`Server running in ${process.env.NODE_ENV || 'development'} mode`);
-      log(`Server listening on http://${HOST}:${currentPort}`);
-    });
+    startServer(PORT);
 
   } catch (error) {
     log(`Failed to start server: ${error}`);

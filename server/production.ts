@@ -10,14 +10,12 @@ import helmet from 'helmet';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
-import { setupAuth } from "./auth";
+import { setupAuth } from "./auth.js";
 
-// Import necessary modules for ES module path resolution
+// ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Ensure these are available throughout the module
-const resolvePath = (relativePath: string) => path.resolve(dirname(fileURLToPath(import.meta.url)), relativePath);
+const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 // Import database configuration
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
@@ -177,13 +175,15 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Static file serving with proper path resolution for ES modules
-  const publicPath = resolvePath('../dist/public');
+  const publicPath = path.resolve(__dirname, '../dist/public');
   const indexPath = path.join(publicPath, 'index.html');
   
   if (!fs.existsSync(publicPath)) {
     logger('Building client application...');
     throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
+
+  logger('Static files will be served from:', publicPath);
 
   app.use(express.static(publicPath, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
