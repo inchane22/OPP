@@ -238,7 +238,7 @@ export default function EventsPage() {
                     onClick={(e) => {
                       if (isPending) return;
                       e.stopPropagation();
-                      startTransition(async () => {
+                      const handleLike = async () => {
                         try {
                           const response = await fetch(`/api/events/${event.id}/like`, { 
                             method: 'POST',
@@ -247,7 +247,9 @@ export default function EventsPage() {
                           if (!response.ok) {
                             throw new Error('Failed to like event');
                           }
-                          await queryClient.invalidateQueries({ queryKey: ['events'] });
+                          startTransition(() => {
+                            queryClient.invalidateQueries({ queryKey: ['events'] });
+                          });
                         } catch (error) {
                           toast({
                             title: "Failed to like event",
@@ -255,7 +257,8 @@ export default function EventsPage() {
                             variant: "destructive"
                           });
                         }
-                      });
+                      };
+                      handleLike();
                     }}
                     disabled={isPending}
                   >
@@ -269,16 +272,19 @@ export default function EventsPage() {
                       className="hover:text-black dark:hover:text-white"
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.open(
-                          `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                            `Check out ${event.title} at ${event.location} on ${format(
-                              new Date(event.date),
-                              "PPP"
-                            )}!&url=${window.location.href}`
-                          )}`,
-                          "_blank"
-                        );
+                        startTransition(() => {
+                          window.open(
+                            `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                              `Check out ${event.title} at ${event.location} on ${format(
+                                new Date(event.date),
+                                "PPP"
+                              )}!&url=${window.location.href}`
+                            )}`,
+                            "_blank"
+                          );
+                        });
                       }}
+                      disabled={isPending}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -288,11 +294,14 @@ export default function EventsPage() {
                       className="hover:text-[#E4405F]"
                       onClick={(e) => {
                         e.stopPropagation();
-                        window.open(
-                          `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
-                          "_blank"
-                        );
+                        startTransition(() => {
+                          window.open(
+                            `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
+                            "_blank"
+                          );
+                        });
                       }}
+                      disabled={isPending}
                     >
                       <Instagram className="h-4 w-4" />
                     </Button>

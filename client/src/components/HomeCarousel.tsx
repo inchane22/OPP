@@ -1,7 +1,7 @@
+import React, { useTransition } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay, { AutoplayOptionsType } from "embla-carousel-autoplay";
-import { useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
 import { Loader2 } from "lucide-react";
@@ -13,7 +13,7 @@ interface CarouselItem {
   active: boolean;
   createdAt: string;
   updatedAt: string;
-  createdById?: number;
+  createdById?: number | null;
 }
 
 export default function HomeCarousel() {
@@ -23,21 +23,17 @@ export default function HomeCarousel() {
   
   function getEmbedUrl(url: string): string {
     try {
-      // Handle youtu.be format
       if (url.includes('youtu.be')) {
         const videoId = url.split('youtu.be/')[1].split('?')[0];
         return `https://www.youtube.com/embed/${videoId}`;
       }
-      // Handle youtube.com format
       if (url.includes('youtube.com/watch')) {
         const videoId = new URL(url).searchParams.get('v');
         return `https://www.youtube.com/embed/${videoId}`;
       }
-      // If it's already an embed URL, return as is
       if (url.includes('youtube.com/embed')) {
         return url;
       }
-      // Handle X/Twitter URLs
       if (url.includes('x.com') || url.includes('twitter.com')) {
         const tweetId = url.split('/status/')[1]?.split('?')[0];
         if (tweetId) {
@@ -51,7 +47,7 @@ export default function HomeCarousel() {
     }
   }
 
-  const { data: items, isLoading, isFetching, error } = useQuery<CarouselItem[]>({
+  const { data: items = [], isLoading, isFetching, error } = useQuery<CarouselItem[]>({
     queryKey: ['carousel-items'],
     queryFn: async () => {
       const response = await fetch('/api/carousel');
@@ -70,20 +66,29 @@ export default function HomeCarousel() {
     refetchOnWindowFocus: false
   });
 
-  const isUpdating = isPending || isFetching;
-  const showLoading = isLoading || (!items && isUpdating);
+  // Prefetch in transition
+  React.useEffect(() => {
+    startTransition(() => {
+      queryClient.prefetchQuery({
+        queryKey: ['carousel-items'],
+        queryFn: async () => {
+          const response = await fetch('/api/carousel');
+          if (!response.ok) {
+            throw new Error('Failed to fetch carousel items');
+          }
+          const data = await response.json();
+          return data
+            .filter((item: CarouselItem) => item.active)
+            .map((item: CarouselItem) => ({
+              ...item,
+              embedUrl: getEmbedUrl(item.embedUrl)
+            }));
+        }
+      });
+    });
+  }, [queryClient]);
 
-  if (showLoading) {
-    return (
-      <section className="py-12 bg-muted/50">
-        <div className="container">
-          <div className="flex items-center justify-center min-h-[300px]">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </div>
-      </section>
-    );
-  }
+  const isUpdating = isPending || isFetching;
 
   if (error) {
     console.error('Error loading carousel:', error);
@@ -100,49 +105,54 @@ export default function HomeCarousel() {
         <h2 className="text-3xl font-bold text-center mb-8">
           Bitcoiners Dejando Huella en Perú
         </h2>
-        <div className={`transition-opacity duration-200 ${isUpdating ? 'opacity-50' : ''}`}>
+        <div className="relative">
+          {isUpdating && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-50">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
           <Carousel 
-          opts={{
-            align: "start",
-            dragFree: true,
-            containScroll: "trimSnaps",
-            loop: true,
-            duration: 20,
-            watchDrag: false,
-          }}
-          className="w-full max-w-5xl mx-auto relative"
-          plugins={[
-            Autoplay({
-              delay: 5000,
-              stopOnInteraction: false,
-              stopOnMouseEnter: true,
-            } as AutoplayOptionsType)
-          ]}
-        >
-          <CarouselContent>
-            {items.map((item) => (
-              <CarouselItem key={item.id} className="md:basis-1/2 lg:basis-1/3">
-                <div className="p-1">
-                  <Card>
-                    <CardContent className="flex aspect-square items-center justify-center p-6">
-                      <div className="w-full h-full">
-                        <iframe
-                          src={item.embedUrl}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                          style={{ minHeight: '400px' }}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
+            opts={{
+              align: "start",
+              dragFree: true,
+              containScroll: "trimSnaps",
+              loop: true,
+              duration: 20,
+              watchDrag: false,
+            }}
+            className="w-full max-w-5xl mx-auto relative"
+            plugins={[
+              Autoplay({
+                delay: 5000,
+                stopOnInteraction: false,
+                stopOnMouseEnter: true,
+              } as AutoplayOptionsType)
+            ]}
+          >
+            <CarouselContent>
+              {items.map((item: CarouselItem) => (
+                <CarouselItem key={item.id} className="md:basis-1/2 lg:basis-1/3">
+                  <div className="p-1">
+                    <Card>
+                      <CardContent className="flex aspect-square items-center justify-center p-6">
+                        <div className="w-full h-full">
+                          <iframe
+                            src={item.embedUrl}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            style={{ minHeight: '400px' }}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
         </div>
       </div>
     </section>
