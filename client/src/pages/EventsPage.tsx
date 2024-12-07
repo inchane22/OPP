@@ -100,7 +100,7 @@ export default function EventsPage() {
     }
   });
 
-  if (isLoading) {
+  if (isLoading || isPending) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center min-h-[400px] items-center">
