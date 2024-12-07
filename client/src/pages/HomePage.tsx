@@ -6,6 +6,7 @@ import PriceDisplay from "../components/PriceDisplay";
 import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
 import HomeCarousel from "../components/HomeCarousel";
 import { Loader2 } from "lucide-react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-[200px]">
@@ -24,9 +25,11 @@ export default function HomePage() {
       <section className="w-full">
         <div className="container mx-auto">
           <ErrorBoundary>
-            <Suspense fallback={<LoadingFallback />}>
-              <HomeCarousel />
-            </Suspense>
+            <div className={isPending ? "opacity-50 transition-opacity duration-200" : ""}>
+              <Suspense fallback={<LoadingFallback />}>
+                <HomeCarousel />
+              </Suspense>
+            </div>
           </ErrorBoundary>
         </div>
       </section>
@@ -36,14 +39,28 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ErrorBoundary>
-              <div onClick={() => startTransition(() => {})}>
+              <div 
+                className={isPending ? "opacity-50 transition-opacity duration-200" : ""}
+                onClick={() => {
+                  startTransition(() => {
+                    // Trigger price refresh
+                  });
+                }}
+              >
                 <Suspense fallback={<LoadingFallback />}>
                   <PriceDisplay />
                 </Suspense>
               </div>
             </ErrorBoundary>
             <ErrorBoundary>
-              <div onClick={() => startTransition(() => {})}>
+              <div 
+                className={isPending ? "opacity-50 transition-opacity duration-200" : ""}
+                onClick={() => {
+                  startTransition(() => {
+                    // Trigger QR refresh if needed
+                  });
+                }}
+              >
                 <Suspense fallback={<LoadingFallback />}>
                   <BitcoinQRGenerator />
                 </Suspense>

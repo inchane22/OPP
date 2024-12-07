@@ -30,23 +30,20 @@ function PriceContent({ data }: { data: any }) {
 }
 
 export default function PriceDisplay() {
-  const { data, error } = useQuery({
+  const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
     refetchInterval: 60000, // Refresh every minute
+    staleTime: 30000, // Consider data stale after 30 seconds
+    throwOnError: true // Use this instead of useErrorBoundary
   });
 
   if (error) {
-    return (
-      <Card>
-        <CardContent className="text-center text-destructive p-4">
-          Error loading price data
-        </CardContent>
-      </Card>
-    );
+    throw error; // Let ErrorBoundary handle it
   }
 
-  if (!data) {
+  // Initial loading state is handled by Suspense
+  if (isLoading || !data) {
     return (
       <Card>
         <CardContent className="flex justify-center items-center h-24">
@@ -56,5 +53,9 @@ export default function PriceDisplay() {
     );
   }
 
-  return <PriceContent data={data} />;
+  return (
+    <div className={isFetching ? "opacity-50 transition-opacity duration-200" : ""}>
+      <PriceContent data={data} />
+    </div>
+  );
 }

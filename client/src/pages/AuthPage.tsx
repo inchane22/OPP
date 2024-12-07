@@ -29,6 +29,7 @@ export default function AuthPage() {
   const { login, register, isLoading: isAuthLoading } = useUser();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
@@ -42,23 +43,31 @@ export default function AuthPage() {
   });
 
   const onSubmit = async (data: InsertUser) => {
+    if (isLoading || isPending || isAuthLoading) return;
+
     try {
       setIsLoading(true);
-      startTransition(() => {}); // Mark the transition start
-      const result = await (isLogin ? login(data) : register(data));
-      
-      if (!result.ok) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.message,
-        });
-      }
+      startTransition(async () => {
+        const result = await (isLogin ? login(data) : register(data));
+        
+        if (!result.ok) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: result.message,
+          });
+          return;
+        }
+
+        // Reset form on success
+        form.reset();
+        formRef.current?.reset();
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message,
+        description: error.message || "Authentication failed",
       });
     } finally {
       setIsLoading(false);
@@ -78,7 +87,11 @@ export default function AuthPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form 
+              ref={formRef}
+              onSubmit={form.handleSubmit(onSubmit)} 
+              className={`space-y-4 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}
+            >
               <FormField
                 control={form.control}
                 name="username"
@@ -120,15 +133,20 @@ export default function AuthPage() {
                   )}
                 />
               )}
-              <Button type="submit" className="w-full" disabled={isLoading || isPending || isAuthLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isLogin ? "Logging in..." : "Registering..."}
-                  </>
-                ) : (
-                  isLogin ? "Login" : "Register"
+              <Button 
+                type="submit" 
+                className="w-full relative" 
+                disabled={isLoading || isPending || isAuthLoading}
+                variant={isPending ? "outline" : "default"}
+              >
+                {(isLoading || isPending || isAuthLoading) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin absolute left-4" />
                 )}
+                <span className={isLoading || isPending || isAuthLoading ? "opacity-50" : ""}>
+                  {(isLoading || isPending || isAuthLoading)
+                    ? (isLogin ? "Logging in..." : "Registering...")
+                    : (isLogin ? "Login" : "Register")}
+                </span>
               </Button>
             </form>
           </Form>

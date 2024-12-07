@@ -25,7 +25,6 @@ const corsOptions = {
       ? ['https://orange-pill-peru.com', 'http://localhost:3000', 'http://0.0.0.0:3000']
       : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000', 'http://0.0.0.0:3000'];
     
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -40,11 +39,11 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -63,11 +62,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -76,131 +73,131 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  registerRoutes(app);
-  const server = createServer(app);
+  try {
+    // Register API routes first
+    registerRoutes(app);
+    const server = createServer(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = process.env.NODE_ENV === 'production' 
-      ? 'Internal Server Error'  // Don't expose error details in production
-      : err.message || "Internal Server Error";
+    // Global error handler for Express
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = process.env.NODE_ENV === 'production' 
+        ? 'Internal Server Error'
+        : err.message || "Internal Server Error";
 
-    // Log error details in production
-    if (process.env.NODE_ENV === 'production') {
-      console.error('Error:', err);
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Error:', err);
+      }
+
+      res.status(status).json({ 
+        message,
+        status,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    // Setup environment-specific configuration
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      const { setupProduction } = await import('./production.js');
+      setupProduction(app);
     }
 
-    res.status(status).json({ 
-      message,
-      status,
-      timestamp: new Date().toISOString()
-    });
-  });
+    const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'development' ? 5000 : 3000));
+    const HOST = '0.0.0.0';
+    let currentPort = PORT;
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    // Import and setup production configuration
-    const { setupProduction } = await import('./production.js');
-    setupProduction(app);
-  }
+    // Clean up function for server shutdown with proper error handling
+    const cleanup = async (server: any): Promise<void> => {
+      return new Promise((resolve) => {
+        let hasResolved = false;
+        
+        // Attempt graceful shutdown
+        server.close(() => {
+          if (!hasResolved) {
+            hasResolved = true;
+            log('Server closed successfully');
+            resolve();
+          }
+        });
 
-  // Use consistent port configuration
-  const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'development' ? 5000 : 3000));
-  const HOST = '0.0.0.0';
+        // Force close after timeout
+        setTimeout(() => {
+          if (!hasResolved) {
+            hasResolved = true;
+            log('Force closing server after timeout');
+            resolve();
+          }
+        }, 5000);
 
-  // Enhanced error handling for server startup
-  const handleServerError = (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EADDRINUSE') {
-      log(`Error: Port ${PORT} is already in use`);
-      if (process.env.NODE_ENV !== 'production') {
+        // Handle any remaining connections
+        server.unref();
+      });
+    };
+
+    // Enhanced server startup with better port retry logic
+    const startServer = async (port: number, retryCount = 0): Promise<void> => {
+      const maxRetries = process.env.NODE_ENV === 'development' ? 10 : 0;
+      
+      return new Promise((resolve, reject) => {
+        const handleError = async (error: NodeJS.ErrnoException) => {
+          if (error.code === 'EADDRINUSE') {
+            if (retryCount >= maxRetries) {
+              log('Maximum retry attempts reached. Exiting.');
+              process.exit(1);
+            }
+            
+            const nextPort = port + 1;
+            log(`Port ${port} is in use, attempting port ${nextPort} (attempt ${retryCount + 1}/${maxRetries})`);
+            
+            try {
+              await cleanup(server);
+              resolve(startServer(nextPort, retryCount + 1));
+            } catch (cleanupError) {
+              reject(cleanupError);
+            }
+          } else {
+            log(`Failed to start server: ${error.message}`);
+            reject(error);
+          }
+        };
+
         try {
-          const newPort = PORT + 1;
-          log(`Attempting to use port ${newPort}`);
-          server.listen(newPort, HOST);
-          return;
-        } catch (retryError) {
-          const typedError = retryError as Error;
-          log(`Failed to bind to alternate port: ${typedError.message}`);
+          // Clear any existing error handlers
+          server.removeAllListeners('error');
+          
+          // Set up error handling before attempting to listen
+          server.once('error', handleError);
+          
+          server.listen(port, HOST, () => {
+            log(`Server starting in ${process.env.NODE_ENV || 'development'} mode...`);
+            log(`Server running on port ${port}`);
+            log(`Server address: http://${HOST}:${port}`);
+            resolve();
+          });
+        } catch (error) {
+          handleError(error as NodeJS.ErrnoException);
         }
-      }
-      process.exit(1);
-    }
-    
-    // Log detailed errors in development, sanitized in production
-    if (process.env.NODE_ENV === 'production') {
-      log(`Critical server error occurred. Check logs for details.`);
-      console.error(error);
-      process.exit(1);
-    } else {
-      log(`Server error: ${error.message}`);
-      console.error(error);
-    }
-  };
+      });
+    };
 
-  // Graceful shutdown handler
-  const handleShutdown = () => {
-    log('Received shutdown signal. Closing server...');
-    server.close(() => {
-      log('Server closed successfully');
+    // Graceful shutdown handler
+    const handleShutdown = async () => {
+      log('Received shutdown signal');
+      await cleanup(server);
       process.exit(0);
-    });
+    };
 
-    // Force close if graceful shutdown takes too long
-    setTimeout(() => {
-      log('Force closing server after timeout');
-      process.exit(1);
-    }, 10000);
-  };
+    // Register shutdown handlers once
+    process.once('SIGTERM', handleShutdown);
+    process.once('SIGINT', handleShutdown);
 
-  // Register error handlers
-  server.on('error', handleServerError);
-  process.on('SIGTERM', handleShutdown);
-  process.on('SIGINT', handleShutdown);
-  
-  // Start the server with enhanced error handling
-  server.listen(PORT, '0.0.0.0', () => {
-    log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    log(`Server address: http://0.0.0.0:${PORT}`);
-  });
+    // Start the server with retry logic
+    await startServer(currentPort);
 
-  // Handle server errors
-  server.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EADDRINUSE') {
-      log(`Error: Port ${PORT} is already in use`);
-      if (process.env.NODE_ENV !== 'production') {
-        const newPort = PORT + 1;
-        log(`Attempting to use port ${newPort}`);
-        server.listen(newPort, HOST);
-      } else {
-        process.exit(1);
-      }
-    } else {
-      log(`Server error: ${error.message}`);
-      console.error(error);
-      process.exit(1);
-    }
-  });
-
-  // Graceful shutdown handler
-  const handleShutdown = () => {
-    log('Received shutdown signal. Closing server...');
-    server.close(() => {
-      log('Server closed successfully');
-      process.exit(0);
-    });
-
-    // Force close if graceful shutdown takes too long
-    setTimeout(() => {
-      log('Force closing server after timeout');
-      process.exit(1);
-    }, 10000);
-  };
-
-  // Register shutdown handlers
-  process.on('SIGTERM', handleShutdown);
-  process.on('SIGINT', handleShutdown);
+  } catch (error) {
+    log(`Failed to start server: ${error}`);
+    process.exit(1);
+  }
 })();
