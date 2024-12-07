@@ -16,6 +16,9 @@ import { setupAuth } from "./auth.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
+
+// Ensure all paths are resolved relative to the current module
+const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
 // Import database configuration
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
@@ -58,13 +61,14 @@ const RATE_LIMIT = {
 // Import necessary database configuration from connection module
 
 // Logger utility
-function logger(message: string, data: Record<string, any> = {}) {
-  console.log(JSON.stringify({
+function logger(message: string, data: Record<string, any> = {}): void {
+  const logData: Record<string, any> = {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     message,
     ...data
-  }));
+  };
+  console.log(JSON.stringify(logData));
 }
 
 export async function setupProduction(app: express.Express): Promise<void> {
@@ -98,7 +102,9 @@ export async function setupProduction(app: express.Express): Promise<void> {
   try {
     await initializeDatabase();
   } catch (error) {
-    logger('Failed to initialize database after all retries');
+    logger('Failed to initialize database after all retries', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     process.exit(1);
   }
 
@@ -175,15 +181,20 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Static file serving with proper path resolution for ES modules
-  const publicPath = path.resolve(__dirname, '../dist/public');
+  const publicPath = resolveFromRoot('dist/public');
   const indexPath = path.join(publicPath, 'index.html');
   
   if (!fs.existsSync(publicPath)) {
-    logger('Building client application...');
+    logger('Building client application...', {
+      directory: publicPath
+    });
     throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
 
-  logger('Static files will be served from:', publicPath);
+  logger('Static files will be served from:', { 
+    path: publicPath,
+    exists: fs.existsSync(publicPath)
+  });
 
   app.use(express.static(publicPath, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
@@ -193,10 +204,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Error handling
   app.use((error: Error, req: Request, res: Response, next: Function) => {
-    logger('Error occurred', {
+    const errorData: Record<string, any> = {
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      path: req.path,
+      method: req.method
+    };
+
+    logger('Error occurred', errorData);
 
     res.status(500).json({
       error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
@@ -204,10 +219,19 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Cleanup on shutdown
-  const cleanup = async () => {
-    logger('Shutting down');
-    await DatabasePool.end();
-    process.exit(0);
+  const cleanup = async (): Promise<never> => {
+    try {
+      logger('Shutting down gracefully', {
+        environment: process.env.NODE_ENV
+      });
+      await DatabasePool.end();
+      process.exit(0);
+    } catch (error) {
+      logger('Error during shutdown', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      process.exit(1);
+    }
   };
 
   process.on('SIGTERM', cleanup);

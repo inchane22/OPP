@@ -11,9 +11,11 @@ import { dirname } from 'path';
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Helper for consistent path resolution
 const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 
-function log(message: string) {
+function log(message: string, data: Record<string, any> = {}) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour12: false,
     hour: "2-digit",
@@ -105,10 +107,10 @@ app.use((req, res, next) => {
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
-      log('Setting up development server with Vite...');
+      log('Setting up development server with Vite...', {});
       await setupVite(app, server);
     } else {
-      log('Setting up production server...');
+      log('Setting up production server...', {});
       const { setupProduction } = await import('./production.js');
       await setupProduction(app);
     }
@@ -201,7 +203,7 @@ app.use((req, res, next) => {
     process.once('SIGTERM', handleShutdown);
     process.once('SIGINT', handleShutdown);
 
-    log('Starting server...');
+    log('Starting server...', {});
     startServer(PORT);
 
   } catch (error) {
