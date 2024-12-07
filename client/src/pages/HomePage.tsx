@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useTransition } from "react";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -7,8 +7,15 @@ import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
 import HomeCarousel from "../components/HomeCarousel";
 import { Loader2 } from "lucide-react";
 
+const LoadingFallback = () => (
+  <div className="flex justify-center items-center min-h-[200px]">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
 export default function HomePage() {
   const { t } = useLanguage();
+  const [isPending, startTransition] = useTransition();
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
@@ -16,7 +23,11 @@ export default function HomePage() {
       {/* Featured Content Carousel */}
       <section className="w-full">
         <div className="container mx-auto">
-          <HomeCarousel />
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingFallback />}>
+              <HomeCarousel />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </section>
 
@@ -24,8 +35,20 @@ export default function HomePage() {
       <section className="py-8">
         <div className="container mx-auto max-w-7xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <PriceDisplay />
-            <BitcoinQRGenerator />
+            <ErrorBoundary>
+              <div onClick={() => startTransition(() => {})}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <PriceDisplay />
+                </Suspense>
+              </div>
+            </ErrorBoundary>
+            <ErrorBoundary>
+              <div onClick={() => startTransition(() => {})}>
+                <Suspense fallback={<LoadingFallback />}>
+                  <BitcoinQRGenerator />
+                </Suspense>
+              </div>
+            </ErrorBoundary>
           </div>
         </div>
       </section>

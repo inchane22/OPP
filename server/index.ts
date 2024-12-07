@@ -109,7 +109,7 @@ app.use((req, res, next) => {
   }
 
   // Use consistent port configuration
-  const PORT = Number(process.env.PORT || 5000);
+  const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'development' ? 5000 : 3000));
   const HOST = '0.0.0.0';
 
   // Enhanced error handling for server startup
@@ -162,47 +162,45 @@ app.use((req, res, next) => {
   process.on('SIGINT', handleShutdown);
   
   // Start the server with enhanced error handling
-  try {
-    const startServer = () => {
-      return new Promise<void>((resolve, reject) => {
-        const tryPort = (port: number) => {
-          const serverInstance = server.listen(port, "0.0.0.0", () => {
-            const address = serverInstance.address();
-            const actualPort = typeof address === 'object' && address ? address.port : port;
-            log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${actualPort}`);
-            log(`Server address: http://0.0.0.0:${actualPort}`);
-            resolve();
-          });
+  server.listen(PORT, '0.0.0.0', () => {
+    log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    log(`Server address: http://0.0.0.0:${PORT}`);
+  });
 
-          serverInstance.on('error', (err: NodeJS.ErrnoException) => {
-            serverInstance.close();
-            if (err.code === 'EADDRINUSE') {
-              log(`Port ${port} is in use, attempting to use port ${port + 1}`);
-              tryPort(port + 1);
-            } else {
-              reject(err);
-            }
-          });
+  // Handle server errors
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      log(`Error: Port ${PORT} is already in use`);
+      if (process.env.NODE_ENV !== 'production') {
+        const newPort = PORT + 1;
+        log(`Attempting to use port ${newPort}`);
+        server.listen(newPort, HOST);
+      } else {
+        process.exit(1);
+      }
+    } else {
+      log(`Server error: ${error.message}`);
+      console.error(error);
+      process.exit(1);
+    }
+  });
 
-          // Handle server shutdown
-          const cleanup = () => {
-            serverInstance.close(() => {
-              log('Server closed');
-              process.exit(0);
-            });
-          };
+  // Graceful shutdown handler
+  const handleShutdown = () => {
+    log('Received shutdown signal. Closing server...');
+    server.close(() => {
+      log('Server closed successfully');
+      process.exit(0);
+    });
 
-          process.on('SIGTERM', cleanup);
-          process.on('SIGINT', cleanup);
-        };
+    // Force close if graceful shutdown takes too long
+    setTimeout(() => {
+      log('Force closing server after timeout');
+      process.exit(1);
+    }, 10000);
+  };
 
-        tryPort(PORT);
-      });
-    };
-
-    await startServer();
-  } catch (error) {
-    log(`Failed to start server: ${error}`);
-    process.exit(1);
-  }
+  // Register shutdown handlers
+  process.on('SIGTERM', handleShutdown);
+  process.on('SIGINT', handleShutdown);
 })();
