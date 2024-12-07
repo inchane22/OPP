@@ -14,6 +14,9 @@ type TranslationKeys =
   | 'hero.title'
   | 'hero.subtitle'
   | 'hero.join'
+  | 'carousel.title'
+  | 'carousel.error'
+  | 'carousel.empty'
   | 'auth.login'
   | 'auth.register'
   | 'auth.welcome'
@@ -72,6 +75,9 @@ const translations: Translations = {
     'hero.title': 'Orange Pill Peru',
     'hero.subtitle': 'Join us in the financial revolution',
     'hero.join': 'Join the Community',
+    'carousel.title': 'Bitcoiners Making an Impact in Peru',
+    'carousel.error': 'Failed to load carousel items',
+    'carousel.empty': 'No items to display',
     'auth.login': 'Login',
     'auth.register': 'Register',
     'auth.welcome': 'Welcome back to Orange Pill Peru',
@@ -123,6 +129,9 @@ const translations: Translations = {
     'hero.title': 'Orange Pill Perú',
     'hero.subtitle': 'Únete a la revolución financiera',
     'hero.join': 'Únete a la Comunidad',
+    'carousel.title': 'Bitcoiners Dejando Huella en Perú',
+    'carousel.error': 'Error al cargar elementos del carrusel',
+    'carousel.empty': 'No hay elementos para mostrar',
     'auth.login': 'Iniciar Sesión',
     'auth.register': 'Registrarse',
     'auth.welcome': 'Bienvenido de nuevo a Orange Pill Perú',

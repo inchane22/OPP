@@ -33,6 +33,8 @@ const LoadingSpinner = React.memo(() => (
   </div>
 ));
 
+LoadingSpinner.displayName = "LoadingSpinner";
+
 interface CarouselItem {
   id: number;
   title: string;
@@ -51,6 +53,7 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
       <CardContent className="flex aspect-square items-center justify-center p-6">
         <div className="w-full h-full">
           <iframe
+            title={item.title}
             src={getEmbedUrl(item.embedUrl)}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -64,49 +67,64 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
   </div>
 ));
 
+CarouselItemDisplay.displayName = "CarouselItemDisplay";
+
 interface CarouselDisplayProps {
   items: CarouselItem[];
-  children?: ReactNode;
 }
 
 const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
-  const [emblaApi, setEmblaApi] = React.useState<CarouselApi | null>(null);
-  const [isPending, startTransition] = React.useTransition();
-
-  // Handle API initialization with proper transition and error handling
-  const handleApiInit = React.useCallback((api: CarouselApi) => {
-    if (!api) return;
-    try {
-      startTransition(() => {
-        setEmblaApi(api);
-      });
-    } catch (error) {
-      console.error('Failed to initialize carousel:', error);
-    }
-  }, []);
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [current, setCurrent] = React.useState(0);
+  const [count, setCount] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
 
   const carouselOptions = React.useMemo((): EmblaOptionsType => ({
     align: "center",
     dragFree: true,
     containScroll: "trimSnaps",
     loop: true,
-    duration: 20,
   }), []);
 
   const autoplayPlugin = React.useMemo(() => 
     Autoplay({
       delay: 5000,
-      stopOnInteraction: false,
+      stopOnInteraction: true,
       stopOnMouseEnter: true,
     }), []);
 
+  React.useEffect(() => {
+    if (!api) return;
+
+    setCount(api.scrollSnapList().length);
+    setCurrent(api.selectedScrollSnap());
+
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap());
+    });
+  }, [api]);
+
+  // Use transition for loading state
+  const [_, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    if (items.length > 0) {
+      startTransition(() => {
+        setLoading(false);
+      });
+    }
+  }, [items]);
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   return (
     <div className="relative">
-      {isPending && <LoadingSpinner />}
       <Carousel 
         opts={carouselOptions}
         plugins={[autoplayPlugin]}
-        setApi={handleApiInit}
+        setApi={setApi}
         className="w-full max-w-5xl mx-auto relative"
       >
         <CarouselContent>
@@ -128,15 +146,15 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
 
 CarouselDisplay.displayName = "CarouselDisplay";
 
-// Fetch carousel items function outside component to prevent recreation
+// Fetch carousel items function with proper error handling
 const fetchCarouselItems = async (): Promise<CarouselItem[]> => {
   try {
     const response = await fetch('/api/carousel');
     if (!response.ok) {
       throw new Error('Failed to fetch carousel items');
     }
-    const data = await response.json();
-    return data.filter((item: CarouselItem) => item.active);
+    const data: CarouselItem[] = await response.json();
+    return data.filter((item) => item.active);
   } catch (error) {
     console.error('Error fetching carousel items:', error);
     throw error;
@@ -144,60 +162,73 @@ const fetchCarouselItems = async (): Promise<CarouselItem[]> => {
 };
 
 export default function HomeCarousel() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = React.useTransition();
 
-  const { data: items = [], error, isLoading } = useQuery<CarouselItem[]>({
+  // Use suspense: false to prevent unwanted suspense behavior
+  const { data: items = [], error, isLoading } = useQuery({
     queryKey: ['carousel-items'],
     queryFn: fetchCarouselItems,
     staleTime: 30000,
     refetchOnWindowFocus: false,
-    suspense: false,
     retry: 2,
     retryDelay: 1000,
   });
 
-  // Prefetch and handle transitions
+  // Prefetch data with transition
   React.useEffect(() => {
-    const prefetchData = () => {
-      startTransition(() => {
-        queryClient.prefetchQuery({
-          queryKey: ['carousel-items'],
-          queryFn: fetchCarouselItems,
-          staleTime: 30000
-        });
+    // Wrap prefetch in startTransition to avoid UI blocking
+    startTransition(() => {
+      void queryClient.prefetchQuery({
+        queryKey: ['carousel-items'],
+        queryFn: fetchCarouselItems,
+        staleTime: 30000
       });
-    };
+    });
 
-    prefetchData();
     return () => {
-      queryClient.cancelQueries({ queryKey: ['carousel-items'] });
+      void queryClient.cancelQueries({ queryKey: ['carousel-items'] });
     };
   }, [queryClient]);
+
+  // Memoize the carousel content to prevent unnecessary re-renders
+  const carouselContent = React.useMemo(() => {
+    if (isPending || isLoading) {
+      return <LoadingSpinner />;
+    }
+
+    if (error) {
+      return (
+        <div className="text-center text-red-500">
+          {t('carousel.error')}
+        </div>
+      );
+    }
+
+    const carouselItems = items as CarouselItem[];
+    if (!carouselItems || carouselItems.length === 0) {
+      return (
+        <div className="text-center text-muted-foreground">
+          {t('carousel.empty')}
+        </div>
+      );
+    }
+
+    return <CarouselDisplay items={carouselItems} />;
+  }, [isPending, isLoading, error, items, t]);
 
   return (
     <section className="py-12 bg-muted/50">
       <div className="container">
         <h2 className="text-3xl font-bold text-center mb-8">
-          Bitcoiners Dejando Huella en Perú
+          {t('carousel.title')}
         </h2>
-        <div className="relative">
-          <ErrorBoundary>
-            {isPending || isLoading ? (
-              <LoadingSpinner />
-            ) : error ? (
-              <div className="text-center text-red-500">
-                Failed to load carousel items
-              </div>
-            ) : items.length === 0 ? (
-              <div className="text-center text-muted-foreground">
-                No items to display
-              </div>
-            ) : (
-              <CarouselDisplay items={items} />
-            )}
-          </ErrorBoundary>
-        </div>
+        <ErrorBoundary>
+          <div className="relative">
+            {carouselContent}
+          </div>
+        </ErrorBoundary>
       </div>
     </section>
   );
