@@ -1,9 +1,15 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite } from "./vite";
+import { registerRoutes } from "./routes.js";
+import { setupVite } from "./vite.js";
+import path from "path";
 import { createServer } from "http";
 import compression from 'compression';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function log(message: string) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -85,9 +91,7 @@ app.use((req, res, next) => {
         ? 'Internal Server Error'
         : err.message || "Internal Server Error";
 
-      if (process.env.NODE_ENV === 'production') {
-        console.error('Error:', err);
-      }
+      console.error('Error:', err);
 
       res.status(status).json({ 
         message,
@@ -97,14 +101,16 @@ app.use((req, res, next) => {
     });
 
     // Setup environment-specific configuration
-    if (app.get("env") === "development") {
+    if (process.env.NODE_ENV !== 'production') {
+      log('Setting up development server with Vite...');
       await setupVite(app, server);
     } else {
+      log('Setting up production server...');
       const { setupProduction } = await import('./production.js');
-      setupProduction(app);
+      await setupProduction(app);
     }
 
-    const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'development' ? 5000 : 3000));
+    const PORT = Number(process.env.PORT || 5000);
     const HOST = '0.0.0.0';
     let currentPort = PORT;
 
@@ -193,11 +199,15 @@ app.use((req, res, next) => {
     process.once('SIGTERM', handleShutdown);
     process.once('SIGINT', handleShutdown);
 
-    // Start the server with retry logic
-    await startServer(currentPort);
+    log('Starting server...');
+    server.listen(currentPort, HOST, () => {
+      log(`Server running in ${process.env.NODE_ENV || 'development'} mode`);
+      log(`Server listening on http://${HOST}:${currentPort}`);
+    });
 
   } catch (error) {
     log(`Failed to start server: ${error}`);
+    console.error(error);
     process.exit(1);
   }
 })();

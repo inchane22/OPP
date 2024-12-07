@@ -12,8 +12,12 @@ import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
 
+// Import necessary modules for ES module path resolution
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Ensure these are available throughout the module
+const resolvePath = (relativePath: string) => path.resolve(dirname(fileURLToPath(import.meta.url)), relativePath);
 // Import database configuration
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
@@ -172,8 +176,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Static file serving with proper path resolution
-  const publicPath = path.resolve(__dirname, '../dist/public');
+  // Static file serving with proper path resolution for ES modules
+  const publicPath = resolvePath('../dist/public');
   const indexPath = path.join(publicPath, 'index.html');
   
   if (!fs.existsSync(publicPath)) {
