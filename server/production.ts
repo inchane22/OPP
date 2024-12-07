@@ -1,5 +1,7 @@
 import express, { Response, Request } from 'express';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import compression from 'compression';
 import cors from 'cors';
 import type { ParamsDictionary } from 'express-serve-static-core';
@@ -9,6 +11,9 @@ import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
 import { setupAuth } from "./auth";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 // Import database configuration
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
@@ -168,7 +173,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Static file serving with proper path resolution
-  const publicPath = path.resolve(__dirname, '../dist');
+  const publicPath = path.resolve(__dirname, '../dist/public');
   const indexPath = path.join(publicPath, 'index.html');
   
   if (!fs.existsSync(publicPath)) {
