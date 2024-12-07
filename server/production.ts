@@ -59,17 +59,7 @@ const RATE_LIMIT = {
 } as const;
 
 // Import necessary database configuration from connection module
-
-// Logger utility
-function logger(message: string, data: Record<string, any> = {}): void {
-  const logData: Record<string, any> = {
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    message,
-    ...data
-  };
-  console.log(JSON.stringify(logData));
-}
+import { logger, type LogData } from "./utils/logger.js";
 
 export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize database connection
@@ -81,14 +71,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
       try {
         const db = DatabasePool.getInstance();
         await db.getPool();
-        logger('Database connection initialized successfully', { attempt });
+        logger('Database connection initialized successfully', { attempt } as LogData);
         return;
       } catch (error) {
         logger('Database connection attempt failed', {
           attempt,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
-        });
+        } as LogData);
 
         if (attempt === retries) {
           throw new Error('Failed to initialize database after all retries');
@@ -104,7 +94,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   } catch (error) {
     logger('Failed to initialize database after all retries', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    } as LogData);
     process.exit(1);
   }
 
@@ -187,14 +177,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
   if (!fs.existsSync(publicPath)) {
     logger('Building client application...', {
       directory: publicPath
-    });
+    } as LogData);
     throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
 
   logger('Static files will be served from:', { 
     path: publicPath,
     exists: fs.existsSync(publicPath)
-  });
+  } as LogData);
 
   app.use(express.static(publicPath, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
@@ -211,7 +201,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
       method: req.method
     };
 
-    logger('Error occurred', errorData);
+    logger('Error occurred', errorData as LogData);
 
     res.status(500).json({
       error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
@@ -223,13 +213,13 @@ export async function setupProduction(app: express.Express): Promise<void> {
     try {
       logger('Shutting down gracefully', {
         environment: process.env.NODE_ENV
-      });
+      } as LogData);
       await DatabasePool.end();
       process.exit(0);
     } catch (error) {
       logger('Error during shutdown', {
         error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      } as LogData);
       process.exit(1);
     }
   };
