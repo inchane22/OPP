@@ -142,6 +142,7 @@ export default function EventsPage() {
                 <form onSubmit={form.handleSubmit(data => {
                   startTransition(() => {
                     createEvent.mutate(data);
+                    queryClient.invalidateQueries({ queryKey: ['events'] });
                   });
                 })} className="space-y-4">
                   <FormField
@@ -238,27 +239,26 @@ export default function EventsPage() {
                     onClick={(e) => {
                       if (isPending) return;
                       e.stopPropagation();
-                      const handleLike = async () => {
-                        try {
-                          const response = await fetch(`/api/events/${event.id}/like`, { 
-                            method: 'POST',
-                            credentials: 'include'
-                          });
-                          if (!response.ok) {
-                            throw new Error('Failed to like event');
+                      startTransition(() => {
+                        (async () => {
+                          try {
+                            const response = await fetch(`/api/events/${event.id}/like`, { 
+                              method: 'POST',
+                              credentials: 'include'
+                            });
+                            if (!response.ok) {
+                              throw new Error('Failed to like event');
+                            }
+                            await queryClient.invalidateQueries({ queryKey: ['events'] });
+                          } catch (error) {
+                            toast({
+                              title: "Failed to like event",
+                              description: error instanceof Error ? error.message : "An error occurred",
+                              variant: "destructive"
+                            });
                           }
-                          startTransition(() => {
-                            queryClient.invalidateQueries({ queryKey: ['events'] });
-                          });
-                        } catch (error) {
-                          toast({
-                            title: "Failed to like event",
-                            description: error instanceof Error ? error.message : "An error occurred",
-                            variant: "destructive"
-                          });
-                        }
-                      };
-                      handleLike();
+                        })();
+                      });
                     }}
                     disabled={isPending}
                   >
@@ -272,17 +272,18 @@ export default function EventsPage() {
                       className="hover:text-black dark:hover:text-white"
                       onClick={(e) => {
                         e.stopPropagation();
-                        startTransition(() => {
-                          window.open(
-                            `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                              `Check out ${event.title} at ${event.location} on ${format(
-                                new Date(event.date),
-                                "PPP"
-                              )}!&url=${window.location.href}`
-                            )}`,
-                            "_blank"
-                          );
-                        });
+                        if (!isPending) {
+                          startTransition(() => {
+                            const tweetText = `Check out ${event.title} at ${event.location} on ${format(
+                              new Date(event.date),
+                              "PPP"
+                            )}!`;
+                            const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                              `${tweetText}&url=${window.location.href}`
+                            )}`;
+                            window.open(tweetUrl, "_blank");
+                          });
+                        }
                       }}
                       disabled={isPending}
                     >

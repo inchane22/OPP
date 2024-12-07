@@ -1,4 +1,5 @@
-import React, { useTransition } from "react";
+import * as React from "react";
+import { Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay, { AutoplayOptionsType } from "embla-carousel-autoplay";
@@ -66,29 +67,47 @@ export default function HomeCarousel() {
     refetchOnWindowFocus: false
   });
 
-  // Prefetch in transition
+  // Prefetch in transition with proper async handling
   React.useEffect(() => {
     startTransition(() => {
-      queryClient.prefetchQuery({
-        queryKey: ['carousel-items'],
-        queryFn: async () => {
-          const response = await fetch('/api/carousel');
-          if (!response.ok) {
-            throw new Error('Failed to fetch carousel items');
-          }
-          const data = await response.json();
-          return data
-            .filter((item: CarouselItem) => item.active)
-            .map((item: CarouselItem) => ({
-              ...item,
-              embedUrl: getEmbedUrl(item.embedUrl)
-            }));
+      (async () => {
+        try {
+          await queryClient.prefetchQuery({
+            queryKey: ['carousel-items'],
+            queryFn: async () => {
+              const response = await fetch('/api/carousel');
+              if (!response.ok) {
+                throw new Error('Failed to fetch carousel items');
+              }
+              const data = await response.json();
+              return data
+                .filter((item: CarouselItem) => item.active)
+                .map((item: CarouselItem) => ({
+                  ...item,
+                  embedUrl: getEmbedUrl(item.embedUrl)
+                }));
+            }
+          });
+        } catch (error) {
+          console.error('Error prefetching carousel items:', error);
         }
-      });
+      })();
     });
   }, [queryClient]);
 
   const isUpdating = isPending || isFetching;
+
+  if (isLoading) {
+    return (
+      <section className="py-12 bg-muted/50">
+        <div className="container">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (error) {
     console.error('Error loading carousel:', error);
@@ -106,11 +125,16 @@ export default function HomeCarousel() {
           Bitcoiners Dejando Huella en Perú
         </h2>
         <div className="relative">
-          {isUpdating && (
+          <Suspense fallback={
             <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-50">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          )}
+          }>
+            {isUpdating && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-50">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
           <Carousel 
             opts={{
               align: "start",

@@ -1,4 +1,5 @@
-import { useEffect, useTransition } from "react";
+import * as React from "react";
+import { useTransition } from "react";
 import { Link } from "wouter";
 import { useUser } from "../hooks/use-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "../hooks/use-language";
+import { Loader2 } from "lucide-react";
 import type { Post, User, Resource, Business, Event } from "@db/schema";
 
 interface PostWithAuthor extends Post {
@@ -83,20 +85,31 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  // Handle loading states with proper UI feedback
+  const [isLoading, setIsLoading] = React.useState(false);
+  const isUpdating = isPending || isLoading;
+
   // Show loading state when transitions are pending
   useEffect(() => {
-    if (isPending) {
+    if (isUpdating) {
       toast({
         title: "Loading...",
         description: "Please wait while we process your request",
         variant: "default"
       });
     }
-  }, [isPending, toast]);
+  }, [isUpdating, toast]);
 
   // Display loading indicator for pending operations
-  if (isPending) {
-    return <div className="flex items-center justify-center p-4">Loading...</div>;
+  if (isUpdating) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Processing your request...</p>
+        </div>
+      </div>
+    );
   }
 
   // Enhanced authentication check with proper error handling
@@ -272,37 +285,41 @@ export default function AdminPanel() {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={async () => {
-                                  try {
-                                    const newRole = managedUser.role === 'admin' ? 'user' : 'admin';
-                                    const response = await fetch(`/api/users/${managedUser.id}/role`, {
-                                      method: 'PUT',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        role: newRole
-                                      }),
-                                      credentials: 'include'
-                                    });
+                                onClick={() => {
+                                  const newRole = managedUser.role === 'admin' ? 'user' : 'admin';
+                                  startTransition(() => {
+                                    (async () => {
+                                      try {
+                                        const response = await fetch(`/api/users/${managedUser.id}/role`, {
+                                          method: 'PUT',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify({
+                                            role: newRole
+                                          }),
+                                          credentials: 'include'
+                                        });
 
-                                    if (!response.ok) {
-                                      throw new Error('Failed to update user role');
-                                    }
+                                        if (!response.ok) {
+                                          throw new Error('Failed to update user role');
+                                        }
 
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                    toast({
-                                      title: `Role updated to ${newRole}`,
-                                      variant: "default"
-                                    });
-                                  } catch (error) {
-                                    console.error('Error updating user role:', error);
-                                    toast({
-                                      title: "Error updating role",
-                                      description: "Could not update user role",
-                                      variant: "destructive"
-                                    });
-                                  }
+                                        await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                        toast({
+                                          title: `Role updated to ${newRole}`,
+                                          variant: "default"
+                                        });
+                                      } catch (error) {
+                                        console.error('Error updating user role:', error);
+                                        toast({
+                                          title: "Error updating role",
+                                          description: "Could not update user role",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    })();
+                                  });
                                 }}
                               >
                                 {managedUser.role === 'admin' ? "Remove Admin" : "Make Admin"}
@@ -310,32 +327,36 @@ export default function AdminPanel() {
                               <Button 
                                 variant="destructive" 
                                 size="sm"
-                                onClick={async () => {
+                                onClick={() => {
                                   if (!confirm('Are you sure you want to delete this user?')) return;
                                   
-                                  try {
-                                    const response = await fetch(`/api/users/${managedUser.id}`, {
-                                      method: 'DELETE',
-                                      credentials: 'include'
-                                    });
+                                  startTransition(() => {
+                                    (async () => {
+                                      try {
+                                        const response = await fetch(`/api/users/${managedUser.id}`, {
+                                          method: 'DELETE',
+                                          credentials: 'include'
+                                        });
 
-                                    if (!response.ok) {
-                                      throw new Error('Failed to delete user');
-                                    }
+                                        if (!response.ok) {
+                                          throw new Error('Failed to delete user');
+                                        }
 
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                    toast({
-                                      title: "User deleted",
-                                      variant: "default"
-                                    });
-                                  } catch (error) {
-                                    console.error('Error deleting user:', error);
-                                    toast({
-                                      title: "Error deleting user",
-                                      description: "Could not delete user",
-                                      variant: "destructive"
-                                    });
-                                  }
+                                        await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                        toast({
+                                          title: "User deleted",
+                                          variant: "default"
+                                        });
+                                      } catch (error) {
+                                        console.error('Error deleting user:', error);
+                                        toast({
+                                          title: "Error deleting user",
+                                          description: "Could not delete user",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    })();
+                                  });
                                 }}
                               >
                                 Delete
@@ -492,7 +513,7 @@ export default function AdminPanel() {
                               <DialogHeader>
                                 <DialogTitle>Editar Item del Carrusel</DialogTitle>
                               </DialogHeader>
-                              <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+                              <form onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
                                 const updatedItem = {
@@ -501,33 +522,37 @@ export default function AdminPanel() {
                                   description: formData.get('description'),
                                 };
 
-                                try {
-                                  const response = await fetch(`/api/carousel/${item.id}`, {
-                                    method: 'PUT',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify(updatedItem),
-                                    credentials: 'include'
-                                  });
+                                startTransition(() => {
+                                  (async () => {
+                                    try {
+                                      const response = await fetch(`/api/carousel/${item.id}`, {
+                                        method: 'PUT',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(updatedItem),
+                                        credentials: 'include'
+                                      });
 
-                                  if (!response.ok) {
-                                    throw new Error('Failed to update carousel item');
-                                  }
+                                      if (!response.ok) {
+                                        throw new Error('Failed to update carousel item');
+                                      }
 
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                  toast({
-                                    title: "Item actualizado",
-                                    variant: "default"
-                                  });
-                                } catch (error) {
-                                  console.error('Error updating carousel item:', error);
-                                  toast({
-                                    title: "Error al actualizar",
-                                    description: "No se pudo actualizar el item",
-                                    variant: "destructive"
-                                  });
-                                }
+                                      await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                      toast({
+                                        title: "Item actualizado",
+                                        variant: "default"
+                                      });
+                                    } catch (error) {
+                                      console.error('Error updating carousel item:', error);
+                                      toast({
+                                        title: "Error al actualizar",
+                                        description: "No se pudo actualizar el item",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  })();
+                                });
                               }} className="space-y-4 mt-4">
                                 <div>
                                   <Label htmlFor="edit-title">Título</Label>
@@ -561,22 +586,34 @@ export default function AdminPanel() {
                               </form>
                             </DialogContent>
                           </Dialog>
-                          <Button variant="destructive" size="sm" onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/carousel/${item.id}`, {
-                                method: 'DELETE',
-                                credentials: 'include'
-                              });
+                          <Button variant="destructive" size="sm" onClick={() => {
+                            startTransition(() => {
+                              (async () => {
+                                try {
+                                  const response = await fetch(`/api/carousel/${item.id}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include'
+                                  });
 
-                              if (!response.ok) {
-                                throw new Error('Failed to delete carousel item');
-                              }
+                                  if (!response.ok) {
+                                    throw new Error('Failed to delete carousel item');
+                                  }
 
-                              // Refetch the stats to update the list
-                              queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                            } catch (error) {
-                              console.error('Error deleting carousel item:', error);
-                            }
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({
+                                    title: "Item eliminado",
+                                    variant: "default"
+                                  });
+                                } catch (error) {
+                                  console.error('Error deleting carousel item:', error);
+                                  toast({
+                                    title: "Error al eliminar",
+                                    description: "No se pudo eliminar el item",
+                                    variant: "destructive"
+                                  });
+                                }
+                              })();
+                            });
                           }}>
                             Eliminar
                           </Button>
