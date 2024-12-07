@@ -84,14 +84,24 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
     dragFree: true,
     containScroll: "trimSnaps",
     loop: true,
+    skipSnaps: false,
+    inViewThreshold: 0,
+    watchDrag: true
   }), []);
 
-  const autoplayPlugin = React.useMemo(() => 
-    Autoplay({
-      delay: 5000,
-      stopOnInteraction: true,
-      stopOnMouseEnter: true,
-    }), []);
+  const autoplayPlugin = React.useMemo(() => {
+    try {
+      return Autoplay({
+        delay: 5000,
+        stopOnInteraction: true,
+        stopOnMouseEnter: true,
+        rootNode: (scrollTo) => scrollTo,
+      });
+    } catch (error) {
+      console.error('Failed to initialize autoplay plugin:', error);
+      return undefined;
+    }
+  }, []);
 
   React.useEffect(() => {
     if (!api) return;
@@ -124,7 +134,7 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
     <div className="relative">
       <Carousel 
         opts={carouselOptions}
-        plugins={[autoplayPlugin]}
+        plugins={autoplayPlugin ? [autoplayPlugin] : undefined}
         setApi={setApi}
         className="w-full max-w-5xl mx-auto relative"
       >
