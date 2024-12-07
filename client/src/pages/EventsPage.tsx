@@ -1,4 +1,4 @@
-import { Suspense, useTransition } from "react";
+import { useTransition } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUser } from "../hooks/use-user";
@@ -39,7 +39,8 @@ export default function EventsPage() {
       return response.json();
     },
     staleTime: 5000,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
+    retry: 3
   });
 
   // Function to get the next 21st date
@@ -78,9 +79,9 @@ export default function EventsPage() {
     onSuccess: () => {
       startTransition(() => {
         queryClient.invalidateQueries({ queryKey: ['events'] });
+        form.reset();
+        toast({ title: "Event created successfully" });
       });
-      toast({ title: "Event created successfully" });
-      form.reset();
     },
     onError: () => {
       toast({
@@ -124,203 +125,203 @@ export default function EventsPage() {
             <DialogTrigger asChild>
               <Button>{t('events.create_event')}</Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Event</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(data => createEvent.mutate(data))} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} rows={3} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="datetime-local" 
-                          value={field.value.toISOString().slice(0, 16)}
-                          onChange={(e) => field.onChange(new Date(e.target.value))}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={createEvent.isPending}>
-                  {createEvent.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Event
-                </Button>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Event</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(data => {
+                  startTransition(() => {
+                    createEvent.mutate(data);
+                  });
+                })} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} rows={3} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Location</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="datetime-local" 
+                            value={field.value.toISOString().slice(0, 16)}
+                            onChange={(e) => field.onChange(new Date(e.target.value))}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" disabled={createEvent.isPending || isPending}>
+                    {(createEvent.isPending || isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Create Event
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
-      <div className={`grid md:grid-cols-2 gap-6 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
-        <ErrorBoundary>
-          <Suspense fallback={
-            <div className="col-span-2 flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          }>
-            <div className="col-span-2 grid md:grid-cols-2 gap-6">
-              {events.map((event: Event) => (
-                <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
-            <CardHeader>
-              <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
-                {event.title}
-              </CardTitle>
-              <div className="flex flex-col space-y-2 mt-2">
-                <div className="flex items-center text-sm">
-                  <Calendar className="mr-2 h-5 w-5 text-primary" />
-                  <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
+      <ErrorBoundary>
+        <div className={`grid md:grid-cols-2 gap-6 ${isPending || isFetching ? 'opacity-50 pointer-events-none' : ''}`}>
+          {events.map((event: Event) => (
+            <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
+              <CardHeader>
+                <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
+                  {event.title}
+                </CardTitle>
+                <div className="flex flex-col space-y-2 mt-2">
+                  <div className="flex items-center text-sm">
+                    <Calendar className="mr-2 h-5 w-5 text-primary" />
+                    <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <MapPin className="mr-2 h-5 w-5 text-primary" />
+                    <span className="font-medium">{event.location}</span>
+                  </div>
                 </div>
-                <div className="flex items-center text-sm">
-                  <MapPin className="mr-2 h-5 w-5 text-primary" />
-                  <span className="font-medium">{event.location}</span>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                <div className="mt-4 flex items-center justify-between">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const likeEvent = async () => {
+                        try {
+                          await fetch(`/api/events/${event.id}/like`, { method: 'POST' });
+                          startTransition(() => {
+                            queryClient.invalidateQueries({ queryKey: ['events'] });
+                          });
+                        } catch (error) {
+                          toast({
+                            variant: "destructive",
+                            title: "Failed to like event"
+                          });
+                        }
+                      };
+                      likeEvent();
+                    }}
+                  >
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>{event.likes}</span>
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover:text-black dark:hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(
+                          `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                            `Check out ${event.title} at ${event.location} on ${format(
+                              new Date(event.date),
+                              "PPP"
+                            )}!&url=${window.location.href}`
+                          )}`,
+                          "_blank"
+                        );
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover:text-[#E4405F]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(
+                          `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
+                          "_blank"
+                        );
+                      }}
+                    >
+                      <Instagram className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground leading-relaxed">{event.description}</p>
-              <div className="mt-4 flex items-center justify-between">
                 <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="hover:text-primary"
-                  onClick={async (e) => {
+                  variant="outline" 
+                  className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
+                  onClick={(e) => {
                     e.stopPropagation();
-                    try {
-                      await fetch(`/api/events/${event.id}/like`, { method: 'POST' });
-                      // Refetch events to update the likes count
-                      queryClient.invalidateQueries({ queryKey: ['events'] });
-                    } catch (error) {
-                      toast({
-                        variant: "destructive",
-                        title: "Failed to like event"
-                      });
-                    }
+                    const eventDate = new Date(event.date);
+                    const endDate = new Date(eventDate);
+                    endDate.setHours(eventDate.getHours() + 2);
+                    
+                    const icsData = [
+                      'BEGIN:VCALENDAR',
+                      'VERSION:2.0',
+                      'BEGIN:VEVENT',
+                      `DTSTART:${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                      `DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                      `SUMMARY:${event.title}`,
+                      `DESCRIPTION:${event.description}`,
+                      `LOCATION:${event.location}`,
+                      'END:VEVENT',
+                      'END:VCALENDAR'
+                    ].join('\n');
+                    
+                    const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = `${event.title.toLowerCase().replace(/\s+/g, '-')}.ics`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                   }}
                 >
-                  <Heart className="mr-2 h-4 w-4" />
-                  <span>{event.likes}</span>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Add to Calendar
                 </Button>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hover:text-black dark:hover:text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(
-                        `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                          `Check out ${event.title} at ${event.location} on ${format(
-                            new Date(event.date),
-                            "PPP"
-                          )}!&url=${window.location.href}`
-                        )}`,
-                        "_blank"
-                      );
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hover:text-[#E4405F]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(
-                        `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
-                        "_blank"
-                      );
-                    }}
-                  >
-                    <Instagram className="h-4 w-4" />
-                  </Button>
-                  
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Create calendar event data
-                  const eventDate = new Date(event.date);
-                  const endDate = new Date(eventDate);
-                  endDate.setHours(eventDate.getHours() + 2); // Default 2 hour duration
-                  
-                  const icsData = [
-                    'BEGIN:VCALENDAR',
-                    'VERSION:2.0',
-                    'BEGIN:VEVENT',
-                    `DTSTART:${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-                    `DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-                    `SUMMARY:${event.title}`,
-                    `DESCRIPTION:${event.description}`,
-                    `LOCATION:${event.location}`,
-                    'END:VEVENT',
-                    'END:VCALENDAR'
-                  ].join('\n');
-                  
-                  const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
-                  const link = document.createElement('a');
-                  link.href = window.URL.createObjectURL(blob);
-                  link.download = `${event.title.toLowerCase().replace(/\s+/g, '-')}.ics`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-              >
-                <Calendar className="mr-2 h-4 w-4" />
-                Add to Calendar
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-            </div>
-          </Suspense>
-        </ErrorBoundary>
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

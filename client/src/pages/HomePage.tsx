@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useTransition } from "react";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -16,6 +16,7 @@ const LoadingFallback = () => (
 
 export default function HomePage() {
   const { t } = useLanguage();
+  const [isPending, startTransition] = useTransition();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -25,9 +26,11 @@ export default function HomePage() {
       <section className="w-full">
         <div className="container mx-auto">
           <ErrorBoundary>
-            <Suspense fallback={<LoadingFallback />}>
-              <HomeCarousel />
-            </Suspense>
+            <div className={isPending ? 'opacity-50' : ''}>
+              <Suspense fallback={<LoadingFallback />}>
+                <HomeCarousel />
+              </Suspense>
+            </div>
           </ErrorBoundary>
         </div>
       </section>
@@ -37,14 +40,10 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <PriceDisplay />
-              </Suspense>
+              <PriceDisplay />
             </ErrorBoundary>
             <ErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <BitcoinQRGenerator />
-              </Suspense>
+              <BitcoinQRGenerator />
             </ErrorBoundary>
           </div>
         </div>

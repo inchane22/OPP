@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay, { AutoplayOptionsType } from "embla-carousel-autoplay";
-
+import { useTransition } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
+import { Loader2 } from "lucide-react";
 
 interface CarouselItem {
   id: number;
@@ -16,7 +17,9 @@ interface CarouselItem {
 }
 
 export default function HomeCarousel() {
-  const { t: _ } = useLanguage(); // We'll keep the import but ignore the variable for now
+  const { t: _ } = useLanguage();
+  const queryClient = useQueryClient();
+  const [isPending, startTransition] = useTransition();
   
   function getEmbedUrl(url: string): string {
     try {
@@ -48,7 +51,7 @@ export default function HomeCarousel() {
     }
   }
 
-  const { data: items, isLoading, error } = useQuery<CarouselItem[]>({
+  const { data: items, isLoading, isFetching, error } = useQuery<CarouselItem[]>({
     queryKey: ['carousel-items'],
     queryFn: async () => {
       const response = await fetch('/api/carousel');
@@ -56,29 +59,40 @@ export default function HomeCarousel() {
         throw new Error('Failed to fetch carousel items');
       }
       const data = await response.json();
-      // Only show active items and transform URLs
       return data
         .filter((item: CarouselItem) => item.active)
         .map((item: CarouselItem) => ({
           ...item,
           embedUrl: getEmbedUrl(item.embedUrl)
         }));
-    }
+    },
+    staleTime: 30000,
+    refetchOnWindowFocus: false
   });
 
-  if (isLoading) {
+  const isUpdating = isPending || isFetching;
+  const showLoading = isLoading || (!items && isUpdating);
+
+  if (showLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
+      <section className="py-12 bg-muted/50">
+        <div className="container">
+          <div className="flex items-center justify-center min-h-[300px]">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </section>
     );
   }
 
   if (error) {
+    console.error('Error loading carousel:', error);
     return null;
   }
 
-  if (!items?.length) return null;
+  if (!items?.length) {
+    return null;
+  }
 
   return (
     <section className="py-12 bg-muted/50">
@@ -86,7 +100,8 @@ export default function HomeCarousel() {
         <h2 className="text-3xl font-bold text-center mb-8">
           Bitcoiners Dejando Huella en Perú
         </h2>
-        <Carousel 
+        <div className={`transition-opacity duration-200 ${isUpdating ? 'opacity-50' : ''}`}>
+          <Carousel 
           opts={{
             align: "start",
             dragFree: true,
@@ -128,6 +143,7 @@ export default function HomeCarousel() {
           <CarouselPrevious />
           <CarouselNext />
         </Carousel>
+        </div>
       </div>
     </section>
   );

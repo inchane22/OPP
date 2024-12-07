@@ -34,18 +34,25 @@ export default function PriceDisplay() {
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
   
-  const { data, error, isFetching } = useQuery({
+  const { data, error, isFetching, isLoading } = useQuery({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
     refetchInterval: 60000,
     staleTime: 30000,
-    retry: 3,
-    suspense: true
+    retry: 3
   });
 
   const refreshPrice = () => {
+    const refresh = async () => {
+      try {
+        await queryClient.invalidateQueries({ queryKey: ['bitcoin-price'] });
+      } catch (error) {
+        console.error('Failed to refresh price:', error);
+      }
+    };
+
     startTransition(() => {
-      queryClient.invalidateQueries({ queryKey: ['bitcoin-price'] });
+      refresh();
     });
   };
 
@@ -53,7 +60,10 @@ export default function PriceDisplay() {
     throw error;
   }
 
-  if (isLoading || !data) {
+  const isUpdating = isPending || isFetching;
+  const showLoading = isLoading || (!data && isUpdating);
+
+  if (showLoading) {
     return (
       <Card>
         <CardContent className="flex justify-center items-center h-24">
@@ -65,7 +75,7 @@ export default function PriceDisplay() {
 
   return (
     <div 
-      className={`transition-opacity duration-200 ${isPending || isFetching ? "opacity-50" : ""}`}
+      className={`transition-opacity duration-200 ${isUpdating ? "opacity-50" : ""}`}
       onClick={refreshPrice}
     >
       <PriceContent data={data} />
