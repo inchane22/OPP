@@ -62,7 +62,7 @@ export default function ForumPage() {
     );
   }
 
-  const handleCreatePost = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreatePost = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isPending) return;
 
@@ -71,98 +71,165 @@ export default function ForumPage() {
       title: formData.get('title'),
       content: formData.get('content'),
     };
-    
-    try {
-      startTransition(() => {});
-      
-      const response = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newPost),
-        credentials: 'include'
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to create post');
-      }
+    startTransition(() => {
+      (async () => {
+        try {
+          const response = await fetch('/api/posts', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(newPost),
+            credentials: 'include'
+          });
 
-      startTransition(() => {
-        queryClient.invalidateQueries({ queryKey: ['posts'] });
-        toast({
-          title: "Post created successfully",
-          variant: "default"
-        });
-        (e.target as HTMLFormElement).reset();
-      });
-    } catch (error) {
-      console.error('Error creating post:', error);
-      toast({
-        title: "Error creating post",
-        description: "Could not create the post. Please try again.",
-        variant: "destructive"
-      });
-    }
+          if (!response.ok) {
+            throw new Error('Failed to create post');
+          }
+
+          await queryClient.invalidateQueries({ queryKey: ['posts'] });
+          toast({
+            title: "Post created successfully",
+            variant: "default"
+          });
+          (e.target as HTMLFormElement).reset();
+        } catch (error) {
+          console.error('Error creating post:', error);
+          toast({
+            title: "Error creating post",
+            description: "Could not create the post. Please try again.",
+            variant: "destructive"
+          });
+        }
+      })();
+    });
   };
 
-  const handleCreateComment = async (e: React.FormEvent<HTMLFormElement>, postId: number) => {
+  const handleCreateComment = (e: React.FormEvent<HTMLFormElement>, postId: number) => {
     e.preventDefault();
     if (isPending) return;
 
     const formData = new FormData(e.currentTarget);
     const content = formData.get('content') as string;
     
-    try {
-      startTransition(() => {});
-
-      const response = await fetch(`/api/posts/${postId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          authorName: user ? undefined : 'Anonymous'
-        }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create comment');
-      }
-
-      const newComment = await response.json();
-      
-      startTransition(() => {
-        // Update the cache with the new comment
-        queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
-          if (!oldData) return oldData;
-          return oldData.map(p => {
-            if (p.id === postId) {
-              return {
-                ...p,
-                comments: [...(p.comments || []), newComment]
-              };
-            }
-            return p;
+    startTransition(() => {
+      (async () => {
+        try {
+          const response = await fetch(`/api/posts/${postId}/comments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              content,
+              authorName: user ? undefined : 'Anonymous'
+            }),
+            credentials: 'include'
           });
-        });
-        
-        toast({
-          title: "Comment added successfully",
-          variant: "default"
-        });
-        (e.target as HTMLFormElement).reset();
-      });
-    } catch (error) {
-      console.error('Error creating comment:', error);
-      toast({
-        title: "Error adding comment",
-        description: "Could not add the comment. Please try again.",
-        variant: "destructive"
-      });
+
+          if (!response.ok) {
+            throw new Error('Failed to create comment');
+          }
+
+          const newComment = await response.json();
+          
+          // Update the cache with the new comment
+          queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
+            if (!oldData) return oldData;
+            return oldData.map(p => {
+              if (p.id === postId) {
+                return {
+                  ...p,
+                  comments: [...(p.comments || []), newComment]
+                };
+              }
+              return p;
+            });
+          });
+          
+          toast({
+            title: "Comment added successfully",
+            variant: "default"
+          });
+          (e.target as HTMLFormElement).reset();
+        } catch (error) {
+          console.error('Error creating comment:', error);
+          toast({
+            title: "Error adding comment",
+            description: "Could not add the comment. Please try again.",
+            variant: "destructive"
+          });
+        }
+      })();
+    });
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
     }
+
+    if (posts.length === 0) {
+      return (
+        <div className="text-center p-8 text-muted-foreground">
+          No posts yet. Be the first to create one!
+        </div>
+      );
+    }
+
+    return posts.map((post) => (
+      <Card key={post.id}>
+        <CardHeader>
+          <CardTitle>{post.title}</CardTitle>
+          <CardDescription>
+            Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p>{post.content}</p>
+          <div className="mt-4 border-t pt-4">
+            <h4 className="text-sm font-semibold mb-2">Comments</h4>
+            <div className="space-y-2">
+              {post.comments?.map((comment) => (
+                <div key={comment.id} className="bg-muted p-2 rounded-md">
+                  <p className="text-sm">{comment.content}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <form
+              className="mt-4 space-y-2"
+              onSubmit={(e) => handleCreateComment(e, post.id)}
+            >
+              <Textarea
+                name="content"
+                placeholder="Add a comment..."
+                required
+                rows={2}
+                disabled={isPending}
+              />
+              <Button type="submit" size="sm" disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  'Post Comment'
+                )}
+              </Button>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+    ));
   };
 
   return (
@@ -181,14 +248,23 @@ export default function ForumPage() {
               <form onSubmit={handleCreatePost} className="space-y-4">
                 <div>
                   <Label htmlFor="title">Title</Label>
-                  <Input id="title" name="title" required />
+                  <Input id="title" name="title" required disabled={isPending} />
                 </div>
                 <div>
                   <Label htmlFor="content">Content</Label>
-                  <Textarea id="content" name="content" required rows={5} />
+                  <Textarea id="content" name="content" required rows={5} disabled={isPending} />
                 </div>
                 <DialogFooter>
-                  <Button type="submit">Create Post</Button>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Post'
+                    )}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -201,64 +277,9 @@ export default function ForumPage() {
       </div>
 
       <ErrorBoundary>
-        <Suspense fallback={
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        }>
-          <div className={`grid gap-6 ${(isPending || isFetching) ? 'opacity-50 pointer-events-none' : ''}`}>
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : posts.length === 0 ? (
-              <div className="text-center p-8 text-muted-foreground">
-                No posts yet. Be the first to create one!
-              </div>
-            ) : (
-            posts.map((post) => (
-              <Card key={post.id}>
-                <CardHeader>
-                  <CardTitle>{post.title}</CardTitle>
-                  <CardDescription>
-                    Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p>{post.content}</p>
-                  <div className="mt-4 border-t pt-4">
-                    <h4 className="text-sm font-semibold mb-2">Comments</h4>
-                    <div className="space-y-2">
-                      {post.comments?.map((comment) => (
-                        <div key={comment.id} className="bg-muted p-2 rounded-md">
-                          <p className="text-sm">{comment.content}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                    <form
-                      className="mt-4 space-y-2"
-                      onSubmit={(e) => handleCreateComment(e, post.id)}
-                    >
-                      <Textarea
-                        name="content"
-                        placeholder="Add a comment..."
-                        required
-                        rows={2}
-                      />
-                      <Button type="submit" size="sm">
-                        Post Comment
-                      </Button>
-                    </form>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-          </div>
-        </Suspense>
+        <div className={`grid gap-6 ${(isPending || isFetching) ? 'opacity-50 pointer-events-none' : ''}`}>
+          {renderContent()}
+        </div>
       </ErrorBoundary>
     </div>
   );

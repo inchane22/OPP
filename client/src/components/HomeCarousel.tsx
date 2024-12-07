@@ -104,8 +104,8 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
     });
   }, [api]);
 
-  // Use transition for loading state
-  const [_, startTransition] = React.useTransition();
+  // Handle loading state transition
+  const [isPending, startTransition] = React.useTransition();
 
   React.useEffect(() => {
     if (items.length > 0) {
@@ -115,7 +115,8 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
     }
   }, [items]);
 
-  if (loading) {
+  // Show loading state if initial load or transition is pending
+  if (loading || isPending) {
     return <LoadingSpinner />;
   }
 

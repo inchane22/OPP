@@ -67,23 +67,15 @@ export default function PriceDisplay() {
       className={`transition-opacity duration-200 ${isUpdating ? "opacity-50" : ""}`}
       onClick={refreshPrice}
     >
-      <Suspense fallback={
+      {isLoading ? (
         <Card>
           <CardContent className="flex justify-center items-center h-24">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </CardContent>
         </Card>
-      }>
-        {isLoading ? (
-          <Card>
-            <CardContent className="flex justify-center items-center h-24">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </CardContent>
-          </Card>
-        ) : (
-          <PriceContent data={data} />
-        )}
-      </Suspense>
+      ) : (
+        <PriceContent data={data} />
+      )}
     </div>
   );
 }

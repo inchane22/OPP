@@ -1,4 +1,4 @@
-import { StrictMode, startTransition } from "react";
+import { StrictMode, startTransition, lazy, Suspense, useTransition } from "react";
 import { createRoot } from "react-dom/client";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import "./index.css";
@@ -6,7 +6,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "./hooks/use-language";
-import { lazy, Suspense, useTransition } from "react";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
@@ -70,15 +69,14 @@ function Router() {
           "animate-in fade-in-50 duration-500",
           isPending && "opacity-70 transition-opacity"
         )}>
-          <Switch>
-            <Route path="/" component={HomePage} />
-            <Route path="/login" component={AuthPage} />
-            
-            <Suspense fallback={
-              <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            }>
+          <Suspense fallback={
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }>
+            <Switch>
+              <Route path="/" component={HomePage} />
+              <Route path="/login" component={AuthPage} />
               {/* English routes */}
               <Route path="/forum" component={ForumPage} />
               <Route path="/events" component={EventsPage} />
@@ -115,8 +113,8 @@ function Router() {
                   <p className="text-muted-foreground">Page not found / Página no encontrada</p>
                 </div>
               </Route>
-            </Suspense>
-          </Switch>
+            </Switch>
+          </Suspense>
         </main>
         <Footer />
       </div>

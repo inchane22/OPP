@@ -37,18 +37,20 @@ export default function BusinessesPage() {
     refetchOnWindowFocus: false
   });
 
-  const filteredBusinesses = businesses?.filter(business => {
-    const matchesSearch = 
-      business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      business.city.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesLightning = 
-      acceptsLightningFilter === null || 
-      business.acceptsLightning === acceptsLightningFilter;
+  const filteredBusinesses = React.useMemo(() => {
+    return businesses?.filter(business => {
+      const matchesSearch = 
+        business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        business.city.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesLightning = 
+        acceptsLightningFilter === null || 
+        business.acceptsLightning === acceptsLightningFilter;
 
-    return matchesSearch && matchesLightning;
-  });
+      return matchesSearch && matchesLightning;
+    });
+  }, [businesses, searchTerm, acceptsLightningFilter]);
 
   const form = useForm<InsertBusiness>({
     defaultValues: {
@@ -95,6 +97,8 @@ export default function BusinessesPage() {
       });
     },
   });
+
+  const isUpdating = isPending || isLoading || isFetching;
 
   if (isLoading) {
     return (
