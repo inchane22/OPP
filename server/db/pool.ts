@@ -1,4 +1,5 @@
-import { Pool, type PoolConfig } from 'pg';
+import pg from 'pg';
+import type { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
 // Configuration constants
@@ -42,7 +43,7 @@ export class DatabasePool {
           : undefined
       };
 
-      const pool = new Pool(config);
+      const pool = new pg.Pool(config);
 
       pool.on('error', (err: Error) => {
         logger('Unexpected error on idle client', { 

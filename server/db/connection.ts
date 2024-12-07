@@ -1,10 +1,10 @@
 import { logger } from '../utils/logger';
 import pg from 'pg';
-import type { Pool as PgPool } from 'pg';
+import type { Pool } from 'pg';
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
-  private pool: PgPool | null = null;
+  private pool: Pool | null = null;
   private retryCount = 0;
   private readonly maxRetries = 5;
   private readonly retryDelay = 5000;
@@ -18,14 +18,14 @@ export class DatabaseConnection {
     return DatabaseConnection.instance;
   }
 
-  async getPool(): Promise<PgPool> {
+  async getPool(): Promise<Pool> {
     if (!this.pool) {
       this.pool = await this.createPool();
     }
     return this.pool;
   }
 
-  private async createPool(): Promise<PgPool> {
+  private async createPool(): Promise<Pool> {
     const poolConfig = {
       connectionString: process.env.DATABASE_URL,
       max: 20,
@@ -51,7 +51,7 @@ export class DatabaseConnection {
     }
   }
 
-  private async verifyConnection(pool: PgPool): Promise<void> {
+  private async verifyConnection(pool: Pool): Promise<void> {
     try {
       const client = await pool.connect();
       try {
