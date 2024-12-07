@@ -61,24 +61,29 @@ export default function PriceDisplay() {
   }
 
   const isUpdating = isPending || isFetching;
-  const showLoading = isLoading || (!data && isUpdating);
-
-  if (showLoading) {
-    return (
-      <Card>
-        <CardContent className="flex justify-center items-center h-24">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div 
       className={`transition-opacity duration-200 ${isUpdating ? "opacity-50" : ""}`}
       onClick={refreshPrice}
     >
-      <PriceContent data={data} />
+      <Suspense fallback={
+        <Card>
+          <CardContent className="flex justify-center items-center h-24">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      }>
+        {isLoading ? (
+          <Card>
+            <CardContent className="flex justify-center items-center h-24">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </CardContent>
+          </Card>
+        ) : (
+          <PriceContent data={data} />
+        )}
+      </Suspense>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
@@ -22,6 +22,7 @@ export default function BusinessesPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [acceptsLightningFilter, setAcceptsLightningFilter] = useState<boolean | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
@@ -115,7 +116,11 @@ export default function BusinessesPage() {
             <Input
               placeholder="Buscar por nombre, descripción o ciudad..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                startTransition(() => {
+                  setSearchTerm(e.target.value);
+                });
+              }}
               className="max-w-md bg-white/90 backdrop-blur-sm pr-8"
             />
             {isRefetching && (
@@ -128,7 +133,11 @@ export default function BusinessesPage() {
             <Button
               variant={acceptsLightningFilter === true ? "default" : "outline"}
               size="sm"
-              onClick={() => setAcceptsLightningFilter(current => current === true ? null : true)}
+              onClick={() => {
+                startTransition(() => {
+                  setAcceptsLightningFilter(current => current === true ? null : true);
+                });
+              }}
               className="whitespace-nowrap bg-white/90 backdrop-blur-sm"
             >
               <Zap className="h-4 w-4 mr-2" />
@@ -290,7 +299,7 @@ export default function BusinessesPage() {
           )}
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
           {filteredBusinesses?.map(business => (
             <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="pb-4">

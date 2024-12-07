@@ -6,7 +6,7 @@ import { useLanguage } from '../hooks/use-language';
 import { useUser } from '../hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
-import { useState, useTransition } from 'react';
+import React, { useState, useTransition, Suspense } from 'react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import {
@@ -70,7 +70,7 @@ export default function ForumPage() {
       content: formData.get('content'),
     };
     
-    const createPost = async () => {
+    startTransition(async () => {
       try {
         const response = await fetch('/api/posts', {
           method: 'POST',
@@ -85,14 +85,12 @@ export default function ForumPage() {
           throw new Error('Failed to create post');
         }
 
-        startTransition(() => {
-          queryClient.invalidateQueries({ queryKey: ['posts'] });
-          toast({
-            title: "Post created successfully",
-            variant: "default"
-          });
-          (e.target as HTMLFormElement).reset();
+        await queryClient.invalidateQueries({ queryKey: ['posts'] });
+        toast({
+          title: "Post created successfully",
+          variant: "default"
         });
+        (e.target as HTMLFormElement).reset();
       } catch (error) {
         console.error('Error creating post:', error);
         toast({
@@ -101,9 +99,7 @@ export default function ForumPage() {
           variant: "destructive"
         });
       }
-    };
-
-    createPost();
+    });
   };
 
   const handleCreateComment = (e: React.FormEvent<HTMLFormElement>, postId: number) => {
@@ -201,16 +197,21 @@ export default function ForumPage() {
       </div>
 
       <ErrorBoundary>
-        <div className={`grid gap-6 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
-          {isLoading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center p-8 text-muted-foreground">
-              No posts yet. Be the first to create one!
-            </div>
-          ) : (
+        <Suspense fallback={
+          <div className="flex justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        }>
+          <div className={`grid gap-6 ${(isPending || isFetching) ? 'opacity-50 pointer-events-none' : ''}`}>
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center p-8 text-muted-foreground">
+                No posts yet. Be the first to create one!
+              </div>
+            ) : (
             posts.map((post) => (
               <Card key={post.id}>
                 <CardHeader>
@@ -252,7 +253,8 @@ export default function ForumPage() {
               </Card>
             ))
           )}
-        </div>
+          </div>
+        </Suspense>
       </ErrorBoundary>
     </div>
   );

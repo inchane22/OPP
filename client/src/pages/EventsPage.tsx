@@ -1,4 +1,4 @@
-import { useTransition } from "react";
+import React, { useTransition } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUser } from "../hooks/use-user";

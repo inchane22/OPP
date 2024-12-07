@@ -1,4 +1,4 @@
-import { Suspense, useTransition } from "react";
+import React, { Suspense, useTransition } from "react";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
