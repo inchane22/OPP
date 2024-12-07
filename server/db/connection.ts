@@ -1,9 +1,6 @@
 import { logger } from '../utils/logger';
+import pg from 'pg';
 import type { Pool as PgPool } from 'pg';
-
-// Dynamic import of pg for ESM compatibility
-const pg = await import('pg').then(module => module.default || module);
-const { Pool } = pg;
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
@@ -29,7 +26,6 @@ export class DatabaseConnection {
   }
 
   private async createPool(): Promise<PgPool> {
-    const { Pool } = await import('pg');
     const poolConfig = {
       connectionString: process.env.DATABASE_URL,
       max: 20,
@@ -38,7 +34,7 @@ export class DatabaseConnection {
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
     };
 
-    const pool = new Pool(poolConfig);
+    const pool = new pg.Pool(poolConfig);
 
     pool.on('error', (err: Error) => {
       logger('Unexpected error on idle client', { error: err.message });
