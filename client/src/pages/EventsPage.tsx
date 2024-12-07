@@ -70,23 +70,32 @@ export default function EventsPage() {
   });
 
   const createEvent = useMutation({
-    mutationFn: (data: InsertEvent) =>
-      fetch("/api/events", {
+    mutationFn: async (data: InsertEvent) => {
+      const response = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
-      }).then(res => res.json()),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create event');
+      }
+      return response.json();
+    },
     onSuccess: () => {
       startTransition(() => {
         queryClient.invalidateQueries({ queryKey: ['events'] });
         form.reset();
-        toast({ title: "Event created successfully" });
+        toast({ 
+          title: "Event created successfully",
+          variant: "default"
+        });
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        variant: "destructive",
-        title: "Failed to create event"
+        title: "Failed to create event",
+        description: error.message,
+        variant: "destructive"
       });
     }
   });
@@ -227,22 +236,28 @@ export default function EventsPage() {
                     size="sm"
                     className="hover:text-primary"
                     onClick={(e) => {
+                      if (isPending) return;
                       e.stopPropagation();
-                      const likeEvent = async () => {
+                      startTransition(async () => {
                         try {
-                          await fetch(`/api/events/${event.id}/like`, { method: 'POST' });
-                          startTransition(() => {
-                            queryClient.invalidateQueries({ queryKey: ['events'] });
+                          const response = await fetch(`/api/events/${event.id}/like`, { 
+                            method: 'POST',
+                            credentials: 'include'
                           });
+                          if (!response.ok) {
+                            throw new Error('Failed to like event');
+                          }
+                          await queryClient.invalidateQueries({ queryKey: ['events'] });
                         } catch (error) {
                           toast({
-                            variant: "destructive",
-                            title: "Failed to like event"
+                            title: "Failed to like event",
+                            description: error instanceof Error ? error.message : "An error occurred",
+                            variant: "destructive"
                           });
                         }
-                      };
-                      likeEvent();
+                      });
                     }}
+                    disabled={isPending}
                   >
                     <Heart className="mr-2 h-4 w-4" />
                     <span>{event.likes}</span>

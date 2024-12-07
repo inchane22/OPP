@@ -117,8 +117,9 @@ export default function BusinessesPage() {
               placeholder="Buscar por nombre, descripción o ciudad..."
               value={searchTerm}
               onChange={(e) => {
+                const value = e.target.value;
                 startTransition(() => {
-                  setSearchTerm(e.target.value);
+                  setSearchTerm(value);
                 });
               }}
               className="max-w-md bg-white/90 backdrop-blur-sm pr-8"
@@ -135,9 +136,13 @@ export default function BusinessesPage() {
               size="sm"
               onClick={() => {
                 startTransition(() => {
-                  setAcceptsLightningFilter(current => current === true ? null : true);
+                  setAcceptsLightningFilter(current => {
+                    const newValue = current === true ? null : true;
+                    return newValue;
+                  });
                 });
               }}
+              disabled={isPending}
               className="whitespace-nowrap bg-white/90 backdrop-blur-sm"
             >
               <Zap className="h-4 w-4 mr-2" />
@@ -174,7 +179,12 @@ export default function BusinessesPage() {
                   <DialogTitle>Registrar Nuevo Negocio</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(data => createBusiness.mutate(data))} className="space-y-4">
+                  <form onSubmit={form.handleSubmit(data => {
+                    if (isPending || createBusiness.isPending) return;
+                    startTransition(() => {
+                      createBusiness.mutate(data);
+                    });
+                  })} className={`space-y-4 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
                     <FormField
                       control={form.control}
                       name="name"

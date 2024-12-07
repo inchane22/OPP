@@ -62,103 +62,107 @@ export default function ForumPage() {
     );
   }
 
-  const handleCreatePost = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleCreatePost = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isPending) return;
+
     const formData = new FormData(e.currentTarget);
     const newPost = {
       title: formData.get('title'),
       content: formData.get('content'),
     };
     
-    startTransition(async () => {
-      try {
-        const response = await fetch('/api/posts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(newPost),
-          credentials: 'include'
-        });
+    try {
+      startTransition(() => {});
+      
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newPost),
+        credentials: 'include'
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to create post');
-        }
+      if (!response.ok) {
+        throw new Error('Failed to create post');
+      }
 
-        await queryClient.invalidateQueries({ queryKey: ['posts'] });
+      startTransition(() => {
+        queryClient.invalidateQueries({ queryKey: ['posts'] });
         toast({
           title: "Post created successfully",
           variant: "default"
         });
         (e.target as HTMLFormElement).reset();
-      } catch (error) {
-        console.error('Error creating post:', error);
-        toast({
-          title: "Error creating post",
-          description: "Could not create the post. Please try again.",
-          variant: "destructive"
-        });
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error creating post",
+        description: "Could not create the post. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleCreateComment = (e: React.FormEvent<HTMLFormElement>, postId: number) => {
+  const handleCreateComment = async (e: React.FormEvent<HTMLFormElement>, postId: number) => {
     e.preventDefault();
+    if (isPending) return;
+
     const formData = new FormData(e.currentTarget);
     const content = formData.get('content') as string;
     
-    const createComment = async () => {
-      try {
-        const response = await fetch(`/api/posts/${postId}/comments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content,
-            authorName: user ? undefined : 'Anonymous'
-          }),
-          credentials: 'include'
-        });
+    try {
+      startTransition(() => {});
 
-        if (!response.ok) {
-          throw new Error('Failed to create comment');
-        }
+      const response = await fetch(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          authorName: user ? undefined : 'Anonymous'
+        }),
+        credentials: 'include'
+      });
 
-        const newComment = await response.json();
-        
-        startTransition(() => {
-          // Update the cache with the new comment
-          queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
-            if (!oldData) return oldData;
-            return oldData.map(p => {
-              if (p.id === postId) {
-                return {
-                  ...p,
-                  comments: [...(p.comments || []), newComment]
-                };
-              }
-              return p;
-            });
-          });
-          
-          toast({
-            title: "Comment added successfully",
-            variant: "default"
-          });
-          (e.target as HTMLFormElement).reset();
-        });
-      } catch (error) {
-        console.error('Error creating comment:', error);
-        toast({
-          title: "Error adding comment",
-          description: "Could not add the comment. Please try again.",
-          variant: "destructive"
-        });
+      if (!response.ok) {
+        throw new Error('Failed to create comment');
       }
-    };
 
-    createComment();
+      const newComment = await response.json();
+      
+      startTransition(() => {
+        // Update the cache with the new comment
+        queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map(p => {
+            if (p.id === postId) {
+              return {
+                ...p,
+                comments: [...(p.comments || []), newComment]
+              };
+            }
+            return p;
+          });
+        });
+        
+        toast({
+          title: "Comment added successfully",
+          variant: "default"
+        });
+        (e.target as HTMLFormElement).reset();
+      });
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      toast({
+        title: "Error adding comment",
+        description: "Could not add the comment. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
