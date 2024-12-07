@@ -1,5 +1,6 @@
-import { Suspense } from "react";
+import { Suspense, useTransition } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,17 @@ export default function EventsPage() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
+  const [isPending, startTransition] = useTransition();
 
-  const { data: events, isLoading, isFetching } = useQuery<Event[]>({
+  const { data: events = [], isLoading, isFetching } = useQuery<Event[]>({
     queryKey: ["events"],
-    queryFn: () => fetch("/api/events").then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch("/api/events");
+      if (!response.ok) {
+        throw new Error('Failed to fetch events');
+      }
+      return response.json();
+    },
     staleTime: 5000,
     refetchOnWindowFocus: false
   });
@@ -68,6 +76,9 @@ export default function EventsPage() {
         body: JSON.stringify(data)
       }).then(res => res.json()),
     onSuccess: () => {
+      startTransition(() => {
+        queryClient.invalidateQueries({ queryKey: ['events'] });
+      });
       toast({ title: "Event created successfully" });
       form.reset();
     },
@@ -182,14 +193,16 @@ export default function EventsPage() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Suspense fallback={
-          <div className="col-span-2 flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        }>
-          {events?.map(event => (
-          <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
+      <div className={`grid md:grid-cols-2 gap-6 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+        <ErrorBoundary>
+          <Suspense fallback={
+            <div className="col-span-2 flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }>
+            <div className="col-span-2 grid md:grid-cols-2 gap-6">
+              {events.map((event: Event) => (
+                <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
             <CardHeader>
               <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
                 {event.title}
@@ -304,7 +317,9 @@ export default function EventsPage() {
             </CardContent>
           </Card>
         ))}
-        </Suspense>
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   );

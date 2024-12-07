@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
@@ -46,20 +46,22 @@ export default function AuthPage() {
     if (isLoading || isPending || isAuthLoading) return;
 
     try {
-      setIsLoading(true);
-      startTransition(async () => {
-        const result = await (isLogin ? login(data) : register(data));
-        
-        if (!result.ok) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: result.message,
-          });
-          return;
-        }
+      startTransition(() => {
+        setIsLoading(true);
+      });
+      
+      const result = await (isLogin ? login(data) : register(data));
+      
+      if (!result.ok) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.message,
+        });
+        return;
+      }
 
-        // Reset form on success
+      startTransition(() => {
         form.reset();
         formRef.current?.reset();
       });

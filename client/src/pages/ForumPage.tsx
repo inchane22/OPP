@@ -6,6 +6,8 @@ import { useLanguage } from '../hooks/use-language';
 import { useUser } from '../hooks/use-user';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
+import { useState, useTransition } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import {
   Dialog,
@@ -41,13 +43,16 @@ export default function ForumPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: posts = [], isLoading, isFetching, error } = useQuery<PostWithAuthor[]>({
+  const [isPending, startTransition] = useTransition();
+  
+  const { data: posts = [], isLoading, isFetching, error } = useQuery({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
     staleTime: 5000,
     refetchOnWindowFocus: false,
     refetchInterval: false,
-    retry: 3
+    retry: 3,
+    suspense: true
   });
 
   if (error instanceof Error) {
@@ -57,6 +62,102 @@ export default function ForumPage() {
       </div>
     );
   }
+
+  const handleCreatePost = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newPost = {
+      title: formData.get('title'),
+      content: formData.get('content'),
+    };
+    
+    try {
+      const response = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newPost),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create post');
+      }
+
+      startTransition(() => {
+        queryClient.invalidateQueries({ queryKey: ['posts'] });
+      });
+      
+      toast({
+        title: "Post created successfully",
+        variant: "default"
+      });
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error creating post",
+        description: "Could not create the post. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCreateComment = async (e: React.FormEvent<HTMLFormElement>, postId: number) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const content = formData.get('content') as string;
+    
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          authorName: user ? undefined : 'Anonymous'
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create comment');
+      }
+
+      const newComment = await response.json();
+      
+      startTransition(() => {
+        // Update the cache with the new comment
+        queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
+          if (!oldData) return oldData;
+          return oldData.map(p => {
+            if (p.id === postId) {
+              return {
+                ...p,
+                comments: [...(p.comments || []), newComment]
+              };
+            }
+            return p;
+          });
+        });
+      });
+      
+      toast({
+        title: "Comment added successfully",
+        variant: "default"
+      });
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      toast({
+        title: "Error adding comment",
+        description: "Could not add the comment. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -71,43 +172,7 @@ export default function ForumPage() {
               <DialogHeader>
                 <DialogTitle>{t('forum.create_post')}</DialogTitle>
               </DialogHeader>
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                const newPost = {
-                  title: formData.get('title'),
-                  content: formData.get('content'),
-                };
-                
-                try {
-                  const response = await fetch('/api/posts', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(newPost),
-                    credentials: 'include'
-                  });
-
-                  if (!response.ok) {
-                    throw new Error('Failed to create post');
-                  }
-
-                  queryClient.invalidateQueries({ queryKey: ['posts'] });
-                  toast({
-                    title: "Post created successfully",
-                    variant: "default"
-                  });
-                  (e.target as HTMLFormElement).reset();
-                } catch (error) {
-                  console.error('Error creating post:', error);
-                  toast({
-                    title: "Error creating post",
-                    description: "Could not create the post. Please try again.",
-                    variant: "destructive"
-                  });
-                }
-              }} className="space-y-4">
+              <form onSubmit={handleCreatePost} className="space-y-4">
                 <div>
                   <Label htmlFor="title">Title</Label>
                   <Input id="title" name="title" required />
@@ -129,110 +194,60 @@ export default function ForumPage() {
         )}
       </div>
 
-      <div className="grid gap-6">
-        {isLoading ? (
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : posts.length === 0 ? (
-          <div className="text-center p-8 text-muted-foreground">
-            No posts yet. Be the first to create one!
-          </div>
-        ) : (
-          posts?.map((post) => (
-            <Card key={post.id}>
-              <CardHeader>
-                <CardTitle>{post.title}</CardTitle>
-                <CardDescription>
-                  Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p>{post.content}</p>
-                <div className="mt-4 border-t pt-4">
-                  <h4 className="text-sm font-semibold mb-2">Comments</h4>
-                  <div className="space-y-2">
-                    {post.comments?.map((comment) => (
-                      <div key={comment.id} className="bg-muted p-2 rounded-md">
-                        <p className="text-sm">{comment.content}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))}
+      <ErrorBoundary>
+        <div className={`grid gap-6 ${isPending ? 'opacity-50 pointer-events-none' : ''}`}>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              No posts yet. Be the first to create one!
+            </div>
+          ) : (
+            posts.map((post) => (
+              <Card key={post.id}>
+                <CardHeader>
+                  <CardTitle>{post.title}</CardTitle>
+                  <CardDescription>
+                    Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>{post.content}</p>
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="text-sm font-semibold mb-2">Comments</h4>
+                    <div className="space-y-2">
+                      {post.comments?.map((comment) => (
+                        <div key={comment.id} className="bg-muted p-2 rounded-md">
+                          <p className="text-sm">{comment.content}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <form
+                      className="mt-4 space-y-2"
+                      onSubmit={(e) => handleCreateComment(e, post.id)}
+                    >
+                      <Textarea
+                        name="content"
+                        placeholder="Add a comment..."
+                        required
+                        rows={2}
+                      />
+                      <Button type="submit" size="sm">
+                        Post Comment
+                      </Button>
+                    </form>
                   </div>
-                  <form
-                    className="mt-4 space-y-2"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const content = formData.get('content') as string;
-                      
-                      try {
-                        const response = await fetch(`/api/posts/${post.id}/comments`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            content,
-                            authorName: user ? undefined : 'Anonymous'
-                          }),
-                          credentials: 'include'
-                        });
-
-                        if (!response.ok) {
-                          throw new Error('Failed to create comment');
-                        }
-
-                        const newComment = await response.json();
-                        
-                        // Update the cache with the new comment
-                        queryClient.setQueryData(['posts'], (oldData: any) => {
-                          if (!oldData) return oldData;
-                          const updatedPosts = oldData.map((p: any) => {
-                            if (p.id === post.id) {
-                              return {
-                                ...p,
-                                comments: [...(p.comments || []), newComment]
-                              };
-                            }
-                            return p;
-                          });
-                          return updatedPosts;
-                        });
-                        
-                        toast({
-                          title: "Comment added successfully",
-                          variant: "default"
-                        });
-                        (e.target as HTMLFormElement).reset();
-                      } catch (error) {
-                        console.error('Error creating comment:', error);
-                        toast({
-                          title: "Error adding comment",
-                          description: "Could not add the comment. Please try again.",
-                          variant: "destructive"
-                        });
-                      }
-                    }}
-                  >
-                    <Textarea
-                      name="content"
-                      placeholder="Add a comment..."
-                      required
-                      rows={2}
-                    />
-                    <Button type="submit" size="sm">
-                      Post Comment
-                    </Button>
-                  </form>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

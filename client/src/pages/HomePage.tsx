@@ -1,4 +1,4 @@
-import { Suspense, useTransition } from "react";
+import { Suspense } from "react";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -16,7 +16,7 @@ const LoadingFallback = () => (
 
 export default function HomePage() {
   const { t } = useLanguage();
-  const [isPending, startTransition] = useTransition();
+
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
@@ -25,11 +25,9 @@ export default function HomePage() {
       <section className="w-full">
         <div className="container mx-auto">
           <ErrorBoundary>
-            <div className={isPending ? "opacity-50 transition-opacity duration-200" : ""}>
-              <Suspense fallback={<LoadingFallback />}>
-                <HomeCarousel />
-              </Suspense>
-            </div>
+            <Suspense fallback={<LoadingFallback />}>
+              <HomeCarousel />
+            </Suspense>
           </ErrorBoundary>
         </div>
       </section>
@@ -39,32 +37,14 @@ export default function HomePage() {
         <div className="container mx-auto max-w-7xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <ErrorBoundary>
-              <div 
-                className={isPending ? "opacity-50 transition-opacity duration-200" : ""}
-                onClick={() => {
-                  startTransition(() => {
-                    // Trigger price refresh
-                  });
-                }}
-              >
-                <Suspense fallback={<LoadingFallback />}>
-                  <PriceDisplay />
-                </Suspense>
-              </div>
+              <Suspense fallback={<LoadingFallback />}>
+                <PriceDisplay />
+              </Suspense>
             </ErrorBoundary>
             <ErrorBoundary>
-              <div 
-                className={isPending ? "opacity-50 transition-opacity duration-200" : ""}
-                onClick={() => {
-                  startTransition(() => {
-                    // Trigger QR refresh if needed
-                  });
-                }}
-              >
-                <Suspense fallback={<LoadingFallback />}>
-                  <BitcoinQRGenerator />
-                </Suspense>
-              </div>
+              <Suspense fallback={<LoadingFallback />}>
+                <BitcoinQRGenerator />
+              </Suspense>
             </ErrorBoundary>
           </div>
         </div>

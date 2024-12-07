@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
@@ -30,19 +31,28 @@ function PriceContent({ data }: { data: any }) {
 }
 
 export default function PriceDisplay() {
-  const { data, error, isLoading, isFetching } = useQuery({
+  const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
+  
+  const { data, error, isFetching } = useQuery({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
-    refetchInterval: 60000, // Refresh every minute
-    staleTime: 30000, // Consider data stale after 30 seconds
-    throwOnError: true // Use this instead of useErrorBoundary
+    refetchInterval: 60000,
+    staleTime: 30000,
+    retry: 3,
+    suspense: true
   });
 
+  const refreshPrice = () => {
+    startTransition(() => {
+      queryClient.invalidateQueries({ queryKey: ['bitcoin-price'] });
+    });
+  };
+
   if (error) {
-    throw error; // Let ErrorBoundary handle it
+    throw error;
   }
 
-  // Initial loading state is handled by Suspense
   if (isLoading || !data) {
     return (
       <Card>
@@ -54,7 +64,10 @@ export default function PriceDisplay() {
   }
 
   return (
-    <div className={isFetching ? "opacity-50 transition-opacity duration-200" : ""}>
+    <div 
+      className={`transition-opacity duration-200 ${isPending || isFetching ? "opacity-50" : ""}`}
+      onClick={refreshPrice}
+    >
       <PriceContent data={data} />
     </div>
   );
