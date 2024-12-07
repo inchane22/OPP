@@ -7,9 +7,24 @@ import { useLanguage } from "../hooks/use-language";
 import { Loader2 } from "lucide-react";
 import Autoplay from "embla-carousel-autoplay";
 import type { CarouselApi } from "@/components/ui/carousel";
+import type { EmblaOptionsType } from "embla-carousel";
+import type { ReactNode } from "react";
 
 // Utility function for parsing embed URLs
-// Moved to top of file, no duplicate needed
+const getEmbedUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      const videoId = urlObj.hostname.includes('youtu.be') 
+        ? urlObj.pathname.slice(1)
+        : urlObj.searchParams.get('v');
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+};
 
 // Loading spinner component with proper styling and positioning
 const LoadingSpinner = React.memo(() => (
@@ -49,20 +64,29 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
   </div>
 ));
 
-const CarouselDisplay = React.memo(({ items }: { items: CarouselItem[] }) => {
+interface CarouselDisplayProps {
+  items: CarouselItem[];
+  children?: ReactNode;
+}
+
+const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
   const [emblaApi, setEmblaApi] = React.useState<CarouselApi | null>(null);
   const [isPending, startTransition] = React.useTransition();
 
-  // Handle API initialization with proper transition
+  // Handle API initialization with proper transition and error handling
   const handleApiInit = React.useCallback((api: CarouselApi) => {
     if (!api) return;
-    startTransition(() => {
-      setEmblaApi(api);
-    });
+    try {
+      startTransition(() => {
+        setEmblaApi(api);
+      });
+    } catch (error) {
+      console.error('Failed to initialize carousel:', error);
+    }
   }, []);
 
-  const carouselOptions = React.useMemo(() => ({
-    align: "start",
+  const carouselOptions = React.useMemo((): EmblaOptionsType => ({
+    align: "center",
     dragFree: true,
     containScroll: "trimSnaps",
     loop: true,
@@ -104,42 +128,52 @@ const CarouselDisplay = React.memo(({ items }: { items: CarouselItem[] }) => {
 
 CarouselDisplay.displayName = "CarouselDisplay";
 
+// Fetch carousel items function outside component to prevent recreation
+const fetchCarouselItems = async (): Promise<CarouselItem[]> => {
+  try {
+    const response = await fetch('/api/carousel');
+    if (!response.ok) {
+      throw new Error('Failed to fetch carousel items');
+    }
+    const data = await response.json();
+    return data.filter((item: CarouselItem) => item.active);
+  } catch (error) {
+    console.error('Error fetching carousel items:', error);
+    throw error;
+  }
+};
+
 export default function HomeCarousel() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = React.useTransition();
 
-  const { data: items = [], error } = useQuery<CarouselItem[]>({
+  const { data: items = [], error, isLoading } = useQuery<CarouselItem[]>({
     queryKey: ['carousel-items'],
-    queryFn: async () => {
-      const response = await fetch('/api/carousel');
-      if (!response.ok) {
-        throw new Error('Failed to fetch carousel items');
-      }
-      const data = await response.json();
-      return data.filter((item: CarouselItem) => item.active);
-    },
+    queryFn: fetchCarouselItems,
     staleTime: 30000,
     refetchOnWindowFocus: false,
-    suspense: true
+    suspense: false,
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  // Prefetch on mount
+  // Prefetch and handle transitions
   React.useEffect(() => {
-    if (!isPending) {
+    const prefetchData = () => {
       startTransition(() => {
         queryClient.prefetchQuery({
           queryKey: ['carousel-items'],
-          queryFn: async () => {
-            const response = await fetch('/api/carousel');
-            if (!response.ok) {
-              throw new Error('Failed to fetch carousel items');
-            }
-            return response.json();
-          }
+          queryFn: fetchCarouselItems,
+          staleTime: 30000
         });
       });
-    }
-  }, [queryClient, isPending]);
+    };
+
+    prefetchData();
+    return () => {
+      queryClient.cancelQueries({ queryKey: ['carousel-items'] });
+    };
+  }, [queryClient]);
 
   return (
     <section className="py-12 bg-muted/50">
@@ -149,19 +183,19 @@ export default function HomeCarousel() {
         </h2>
         <div className="relative">
           <ErrorBoundary>
-            <React.Suspense fallback={<LoadingSpinner />}>
-              {error ? (
-                <div className="text-center text-red-500">
-                  Failed to load carousel items
-                </div>
-              ) : !items?.length ? (
-                <div className="text-center text-muted-foreground">
-                  No items to display
-                </div>
-              ) : (
-                <CarouselDisplay items={items} />
-              )}
-            </React.Suspense>
+            {isPending || isLoading ? (
+              <LoadingSpinner />
+            ) : error ? (
+              <div className="text-center text-red-500">
+                Failed to load carousel items
+              </div>
+            ) : items.length === 0 ? (
+              <div className="text-center text-muted-foreground">
+                No items to display
+              </div>
+            ) : (
+              <CarouselDisplay items={items} />
+            )}
           </ErrorBoundary>
         </div>
       </div>
