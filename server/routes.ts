@@ -47,27 +47,32 @@ export function registerRoutes(app: Express) {
 
       allPosts = postsWithComments;
 
-      // If no posts exist, insert some sample posts
+      // If no posts exist, try to insert sample posts
       if (allPosts.length === 0) {
-        const samplePosts = [
-          {
-            title: "¡Bienvenidos a Orange Pill Peru!",
-            content: "Este es el espacio para discutir todo sobre Bitcoin en Perú. Comparte tus experiencias y aprende de la comunidad.",
-            authorId: 1
-          },
-          {
-            title: "Guía: Cómo empezar con Bitcoin en Perú",
-            content: "Una guía paso a paso para comprar, almacenar y usar Bitcoin en Perú de manera segura.",
-            authorId: 1
-          },
-          {
-            title: "Lightning Network en Perú",
-            content: "Descubre cómo usar la Lightning Network para pagos instantáneos y económicos con Bitcoin.",
-            authorId: 1
-          }
-        ];
+        // First find an admin user to be the author
+        const adminUser = await db.select().from(users).where(eq(users.role, 'admin')).limit(1);
+        
+        if (adminUser.length > 0) {
+          const samplePosts = [
+            {
+              title: "¡Bienvenidos a Orange Pill Peru!",
+              content: "Este es el espacio para discutir todo sobre Bitcoin en Perú. Comparte tus experiencias y aprende de la comunidad.",
+              authorId: adminUser[0].id
+            },
+            {
+              title: "Guía: Cómo empezar con Bitcoin en Perú",
+              content: "Una guía paso a paso para comprar, almacenar y usar Bitcoin en Perú de manera segura.",
+              authorId: adminUser[0].id
+            },
+            {
+              title: "Lightning Network en Perú",
+              content: "Descubre cómo usar la Lightning Network para pagos instantáneos y económicos con Bitcoin.",
+              authorId: adminUser[0].id
+            }
+          ];
 
-        await db.insert(posts).values(samplePosts).returning();
+          await db.insert(posts).values(samplePosts).returning();
+        }
         allPosts = await db.select({
           id: posts.id,
           title: posts.title,
