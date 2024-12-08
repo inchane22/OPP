@@ -390,14 +390,13 @@ export default function AdminPanel() {
                           Agrega un nuevo video o contenido al carrusel de la página principal.
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={async (e) => {
+                      <form onSubmit={(e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const embedUrl = formData.get('embedUrl') as string;
                         
-                        setIsLoading(true);
-                        try {
-                          // Convert and validate YouTube URL
+                        // Convert and validate YouTube URL
+                        const convertToEmbedUrl = (url: string) => {
                           const youtubeRegex = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^?&]+)/;
                           const match = url.match(youtubeRegex);
                           
@@ -405,64 +404,62 @@ export default function AdminPanel() {
                             throw new Error("Por favor ingresa una URL válida de YouTube");
                           }
 
-                          const videoId = match[1];
-                          
-                          // Check if video exists and is embeddable using YouTube oEmbed
-                          const embedCheckResponse = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}`);
-                          if (!embedCheckResponse.ok) {
-                            throw new Error("Este video tiene restricciones de copyright que impiden su inserción. Por favor, elige otro video público que permita la inserción.");
-                          }
-
                           // Add embed parameters for better compatibility
-                          const embedUrl = `https://www.youtube.com/embed/${videoId}?origin=${window.location.origin}&enablejsapi=1`;
+                          return `https://www.youtube.com/embed/${match[1]}?origin=${window.location.origin}&enablejsapi=1`;
+                        };
 
-                          const newItem = {
-                            title: formData.get('title'),
-                            embedUrl,
-                            description: formData.get('description'),
-                            active: true
-                          };
+                        const newItem = {
+                          title: formData.get('title'),
+                          embedUrl: convertToEmbedUrl(embedUrl),
+                          description: formData.get('description'),
+                          active: true
+                        };
 
-                        // Create carousel item
-                          const response = await fetch('/api/carousel', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(newItem),
-                            credentials: 'include'
-                          });
+                        setIsLoading(true);
+                        startTransition(() => {
+                          (async () => {
+                            try {
+                              const response = await fetch('/api/carousel', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(newItem),
+                                credentials: 'include'
+                              });
 
-                          if (!response.ok) {
-                            throw new Error('Failed to create carousel item');
-                          }
+                              if (!response.ok) {
+                                throw new Error('Failed to create carousel item');
+                              }
 
-                          // Refetch the stats to update the list
-                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                          (e.target as HTMLFormElement).reset();
-                          
-                          // Show success toast
-                          toast({
-                            title: "Item creado exitosamente",
-                            description: "El item ha sido agregado al carrusel",
-                            variant: "default"
-                          });
+                              // Refetch the stats to update the list
+                              await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              (e.target as HTMLFormElement).reset();
+                              
+                              // Show success toast
+                              toast({
+                                title: "Item creado exitosamente",
+                                description: "El item ha sido agregado al carrusel",
+                                variant: "default"
+                              });
 
-                          // Close the dialog programmatically
-                          const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                          if (closeButton) {
-                            closeButton.click();
-                          }
-                        } catch (error) {
-                          console.error('Error creating carousel item:', error);
-                          toast({
-                            title: "Error al crear item",
-                            description: error instanceof Error ? error.message : "No se pudo agregar el item al carrusel",
-                            variant: "destructive"
-                          });
-                        } finally {
-                          setIsLoading(false);
-                        }
+                              // Close the dialog programmatically
+                              const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                              if (closeButton) {
+                                closeButton.click();
+                              }
+                            } catch (error) {
+                              console.error('Error creating carousel item:', error);
+                              toast({
+                                title: "Error al crear item",
+                                description: "No se pudo agregar el item al carrusel",
+                                variant: "destructive"
+                              });
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          })();
+                        });
                       }} className="space-y-4">
                         <div>
                           <Label htmlFor="title">Título</Label>
