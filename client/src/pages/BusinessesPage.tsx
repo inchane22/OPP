@@ -136,18 +136,19 @@ export default function BusinessesPage() {
           </div>
           <div className="flex gap-2 items-center">
             <Button
-              variant={acceptsLightningFilter === true ? "default" : "outline"}
+              variant="default"
               size="sm"
               onClick={() => {
                 startTransition(() => {
-                  setAcceptsLightningFilter(current => {
-                    const newValue = current === true ? null : true;
-                    return newValue;
-                  });
+                  setAcceptsLightningFilter(current => !current);
                 });
               }}
               disabled={isPending}
-              className="whitespace-nowrap bg-primary text-white hover:bg-primary/90 shadow-md backdrop-blur-sm border border-white/20 font-semibold transition-colors"
+              className={`whitespace-nowrap ${
+                acceptsLightningFilter
+                  ? "bg-primary text-white hover:bg-primary/90"
+                  : "bg-white/90 text-primary hover:bg-white"
+              } shadow-md backdrop-blur-sm border border-primary font-semibold transition-colors`}
             >
               <Zap className="h-4 w-4 mr-2" />
               Lightning Network
