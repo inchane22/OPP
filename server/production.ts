@@ -106,7 +106,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
         scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://platform.twitter.com", "https://*.twitter.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://platform.twitter.com"],
         imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com", "https://*.twitter.com", "https://platform.twitter.com"],
-        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com", "https://api.coingecko.com"],
+        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com", "https://api.coingecko.com", "https://api.coingecko.com/api/v3/*"],
         fontSrc: ["'self'", "https://platform.twitter.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],

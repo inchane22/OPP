@@ -5,12 +5,7 @@ import { Loader2 } from "lucide-react";
 
 async function fetchBitcoinPrice() {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
+    const response = await fetch('/api/bitcoin/price');
     
     if (!response.ok) {
       throw new Error(`Failed to fetch Bitcoin price: ${response.status}`);
@@ -59,7 +54,10 @@ export default function PriceDisplay() {
     queryFn: fetchBitcoinPrice,
     refetchInterval: 60000,
     staleTime: 30000,
-    retry: 3
+    retry: 3,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true
   });
 
   const refreshPrice = () => {

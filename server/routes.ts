@@ -1,13 +1,72 @@
-import { type Express } from "express";
-import { db } from "../db";
-import { posts, events, resources, users, comments, businesses } from "@db/schema";
+import { Express } from "express";
+import fetch from 'node-fetch';
 import { eq, desc, sql } from "drizzle-orm";
-import { carousel_items } from "@db/schema";
-import { setupAuth } from "./auth";
+import { db } from "../db/db.js";
+import { posts, users, comments, events, resources, businesses, carousel_items } from "../db/schema.js";
+import { setupAuth } from "./auth.js";
+import { logger, type LogData } from "./utils/logger.js";
 
-export function registerRoutes(app: Express) {
+/**
+ * Fetches Bitcoin price in PEN from CoinGecko API with retry logic
+ */
+async function fetchBitcoinPrice() {
+  const retries = 3;
+  const delay = 1000; // 1 second delay between retries
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000 // 5 second timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch Bitcoin price: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data?.bitcoin?.pen) {
+        throw new Error('Invalid price data format');
+      }
+
+      return data;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error occurred');
+      logger('Bitcoin price fetch attempt failed', {
+        attempt: i + 1,
+        error: lastError.message,
+        retryDelay: delay * (i + 1)
+      } as LogData);
+      
+      if (i === retries - 1) {
+        throw lastError;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // Exponential backoff
+    }
+  }
+}
+
+export function registerRoutes(app: Express): void {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
+
+  // Bitcoin price endpoint
+  app.get("/api/bitcoin/price", async (_req, res) => {
+    try {
+      const data = await fetchBitcoinPrice();
+      res.json(data);
+    } catch (error) {
+      logger('Failed to fetch Bitcoin price', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      } as LogData);
+      res.status(500).json({ error: "Failed to fetch Bitcoin price" });
+    }
+  });
 
   // Posts routes
   app.get("/api/posts", async (_req, res): Promise<void> => {
@@ -106,7 +165,7 @@ export function registerRoutes(app: Express) {
       
       res.json(allPosts);
     } catch (error) {
-      console.error("Failed to fetch posts:", error);
+      logger('Failed to fetch posts', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to fetch posts" });
     }
   });
@@ -126,7 +185,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(post);
     } catch (error) {
-      console.error("Failed to create post:", error);
+      logger('Failed to create post', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to create post" });
     }
   });
@@ -168,7 +227,7 @@ export function registerRoutes(app: Express) {
 
       res.json(allEvents);
     } catch (error) {
-      console.error("Failed to fetch events:", error);
+      logger('Failed to fetch events', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to fetch events" });
     }
   });
@@ -192,6 +251,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(event);
     } catch (error) {
+      logger('Failed to create event', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to create event" });
     }
   });
@@ -213,7 +273,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(event);
     } catch (error) {
-      console.error("Failed to update event:", error);
+      logger('Failed to update event', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to update event" });
     }
   });
@@ -230,7 +290,7 @@ export function registerRoutes(app: Express) {
         .where(eq(events.id, parseInt(req.params.id)));
       return res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete event:", error);
+      logger('Failed to delete event', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to delete event" });
     }
   });
@@ -246,6 +306,7 @@ export function registerRoutes(app: Express) {
       
       res.json(event);
     } catch (error) {
+      logger('Failed to update likes', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to update likes" });
     }
   });
@@ -293,7 +354,7 @@ export function registerRoutes(app: Express) {
 
       res.json(allResources);
     } catch (error) {
-      console.error("Failed to fetch resources:", error);
+      logger('Failed to fetch resources', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to fetch resources" });
     }
   });
@@ -317,6 +378,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(resource);
     } catch (error) {
+      logger('Failed to create resource', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to create resource" });
     }
   });
@@ -332,6 +394,7 @@ export function registerRoutes(app: Express) {
         .orderBy(comments.createdAt);
       res.json(allComments);
     } catch (error) {
+      logger('Failed to fetch comments', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to fetch comments" });
     }
   });
@@ -353,6 +416,7 @@ export function registerRoutes(app: Express) {
         
       res.json(comment);
     } catch (error) {
+      logger('Failed to create comment', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to create comment" });
     }
   });
@@ -464,7 +528,7 @@ export function registerRoutes(app: Express) {
 
       return res.json(stats);
     } catch (error) {
-      console.error("Failed to fetch admin stats:", error);
+      logger('Failed to fetch admin stats', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to fetch admin stats" });
     }
   });
@@ -480,7 +544,7 @@ export function registerRoutes(app: Express) {
         .where(eq(posts.id, parseInt(req.params.id)));
       return res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete post:", error);
+      logger('Failed to delete post', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to delete post" });
     }
   });
@@ -499,7 +563,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(resource);
     } catch (error) {
-      console.error("Failed to approve resource:", error);
+      logger('Failed to approve resource', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to approve resource" });
     }
   });
@@ -516,7 +580,7 @@ export function registerRoutes(app: Express) {
         .where(eq(resources.id, parseInt(req.params.id)));
       return res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete resource:", error);
+      logger('Failed to delete resource', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to delete resource" });
     }
   });
@@ -540,6 +604,7 @@ export function registerRoutes(app: Express) {
       
       return res.json({ message: "Language updated successfully" });
     } catch (error) {
+      logger('Failed to update language preference', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).send("Failed to update language preference");
     }
   });
@@ -584,7 +649,7 @@ export function registerRoutes(app: Express) {
 
       res.json(allBusinesses);
     } catch (error) {
-      console.error("Failed to fetch businesses:", error);
+      logger('Failed to fetch businesses', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       res.status(500).json({ error: "Failed to fetch businesses" });
     }
   });
@@ -605,6 +670,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(business);
     } catch (error) {
+      logger('Failed to create business', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to create business" });
     }
   });
@@ -617,7 +683,7 @@ export function registerRoutes(app: Express) {
       });
       return res.json(items);
     } catch (error) {
-      console.error("Failed to fetch carousel items:", error);
+      logger('Failed to fetch carousel items', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to fetch carousel items" });
     }
   });
@@ -637,7 +703,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(item);
     } catch (error) {
-      console.error("Failed to create carousel item:", error);
+      logger('Failed to create carousel item', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
@@ -658,7 +724,7 @@ export function registerRoutes(app: Express) {
         .returning();
       return res.json(item);
     } catch (error) {
-      console.error("Failed to update carousel item:", error);
+      logger('Failed to update carousel item', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to update carousel item" });
     }
   });
@@ -674,7 +740,7 @@ export function registerRoutes(app: Express) {
         .where(eq(carousel_items.id, parseInt(req.params.id)));
       return res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete carousel item:", error);
+      logger('Failed to delete carousel item', { error: error instanceof Error ? error.message : 'Unknown error' } as LogData);
       return res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
