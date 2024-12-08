@@ -474,13 +474,28 @@ export function registerRoutes(app: Express) {
       return res.status(403).send("Access denied");
     }
 
+    const postId = parseInt(req.params.id);
+    
     try {
-      await db
+      // Delete the post - comments will be deleted automatically due to CASCADE
+      const [deletedPost] = await db
         .delete(posts)
-        .where(eq(posts.id, parseInt(req.params.id)));
+        .where(eq(posts.id, postId))
+        .returning();
+
+      if (!deletedPost) {
+        return res.status(404).json({ error: "Post not found" });
+      }
+
       return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete post:", error);
+      if (error instanceof Error) {
+        return res.status(500).json({ 
+          error: "Failed to delete post", 
+          details: error.message 
+        });
+      }
       return res.status(500).json({ error: "Failed to delete post" });
     }
   });
