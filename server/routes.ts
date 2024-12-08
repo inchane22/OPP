@@ -1,6 +1,7 @@
 import { Express } from "express";
 import fetch from 'node-fetch';
 import { eq, desc, sql } from "drizzle-orm";
+import rateLimit from 'express-rate-limit';
 import { db } from "../db/db.js";
 import { posts, users, comments, events, resources, businesses, carousel_items } from "../db/schema.js";
 import { setupAuth } from "./auth.js";
@@ -11,27 +12,42 @@ import { logger, type LogData } from "./utils/logger.js";
  */
 async function fetchBitcoinPrice() {
   const retries = 3;
-  const delay = 1000; // 1 second delay between retries
+  const delay = 2000; // 2 second delay between retries
   let lastError: Error | null = null;
 
   for (let i = 0; i < retries; i++) {
     try {
+      logger('Attempting to fetch Bitcoin price', {
+        attempt: i + 1,
+        timestamp: new Date().toISOString()
+      } as LogData);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'User-Agent': 'Bitcoin Community Platform'
         },
-        timeout: 5000 // 5 second timeout
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch Bitcoin price: ${response.status}`);
+        throw new Error(`Failed to fetch Bitcoin price: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       if (!data?.bitcoin?.pen) {
         throw new Error('Invalid price data format');
       }
+
+      logger('Successfully fetched Bitcoin price', {
+        price: data.bitcoin.pen,
+        timestamp: new Date().toISOString()
+      } as LogData);
 
       return data;
     } catch (error) {
@@ -55,8 +71,15 @@ export function registerRoutes(app: Express): void {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 
-  // Bitcoin price endpoint
-  app.get("/api/bitcoin/price", async (_req, res) => {
+  // Bitcoin price endpoint with rate limiting
+  const bitcoinPriceLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // 10 requests per minute
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  app.get("/api/bitcoin/price", bitcoinPriceLimiter, async (_req, res) => {
     try {
       const data = await fetchBitcoinPrice();
       res.json(data);
