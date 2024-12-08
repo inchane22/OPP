@@ -4,18 +4,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 async function fetchBitcoinPrice() {
-  const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen');
-  if (!response.ok) {
-    throw new Error('Failed to fetch Bitcoin price');
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Bitcoin price: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data?.bitcoin?.pen) {
+      throw new Error('Invalid price data format');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error fetching Bitcoin price:', error);
+    throw error;
   }
-  return response.json();
 }
 
-function PriceContent({ data }: { data: any }) {
-  const penPrice = (data?.bitcoin?.pen || 0).toLocaleString('es-PE', {
+function PriceContent({ data }: { data: { bitcoin: { pen: number } } }) {
+  const price = data?.bitcoin?.pen;
+  const penPrice = price ? price.toLocaleString('es-PE', {
     style: 'currency',
-    currency: 'PEN'
-  });
+    currency: 'PEN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }) : 'Cargando...';
 
   return (
     <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
