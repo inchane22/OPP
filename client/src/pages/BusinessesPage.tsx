@@ -126,7 +126,7 @@ export default function BusinessesPage() {
                   setSearchTerm(value);
                 });
               }}
-              className="max-w-md bg-white/95 backdrop-blur-sm pr-8 shadow-sm border-2 placeholder:text-foreground/70"
+              className="max-w-md bg-white/95 backdrop-blur-sm pr-8 shadow-sm border-2 placeholder:text-foreground/80 text-foreground/90"
             />
             {isRefetching && (
               <div className="absolute right-2 top-1/2 -translate-y-1/2">
@@ -147,7 +147,7 @@ export default function BusinessesPage() {
                 });
               }}
               disabled={isPending}
-              className="whitespace-nowrap bg-white/95 hover:bg-white shadow-sm backdrop-blur-sm border-2 text-foreground font-medium"
+              className="whitespace-nowrap bg-white/95 hover:bg-white/100 shadow-sm backdrop-blur-sm border-2 text-foreground/90 hover:text-foreground font-semibold"
             >
               <Zap className="h-4 w-4 mr-2" />
               Lightning Network
