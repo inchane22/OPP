@@ -1026,7 +1026,34 @@ export default function AdminPanel() {
                               Verificar
                             </Button>
                           )}
-                          <Button variant="destructive" size="sm">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/businesses/${business.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to delete business');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({
+                                  title: "Business deleted successfully",
+                                  variant: "default"
+                                });
+                              } catch (error) {
+                                console.error('Error deleting business:', error);
+                                toast({
+                                  title: "Failed to delete business",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
                             Eliminar
                           </Button>
                         </div>
