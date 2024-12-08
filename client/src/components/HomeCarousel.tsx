@@ -25,7 +25,21 @@ const getEmbedUrl = (url: string): string => {
       const videoId = urlObj.hostname.includes('youtu.be') 
         ? urlObj.pathname.slice(1)
         : urlObj.searchParams.get('v');
-      return `https://www.youtube.com/embed/${videoId}`;
+      
+      const params = new URLSearchParams({
+        origin: window.location.origin,
+        enablejsapi: '1',
+        rel: '0',
+        modestbranding: '1',
+        iv_load_policy: '3',
+        controls: '1',
+        showinfo: '1',
+        fs: '1',
+        cc_load_policy: '1',
+        color: 'white'
+      });
+      
+      return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     }
 
     // Handle X/Twitter URLs
@@ -84,12 +98,12 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
             title={item.title}
             src={getEmbedUrl(item.embedUrl)}
             className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             style={{ minHeight: '400px' }}
             loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"
           />
         </div>
       </CardContent>

@@ -412,7 +412,10 @@ export default function AdminPanel() {
                             rel: '0',
                             modestbranding: '1',
                             iv_load_policy: '3',
-                            referrerpolicy: 'strict-origin-when-cross-origin'
+                            referrerpolicy: 'strict-origin-when-cross-origin',
+                            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+                            allowfullscreen: '1',
+                            controls: '1'
                           });
 
                           return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
