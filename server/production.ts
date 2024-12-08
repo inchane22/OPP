@@ -103,17 +103,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com"],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://platform.twitter.com", "https://*.twitter.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://platform.twitter.com"],
+        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com", "https://*.twitter.com", "https://platform.twitter.com"],
+        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com"],
+        fontSrc: ["'self'", "https://platform.twitter.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],
-        frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://youtu.be"],
+        frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://youtu.be", "https://platform.twitter.com", "https://*.twitter.com"],
         frameAncestors: ["'self'"],
         workerSrc: ["'self'", "blob:"],
-        childSrc: ["'self'", "blob:"],
+        childSrc: ["'self'", "blob:", "https://platform.twitter.com"],
         baseUri: ["'self'"]
       }
     },
