@@ -84,10 +84,15 @@ export default function AdminPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-
-  // Handle loading states with proper UI feedback
   const [isLoading, setIsLoading] = React.useState(false);
   const isUpdating = isPending || isLoading;
+
+  // Fetch admin stats only if user is admin
+  const { data: stats } = useQuery<AdminStats>({
+    queryKey: ['admin-stats'],
+    queryFn: fetchStats,
+    enabled: user?.role === 'admin'
+  });
 
   // Show loading state when transitions are pending
   useEffect(() => {
@@ -99,18 +104,6 @@ export default function AdminPanel() {
       });
     }
   }, [isUpdating, toast]);
-
-  // Display loading indicator for pending operations
-  if (isUpdating) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Processing your request...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Enhanced authentication check with proper error handling
   useEffect(() => {
@@ -146,7 +139,18 @@ export default function AdminPanel() {
     };
   }, [user, toast]);
 
-  // Early return with loading state
+  // Render loading states
+  if (isUpdating) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Processing your request...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -158,7 +162,6 @@ export default function AdminPanel() {
     );
   }
 
-  // Early return for non-admin users
   if (user.role !== 'admin') {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -170,15 +173,7 @@ export default function AdminPanel() {
     );
   }
 
-  const { data: stats } = useQuery<AdminStats>({
-    queryKey: ['admin-stats'],
-    queryFn: fetchStats,
-    enabled: user?.role === 'admin'
-  });
-
-  if (!user || user.role !== 'admin') {
-    return <div>Access Denied</div>;
-  }
+  // Stats are already fetched at the top of the component
 
   return (
     <div className="p-6">
