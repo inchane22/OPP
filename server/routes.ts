@@ -540,6 +540,23 @@ export function registerRoutes(app: Express) {
       return res.status(500).json({ error: "Failed to delete resource" });
     }
   });
+  // Admin delete business endpoint
+  app.delete("/api/businesses/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).send("Access denied");
+    }
+
+    try {
+      await db
+        .delete(businesses)
+        .where(eq(businesses.id, parseInt(req.params.id)));
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete business:", error);
+      return res.status(500).json({ error: "Failed to delete business" });
+    }
+  });
+
 
   // Language preference update endpoint
   app.post("/api/user/language", async (req, res) => {
