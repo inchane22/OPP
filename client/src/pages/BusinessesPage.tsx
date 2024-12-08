@@ -115,7 +115,7 @@ export default function BusinessesPage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="relative h-[300px] rounded-lg overflow-hidden">
-        <div className="flex flex-col sm:flex-row gap-4 absolute top-4 left-4 right-4 z-10">
+        <div className="flex flex-col sm:flex-row gap-4 absolute top-4 left-4 right-4 z-20">
           <div className="flex-1 relative">
             <Input
               placeholder="Buscar por nombre, descripción o ciudad..."
@@ -155,14 +155,14 @@ export default function BusinessesPage() {
           </div>
         </div>
         <div 
-          className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-background/90"
+          className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-background/90 z-10"
           style={{
             backgroundImage: 'url("https://images.unsplash.com/photo-1696446700082-4c95b9f5b33d")',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         >
-          <div className="flex flex-col items-center justify-center text-center h-full px-4">
+          <div className="flex flex-col items-center justify-center text-center h-full px-4 z-10 mt-16 sm:mt-0">
             <h1 className="text-4xl font-bold text-white mb-4">Negocios que Aceptan Bitcoin</h1>
             <p className="text-xl text-white/90 max-w-2xl">Descubre dónde gastar tus sats en Perú</p>
           </div>
