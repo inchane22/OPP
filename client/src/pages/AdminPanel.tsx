@@ -1040,9 +1040,13 @@ export default function AdminPanel() {
                                   throw new Error('Failed to delete business');
                                 }
 
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                // Invalidate both admin stats and businesses queries
+                                await Promise.all([
+                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                  queryClient.invalidateQueries({ queryKey: ['businesses'] })
+                                ]);
                                 toast({
-                                  title: "Business deleted successfully",
+                                  title: "Negocio eliminado exitosamente",
                                   variant: "default"
                                 });
                               } catch (error) {
