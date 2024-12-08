@@ -404,8 +404,18 @@ export default function AdminPanel() {
                             throw new Error("Por favor ingresa una URL válida de YouTube");
                           }
 
-                          // Add embed parameters for better compatibility
-                          return `https://www.youtube.com/embed/${match[1]}?origin=${window.location.origin}&enablejsapi=1`;
+                          // Add all necessary parameters for better compatibility
+                          const videoId = match[1];
+                          const params = new URLSearchParams({
+                            origin: window.location.origin,
+                            enablejsapi: '1',
+                            rel: '0',
+                            modestbranding: '1',
+                            iv_load_policy: '3',
+                            referrerpolicy: 'strict-origin-when-cross-origin'
+                          });
+
+                          return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
                         };
 
                         const newItem = {
