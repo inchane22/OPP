@@ -55,7 +55,17 @@ const getEmbedUrl = (url: string): string => {
     if (urlObj.hostname === 'x.com' || urlObj.hostname === 'twitter.com') {
       const matches = urlObj.pathname.match(/\/status\/(\d+)/);
       if (matches && matches[1]) {
-        return `https://platform.twitter.com/embed/Tweet.html?id=${matches[1]}`;
+        const tweetId = matches[1];
+        const embedUrl = new URL('https://platform.twitter.com/embed/Tweet.html');
+        embedUrl.searchParams.set('id', tweetId);
+        embedUrl.searchParams.set('theme', 'light');
+        embedUrl.searchParams.set('dnt', 'true');
+        embedUrl.searchParams.set('embedId', `twitter-${tweetId}`);
+        embedUrl.searchParams.set('frame', 'false');
+        embedUrl.searchParams.set('hideCard', 'false');
+        embedUrl.searchParams.set('hideThread', 'false');
+        embedUrl.searchParams.set('lang', 'en');
+        return embedUrl.toString();
       }
     }
 
