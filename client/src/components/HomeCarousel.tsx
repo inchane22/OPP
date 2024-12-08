@@ -13,16 +13,36 @@ import type { ReactNode } from "react";
 // Utility function for parsing embed URLs
 const getEmbedUrl = (url: string): string => {
   try {
+    // Handle relative URLs
+    if (url.startsWith('/')) {
+      return new URL(url, window.location.origin).href;
+    }
+
     const urlObj = new URL(url);
+    
+    // Handle YouTube URLs
     if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
       const videoId = urlObj.hostname.includes('youtu.be') 
         ? urlObj.pathname.slice(1)
         : urlObj.searchParams.get('v');
       return `https://www.youtube.com/embed/${videoId}`;
     }
-    return url;
-  } catch {
-    return url;
+
+    // Return absolute URLs as-is
+    if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+      return url;
+    }
+
+    // For any other case, resolve against origin
+    return new URL(url, window.location.origin).href;
+  } catch (error) {
+    console.warn('Error parsing URL:', error);
+    // If URL parsing fails, try to resolve against origin
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch {
+      return url;
+    }
   }
 };
 
