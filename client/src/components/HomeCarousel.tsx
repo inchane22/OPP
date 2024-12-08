@@ -95,7 +95,7 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
         delay: 5000,
         stopOnInteraction: true,
         stopOnMouseEnter: true,
-        rootNode: (scrollTo) => scrollTo,
+        rootNode: (scrollTo: (index: number) => void) => scrollTo,
       });
     } catch (error) {
       console.error('Failed to initialize autoplay plugin:', error);
