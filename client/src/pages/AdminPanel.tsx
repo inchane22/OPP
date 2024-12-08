@@ -395,15 +395,17 @@ export default function AdminPanel() {
                         const formData = new FormData(e.currentTarget);
                         const embedUrl = formData.get('embedUrl') as string;
                         
-                        // Convert YouTube URL to embed format
+                        // Convert and validate YouTube URL
                         const convertToEmbedUrl = (url: string) => {
                           const youtubeRegex = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^?&]+)/;
                           const match = url.match(youtubeRegex);
                           
-                          if (match) {
-                            return `https://www.youtube.com/embed/${match[1]}`;
+                          if (!match) {
+                            throw new Error("Por favor ingresa una URL válida de YouTube");
                           }
-                          return url;
+
+                          // Add embed parameters for better compatibility
+                          return `https://www.youtube.com/embed/${match[1]}?origin=${window.location.origin}&enablejsapi=1`;
                         };
 
                         const newItem = {
@@ -464,8 +466,17 @@ export default function AdminPanel() {
                           <Input id="title" name="title" required />
                         </div>
                         <div>
-                          <Label htmlFor="embedUrl">URL de Embed (YouTube, Vimeo, etc)</Label>
-                          <Input id="embedUrl" name="embedUrl" required />
+                          <Label htmlFor="embedUrl">URL de YouTube</Label>
+                          <Input 
+                            id="embedUrl" 
+                            name="embedUrl" 
+                            placeholder="https://www.youtube.com/watch?v=..." 
+                            required 
+                          />
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Importante: El video debe ser público y permitir la inserción en otros sitios web.
+                            Puedes verificar esto en la configuración del video en YouTube.
+                          </p>
                         </div>
                         <div>
                           <Label htmlFor="description">Descripción (opcional)</Label>
