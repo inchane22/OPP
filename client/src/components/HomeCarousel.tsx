@@ -28,6 +28,14 @@ const getEmbedUrl = (url: string): string => {
       return `https://www.youtube.com/embed/${videoId}`;
     }
 
+    // Handle X/Twitter URLs
+    if (urlObj.hostname === 'x.com' || urlObj.hostname === 'twitter.com') {
+      const matches = urlObj.pathname.match(/\/status\/(\d+)/);
+      if (matches && matches[1]) {
+        return `https://platform.twitter.com/embed/Tweet.html?id=${matches[1]}`;
+      }
+    }
+
     // Return absolute URLs as-is
     if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
       return url;
