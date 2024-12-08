@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
 async function fetchBitcoinPrice() {
-  const response = await fetch('https://api.coindesk.com/v1/bpi/currentprice/PEN.json');
+  const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen');
   if (!response.ok) {
     throw new Error('Failed to fetch Bitcoin price');
   }
@@ -12,7 +12,7 @@ async function fetchBitcoinPrice() {
 }
 
 function PriceContent({ data }: { data: any }) {
-  const penPrice = data?.bpi?.PEN?.rate_float.toLocaleString('es-PE', {
+  const penPrice = (data?.bitcoin?.pen || 0).toLocaleString('es-PE', {
     style: 'currency',
     currency: 'PEN'
   });
