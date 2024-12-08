@@ -8,7 +8,7 @@ import { setupAuth } from "./auth.js";
 import { logger, type LogData } from "./utils/logger.js";
 
 /**
- * Fetches Bitcoin price in PEN from CoinGecko API with retry logic
+ * Fetches Bitcoin price in PEN from Blockchain.info API with retry logic
  */
 async function fetchBitcoinPrice() {
   const retries = 3;
@@ -25,7 +25,24 @@ async function fetchBitcoinPrice() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+      // First, get the BTC/USD price
+      const btcUsdResponse = await fetch('https://blockchain.info/ticker', {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Bitcoin Community Platform'
+        },
+        signal: controller.signal
+      });
+
+      if (!btcUsdResponse.ok) {
+        throw new Error(`Failed to fetch BTC/USD price: ${btcUsdResponse.status} ${btcUsdResponse.statusText}`);
+      }
+
+      const btcUsdData = await btcUsdResponse.json();
+      const btcUsdPrice = btcUsdData.USD.last;
+
+      // Then, get the USD/PEN exchange rate
+      const usdPenResponse = await fetch('https://api.blockchain.com/v3/exchange/tickers/USD-PEN', {
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Bitcoin Community Platform'
@@ -35,14 +52,22 @@ async function fetchBitcoinPrice() {
 
       clearTimeout(timeoutId);
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch Bitcoin price: ${response.status} ${response.statusText}`);
+      if (!usdPenResponse.ok) {
+        throw new Error(`Failed to fetch USD/PEN rate: ${usdPenResponse.status} ${usdPenResponse.statusText}`);
       }
 
-      const data = await response.json();
-      if (!data?.bitcoin?.pen) {
-        throw new Error('Invalid price data format');
-      }
+      const usdPenData = await usdPenResponse.json();
+      const usdPenRate = usdPenData.last_trade_price;
+
+      // Calculate BTC/PEN price
+      const btcPenPrice = btcUsdPrice * usdPenRate;
+
+      const data = {
+        bitcoin: {
+          pen: btcPenPrice,
+          usd: btcUsdPrice
+        }
+      };
 
       logger('Successfully fetched Bitcoin price', {
         price: data.bitcoin.pen,
