@@ -106,7 +106,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
         scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://platform.twitter.com", "https://*.twitter.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://platform.twitter.com"],
         imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com", "https://*.twitter.com", "https://platform.twitter.com"],
-        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com", "https://blockchain.info", "https://api.blockchain.com"],
+        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com", "https://api.coingecko.com"],
         fontSrc: ["'self'", "https://platform.twitter.com"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],
@@ -232,15 +232,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
-
-  // Start server on the correct port
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, '0.0.0.0', () => {
-    logger('Server started', {
-      port: PORT,
-      env: process.env.NODE_ENV
-    } as LogData);
-  });
 
   // Serve index.html for client-side routing
   app.get('*', (req, res) => {
