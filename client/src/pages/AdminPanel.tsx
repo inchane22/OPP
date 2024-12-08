@@ -390,7 +390,7 @@ export default function AdminPanel() {
                           Agrega un nuevo video o contenido al carrusel de la página principal.
                         </DialogDescription>
                       </DialogHeader>
-                      <form onSubmit={async (e) => {
+                      <form onSubmit={(e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
                         const newItem = {
@@ -400,27 +400,51 @@ export default function AdminPanel() {
                           active: true
                         };
 
-                        try {
-                          const response = await fetch('/api/carousel', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(newItem),
-                            credentials: 'include'
-                          });
+                        setIsLoading(true);
+                        startTransition(() => {
+                          (async () => {
+                            try {
+                              const response = await fetch('/api/carousel', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(newItem),
+                                credentials: 'include'
+                              });
 
-                          if (!response.ok) {
-                            throw new Error('Failed to create carousel item');
-                          }
+                              if (!response.ok) {
+                                throw new Error('Failed to create carousel item');
+                              }
 
-                          // Refetch the stats to update the list
-                          queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                          (e.target as HTMLFormElement).reset();
-                          
-                        } catch (error) {
-                          console.error('Error creating carousel item:', error);
-                        }
+                              // Refetch the stats to update the list
+                              await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              (e.target as HTMLFormElement).reset();
+                              
+                              // Show success toast
+                              toast({
+                                title: "Item creado exitosamente",
+                                description: "El item ha sido agregado al carrusel",
+                                variant: "default"
+                              });
+
+                              // Close the dialog programmatically
+                              const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                              if (closeButton) {
+                                closeButton.click();
+                              }
+                            } catch (error) {
+                              console.error('Error creating carousel item:', error);
+                              toast({
+                                title: "Error al crear item",
+                                description: "No se pudo agregar el item al carrusel",
+                                variant: "destructive"
+                              });
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          })();
+                        });
                       }} className="space-y-4">
                         <div>
                           <Label htmlFor="title">Título</Label>
@@ -434,8 +458,14 @@ export default function AdminPanel() {
                           <Label htmlFor="description">Descripción (opcional)</Label>
                           <Textarea id="description" name="description" />
                         </div>
-                        <DialogFooter>
-                          <Button type="submit">Guardar</Button>
+                        <DialogFooter className="flex justify-between">
+                          <Button type="button" variant="outline" data-dialog-close>
+                            Cancelar
+                          </Button>
+                          <Button type="submit" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Guardar
+                          </Button>
                         </DialogFooter>
                       </form>
                     </DialogContent>
