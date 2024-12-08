@@ -103,16 +103,22 @@ export async function setupProduction(app: express.Express): Promise<void> {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com"],
         connectSrc: ["'self'"],
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"]
+        mediaSrc: ["'self'", "https:", "blob:"],
+        frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://youtu.be"],
+        frameAncestors: ["'self'"],
+        workerSrc: ["'self'", "blob:"],
+        childSrc: ["'self'", "blob:"],
+        baseUri: ["'self'"]
       }
-    }
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
   }));
 
   // Rate limiting

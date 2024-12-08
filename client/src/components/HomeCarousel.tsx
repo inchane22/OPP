@@ -80,6 +80,8 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
             allowFullScreen
             style={{ minHeight: '400px' }}
             loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           />
         </div>
       </CardContent>
