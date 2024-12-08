@@ -393,9 +393,22 @@ export default function AdminPanel() {
                       <form onSubmit={(e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
+                        const embedUrl = formData.get('embedUrl') as string;
+                        
+                        // Convert YouTube URL to embed format
+                        const convertToEmbedUrl = (url: string) => {
+                          const youtubeRegex = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^?&]+)/;
+                          const match = url.match(youtubeRegex);
+                          
+                          if (match) {
+                            return `https://www.youtube.com/embed/${match[1]}`;
+                          }
+                          return url;
+                        };
+
                         const newItem = {
                           title: formData.get('title'),
-                          embedUrl: formData.get('embedUrl'),
+                          embedUrl: convertToEmbedUrl(embedUrl),
                           description: formData.get('description'),
                           active: true
                         };
