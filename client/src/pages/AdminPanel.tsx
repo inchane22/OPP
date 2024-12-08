@@ -397,28 +397,36 @@ export default function AdminPanel() {
                         
                         // Convert and validate YouTube URL
                         const convertToEmbedUrl = (url: string) => {
-                          const youtubeRegex = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^?&]+)/;
-                          const match = url.match(youtubeRegex);
-                          
-                          if (!match) {
-                            throw new Error("Por favor ingresa una URL válida de YouTube");
+                          try {
+                            // Extract video ID from various YouTube URL formats
+                            const youtubeRegex = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^?&]+)/;
+                            const match = url.match(youtubeRegex);
+                            
+                            if (!match) {
+                              throw new Error("Por favor ingresa una URL válida de YouTube");
+                            }
+
+                            const videoId = match[1];
+                            // Remove any existing parameters and timestamps
+                            const cleanVideoId = videoId.split('?')[0].split('&')[0];
+
+                            // Add essential embed parameters
+                            const embedUrl = new URL(`https://www.youtube.com/embed/${cleanVideoId}`);
+                            embedUrl.searchParams.set('origin', window.location.origin);
+                            embedUrl.searchParams.set('enablejsapi', '1');
+                            embedUrl.searchParams.set('rel', '0');
+                            embedUrl.searchParams.set('modestbranding', '1');
+                            embedUrl.searchParams.set('controls', '1');
+                            embedUrl.searchParams.set('autoplay', '0');
+                            embedUrl.searchParams.set('playsinline', '1');
+                            embedUrl.searchParams.set('mute', '0');
+                            embedUrl.searchParams.set('iv_load_policy', '3');
+
+                            return embedUrl.toString();
+                          } catch (error) {
+                            console.error('Error converting YouTube URL:', error);
+                            throw new Error("Error al procesar la URL de YouTube. Asegúrate de que sea una URL válida.");
                           }
-
-                          // Add all necessary parameters for better compatibility
-                          const videoId = match[1];
-                          const params = new URLSearchParams({
-                            origin: window.location.origin,
-                            enablejsapi: '1',
-                            rel: '0',
-                            modestbranding: '1',
-                            iv_load_policy: '3',
-                            referrerpolicy: 'strict-origin-when-cross-origin',
-                            allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
-                            allowfullscreen: '1',
-                            controls: '1'
-                          });
-
-                          return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
                         };
 
                         const newItem = {

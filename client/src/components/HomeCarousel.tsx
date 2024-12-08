@@ -22,24 +22,33 @@ const getEmbedUrl = (url: string): string => {
     
     // Handle YouTube URLs
     if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
-      const videoId = urlObj.hostname.includes('youtu.be') 
-        ? urlObj.pathname.slice(1)
-        : urlObj.searchParams.get('v');
-      
-      const params = new URLSearchParams({
-        origin: window.location.origin,
-        enablejsapi: '1',
-        rel: '0',
-        modestbranding: '1',
-        iv_load_policy: '3',
-        controls: '1',
-        showinfo: '1',
-        fs: '1',
-        cc_load_policy: '1',
-        color: 'white'
-      });
-      
-      return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+      try {
+        const videoId = urlObj.hostname.includes('youtu.be')
+          ? urlObj.pathname.slice(1).split('?')[0]
+          : urlObj.searchParams.get('v')?.split('&')[0];
+
+        if (!videoId) {
+          console.warn('Invalid YouTube URL format:', url);
+          return url;
+        }
+
+        // Create embed URL with essential parameters
+        const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+        embedUrl.searchParams.set('origin', window.location.origin);
+        embedUrl.searchParams.set('enablejsapi', '1');
+        embedUrl.searchParams.set('rel', '0');
+        embedUrl.searchParams.set('modestbranding', '1');
+        embedUrl.searchParams.set('controls', '1');
+        embedUrl.searchParams.set('autoplay', '0');
+        embedUrl.searchParams.set('playsinline', '1');
+        embedUrl.searchParams.set('mute', '0');
+        embedUrl.searchParams.set('iv_load_policy', '3');
+
+        return embedUrl.toString();
+      } catch (error) {
+        console.error('Error processing YouTube URL:', error);
+        return url;
+      }
     }
 
     // Handle X/Twitter URLs
