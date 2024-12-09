@@ -3,24 +3,65 @@ import React, { useTransition, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 
-async function fetchBitcoinPrice() {
+interface BitcoinPriceResponse {
+  bitcoin: {
+    pen: number;
+  };
+}
+
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) {
+        console.log(`Successful response on attempt ${i + 1}`);
+        return response;
+      }
+      
+      const errorMessage = `Attempt ${i + 1} failed with status ${response.status}`;
+      console.warn(errorMessage);
+      lastError = new Error(errorMessage);
+      
+      if (i < retries - 1) {
+        const waitTime = delay * Math.pow(2, i);
+        console.log(`Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    } catch (error) {
+      const errorMessage = `Attempt ${i + 1} failed with error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.warn(errorMessage);
+      lastError = error instanceof Error ? error : new Error(errorMessage);
+      
+      if (i < retries - 1) {
+        const waitTime = delay * Math.pow(2, i);
+        console.log(`Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+  
+  throw lastError || new Error(`Failed after ${retries} attempts`);
+}
+
+async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+    console.log('Initiating Bitcoin price fetch...');
+    const response = await fetchWithRetry('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
       headers: {
         'Accept': 'application/json',
+        'User-Agent': 'BitcoinPENTracker/1.0',
       },
-      cache: 'no-store'
-    });
-    
-    if (!response.ok) {
-      console.error('API response not OK:', response.status, response.statusText);
-      throw new Error('Failed to fetch Bitcoin price');
-    }
+      cache: 'no-store',
+      mode: 'cors',
+      referrerPolicy: 'no-referrer'
+    }, 5, 1000);
     
     const data = await response.json();
     console.log('Bitcoin price data:', JSON.stringify(data, null, 2));
     
-    if (!data?.bitcoin?.pen) {
+    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
       console.error('Invalid data structure received:', data);
       throw new Error('Invalid price data received');
     }
@@ -87,9 +128,10 @@ export default function PriceDisplay() {
   const { data, error, isFetching, isLoading } = useQuery({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
-    refetchInterval: 60000,
-    staleTime: 30000,
-    retry: 3
+    refetchInterval: 30000,
+    staleTime: 15000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000)
   });
 
   const refreshPrice = () => {
