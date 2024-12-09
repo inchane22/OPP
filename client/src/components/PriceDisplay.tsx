@@ -14,6 +14,8 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
   const retryDelay = 1000;
   const timeoutDuration = 5000;
 
+  let lastError: Error | null = null;
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       console.log(`Initiating Bitcoin price fetch (attempt ${attempt + 1}/${maxRetries})...`);
@@ -24,9 +26,9 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
       const response = await fetch('/api/bitcoin/price', {
         headers: {
           'Accept': 'application/json',
-          'Cache-Control': 'no-cache'
         },
-        signal: controller.signal
+        signal: controller.signal,
+        cache: 'no-store'
       });
 
       clearTimeout(timeoutId);
@@ -34,30 +36,37 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`API error (${response.status}):`, errorText);
-        throw new Error(`API error: ${response.status}`);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
-      console.log('Bitcoin price data:', JSON.stringify(data, null, 2));
+      console.log('Bitcoin price data:', data);
       
       if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
         console.error('Invalid data structure received:', data);
-        throw new Error('Invalid price data received');
+        throw new Error('Invalid price data structure');
       }
       
       return data;
     } catch (error) {
-      console.error(`Error fetching Bitcoin price (attempt ${attempt + 1}):`, error);
-      if (error.name === 'AbortError') {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.error(`Error fetching Bitcoin price (attempt ${attempt + 1}):`, lastError.message);
+      
+      if (lastError.name === 'AbortError') {
         console.log('Request timed out');
       }
+      
       if (attempt === maxRetries - 1) {
-        throw error;
+        throw new Error(`Failed to fetch Bitcoin price: ${lastError.message}`);
       }
-      await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+      
+      const backoff = retryDelay * Math.pow(2, attempt);
+      console.log(`Waiting ${backoff}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, backoff));
     }
   }
-  throw new Error('Failed to fetch Bitcoin price after all retries');
+  
+  throw lastError || new Error('Failed to fetch Bitcoin price after all retries');
 }
 
 function PriceContent({ data }: { data: any }) {
