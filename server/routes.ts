@@ -699,7 +699,7 @@ export function registerRoutes(app: Express) {
   let priceCache: PriceCache = {
     data: null,
     timestamp: 0,
-    ttl: 60000 // 60 seconds cache for rate limit protection
+    ttl: 300000 // 5 minutes cache for better rate limit protection
   };
 
   async function fetchBinancePrice() {

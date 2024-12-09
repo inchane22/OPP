@@ -140,10 +140,10 @@ export default function PriceDisplay() {
   const { data, error, isFetching, isLoading } = useQuery<BitcoinPriceResponse, Error>({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
-    refetchInterval: 30000,
-    staleTime: 15000,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000),
+    refetchInterval: 60000, // Fetch every minute
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    retry: 5, // Increase retry attempts
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 60000), // Exponential backoff with 1-minute max
     refetchOnWindowFocus: false,
     refetchOnReconnect: true
   });
