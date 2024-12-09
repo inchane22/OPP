@@ -702,13 +702,13 @@ export function registerRoutes(app: Express) {
     ttl: 300000 // 5 minutes cache for better rate limit protection
   };
 
-  async function fetchBinancePrice() {
+  async function fetchKrakenPrice() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
       const [priceResponse, rateResponse] = await Promise.all([
-        fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', {
+        fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSDT', {
           headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
           signal: controller.signal
         }),
@@ -721,7 +721,7 @@ export function registerRoutes(app: Express) {
       clearTimeout(timeoutId);
 
       if (!priceResponse.ok) {
-        throw new Error(`Binance API error: ${priceResponse.status}`);
+        throw new Error(`Kraken API error: ${priceResponse.status}`);
       }
       if (!rateResponse.ok) {
         throw new Error(`Exchange rate API error: ${rateResponse.status}`);
@@ -732,14 +732,14 @@ export function registerRoutes(app: Express) {
         rateResponse.json()
       ]);
 
-      if (!priceData?.price || isNaN(parseFloat(priceData.price))) {
-        throw new Error('Invalid price data from Binance');
+      if (!priceData?.result?.XBTUSDT?.c?.[0] || isNaN(parseFloat(priceData.result.XBTUSDT.c[0]))) {
+        throw new Error('Invalid price data from Kraken');
       }
       if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
         throw new Error('Invalid exchange rate data');
       }
 
-      const btcUsdPrice = parseFloat(priceData.price);
+      const btcUsdPrice = parseFloat(priceData.result.XBTUSDT.c[0]);
       const usdPenRate = rateData.rates.PEN;
       const finalPrice = btcUsdPrice * usdPenRate;
 
@@ -752,7 +752,7 @@ export function registerRoutes(app: Express) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
       }
-      throw new Error(`Binance price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Kraken price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -797,6 +797,61 @@ export function registerRoutes(app: Express) {
 
   async function fetchCoingeckoPrice() {
     const controller = new AbortController();
+  async function fetchBlockchainPrice() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const [priceResponse, rateResponse] = await Promise.all([
+        fetch('https://api.blockchain.com/v3/exchange/tickers/BTC-USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        }),
+        fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        })
+      ]);
+
+      clearTimeout(timeoutId);
+
+      if (!priceResponse.ok) {
+        throw new Error(`Blockchain.com API error: ${priceResponse.status}`);
+      }
+      if (!rateResponse.ok) {
+        throw new Error(`Exchange rate API error: ${rateResponse.status}`);
+      }
+
+      const [priceData, rateData] = await Promise.all([
+        priceResponse.json(),
+        rateResponse.json()
+      ]);
+
+      if (!priceData?.last_trade_price || isNaN(parseFloat(priceData.last_trade_price))) {
+        throw new Error('Invalid price data from Blockchain.com');
+      }
+      if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
+        throw new Error('Invalid exchange rate data');
+      }
+
+      const btcUsdPrice = parseFloat(priceData.last_trade_price);
+      const usdPenRate = rateData.rates.PEN;
+      const finalPrice = btcUsdPrice * usdPenRate;
+
+      if (finalPrice <= 0 || !isFinite(finalPrice)) {
+        throw new Error('Invalid price calculation result');
+      }
+
+      return finalPrice;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Blockchain.com price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
@@ -845,8 +900,9 @@ export function registerRoutes(app: Express) {
       }
 
       const providers = [
+        { name: 'Kraken', fn: fetchKrakenPrice },
+        { name: 'Blockchain.com', fn: fetchBlockchainPrice },
         { name: 'CoinGecko', fn: fetchCoingeckoPrice },
-        { name: 'Binance', fn: fetchBinancePrice },
         { name: 'Bitso', fn: fetchBitsoPrice }
       ];
 
