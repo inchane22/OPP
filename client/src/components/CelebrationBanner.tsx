@@ -20,11 +20,11 @@ export function CelebrationBanner() {
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 z-50 transition-transform duration-500 ease-in-out ${
+      className={`sticky top-0 left-0 right-0 z-50 transition-transform duration-500 ease-in-out ${
         shouldRender ? "translate-y-0" : "-translate-y-full"
       }`}
     >
-      <Alert className="rounded-none border-primary bg-primary/10 backdrop-blur-sm">
+      <Alert className="rounded-none border-primary bg-primary/10 backdrop-blur-sm shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
           <AlertDescription className="flex items-center text-base font-medium">
             <span className="animate-bounce inline-block mr-2">🎉</span>
