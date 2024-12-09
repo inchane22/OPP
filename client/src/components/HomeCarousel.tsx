@@ -134,13 +134,12 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
 
-  const carouselOptions = React.useMemo((): EmblaOptionsType => ({
+  const carouselOptions: EmblaOptionsType = React.useMemo(() => ({
     align: "center",
     dragFree: true,
     containScroll: "trimSnaps",
     loop: true,
     skipSnaps: false,
-    inViewThreshold: 0,
     watchDrag: true
   }), []);
 
@@ -150,7 +149,6 @@ const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
         delay: 5000,
         stopOnInteraction: true,
         stopOnMouseEnter: true,
-        rootNode: (scrollTo: (index: number) => void) => scrollTo,
       });
     } catch (error) {
       console.error('Failed to initialize autoplay plugin:', error);
