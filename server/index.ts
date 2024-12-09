@@ -116,13 +116,15 @@ app.use((req, res, next) => {
         host: HOST
       });
       
-      // Ensure all previous connections are closed
-      await new Promise((resolve) => {
-        server.close(() => {
-          log('Cleaned up existing server instance');
-          resolve(undefined);
+      // Only close server if it's already listening
+      if (server.listening) {
+        await new Promise((resolve) => {
+          server.close(() => {
+            log('Cleaned up existing server instance');
+            resolve(undefined);
+          });
         });
-      });
+      }
 
       try {
         await setupVite(app, server);

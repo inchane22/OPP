@@ -208,12 +208,21 @@ export function registerRoutes(app: Express) {
     }
 
     try {
+      // Parse the date string into a Date object
+      const updatedData = {
+        ...req.body,
+        date: req.body.date ? new Date(req.body.date) : undefined,
+        updatedAt: new Date()
+      };
+
+      // Remove undefined fields to avoid overwriting with null
+      Object.keys(updatedData).forEach(key => 
+        updatedData[key] === undefined && delete updatedData[key]
+      );
+
       const [event] = await db
         .update(events)
-        .set({
-          ...req.body,
-          updatedAt: new Date(),
-        })
+        .set(updatedData)
         .where(eq(events.id, parseInt(req.params.id)))
         .returning();
       return res.json(event);

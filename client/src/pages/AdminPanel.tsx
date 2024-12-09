@@ -844,14 +844,32 @@ export default function AdminPanel() {
                               <form onSubmit={async (e) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
-                                const updatedEvent = {
-                                  title: formData.get('title'),
-                                  description: formData.get('description'),
-                                  location: formData.get('location'),
-                                  date: new Date(formData.get('date') as string).toISOString(),
-                                };
+                                const dateStr = formData.get('date') as string;
+                                
+                                // Validate date
+                                if (!dateStr) {
+                                  toast({
+                                    title: "Error",
+                                    description: "La fecha es requerida",
+                                    variant: "destructive"
+                                  });
+                                  return;
+                                }
 
                                 try {
+                                  // Ensure date is valid
+                                  const date = new Date(dateStr);
+                                  if (isNaN(date.getTime())) {
+                                    throw new Error('Fecha inválida');
+                                  }
+
+                                  const updatedEvent = {
+                                    title: formData.get('title'),
+                                    description: formData.get('description'),
+                                    location: formData.get('location'),
+                                    date: date.toISOString(), // Convert to ISO string for backend
+                                  };
+
                                   const response = await fetch(`/api/events/${event.id}`, {
                                     method: 'PUT',
                                     headers: {
@@ -862,13 +880,14 @@ export default function AdminPanel() {
                                   });
 
                                   if (!response.ok) {
-                                    throw new Error('Failed to update event');
+                                    const error = await response.text();
+                                    throw new Error(error || 'Failed to update event');
                                   }
 
                                   // Show success toast
                                   toast({
-                                    title: "Event updated successfully",
-                                    description: `Updated: ${String(updatedEvent.title)}`,
+                                    title: "Evento actualizado exitosamente",
+                                    description: `${updatedEvent.title}`,
                                     variant: "default"
                                   });
 
