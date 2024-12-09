@@ -6,20 +6,6 @@ export default function Hero() {
   const { t } = useLanguage();
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Bitcoin 100k Celebration Banner */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-primary/90 via-primary to-primary/90 text-white py-3 px-4 transform animate-in slide-in-from-top duration-700 fade-in">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-center gap-2 text-lg font-bold">
-            <span className="animate-bounce">🎉</span>
-            <span className="animate-pulse">Bitcoin reached $100,000!</span>
-            <span className="animate-bounce delay-100">🚀</span>
-            <span className="hidden sm:inline-block">|</span>
-            <span className="hidden sm:inline-block animate-pulse delay-200">¡Bitcoin alcanzó $100,000!</span>
-            <span className="animate-bounce delay-300">🎊</span>
-          </div>
-        </div>
-      </div>
-
       {/* Dynamic background with parallax effect */}
       <div 
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transform scale-105 motion-safe:animate-subtle-zoom"
