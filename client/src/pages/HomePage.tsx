@@ -1,5 +1,4 @@
 import React, { Suspense, useTransition } from "react";
-import { CelebrationBanner } from "../components/CelebrationBanner";
 import Hero from "../components/Hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "../hooks/use-language";
@@ -21,7 +20,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <CelebrationBanner />
       <Hero />
       
       {/* Featured Content Carousel */}
