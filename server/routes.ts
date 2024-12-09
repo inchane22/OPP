@@ -699,50 +699,138 @@ export function registerRoutes(app: Express) {
   let priceCache: PriceCache = {
     data: null,
     timestamp: 0,
-    ttl: 30000 // 30 seconds cache
+    ttl: 60000 // 60 seconds cache for rate limit protection
   };
 
   async function fetchBinancePrice() {
-    const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT');
-    const data = await response.json();
-    if (!data?.price) throw new Error('Invalid Binance response');
-    
-    // Get USD/PEN rate from another source
-    const usdPenResponse = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
-    const rateData = await usdPenResponse.json();
-    if (!rateData?.rates?.PEN) throw new Error('Invalid exchange rate response');
-    
-    const btcUsdPrice = parseFloat(data.price);
-    const usdPenRate = rateData.rates.PEN;
-    return btcUsdPrice * usdPenRate;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const [priceResponse, rateResponse] = await Promise.all([
+        fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        }),
+        fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        })
+      ]);
+
+      clearTimeout(timeoutId);
+
+      if (!priceResponse.ok) {
+        throw new Error(`Binance API error: ${priceResponse.status}`);
+      }
+      if (!rateResponse.ok) {
+        throw new Error(`Exchange rate API error: ${rateResponse.status}`);
+      }
+
+      const [priceData, rateData] = await Promise.all([
+        priceResponse.json(),
+        rateResponse.json()
+      ]);
+
+      if (!priceData?.price || isNaN(parseFloat(priceData.price))) {
+        throw new Error('Invalid price data from Binance');
+      }
+      if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
+        throw new Error('Invalid exchange rate data');
+      }
+
+      const btcUsdPrice = parseFloat(priceData.price);
+      const usdPenRate = rateData.rates.PEN;
+      const finalPrice = btcUsdPrice * usdPenRate;
+
+      if (finalPrice <= 0 || !isFinite(finalPrice)) {
+        throw new Error('Invalid price calculation result');
+      }
+
+      return finalPrice;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Binance price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   async function fetchBitsoPrice() {
-    const response = await fetch('https://api.bitso.com/v3/ticker/?book=btc_pen');
-    const data = await response.json();
-    if (!data?.payload?.last) throw new Error('Invalid Bitso response');
-    return parseFloat(data.payload.last);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://api.bitso.com/v3/ticker/?book=btc_pen', {
+        headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Bitso API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data?.payload?.last || isNaN(parseFloat(data.payload.last))) {
+        throw new Error('Invalid response structure from Bitso');
+      }
+
+      const price = parseFloat(data.payload.last);
+      if (price <= 0 || !isFinite(price)) {
+        throw new Error('Invalid price value from Bitso');
+      }
+
+      return price;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Bitso error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   async function fetchCoingeckoPrice() {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'BitcoinPENTracker/1.0',
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'BitcoinPENTracker/1.0',
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('CoinGecko rate limit reached');
+        }
+        const errorBody = await response.text();
+        throw new Error(`CoinGecko API error: ${response.status} - ${errorBody}`);
       }
-    });
-    
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`CoinGecko API error: ${response.status}`);
+      
+      const data = await response.json();
+      if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
+        throw new Error('Invalid price data structure');
+      }
+      return data.bitcoin.pen;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`CoinGecko error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
-    
-    const data = await response.json();
-    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
-      throw new Error('Invalid CoinGecko response');
-    }
-    
-    return data.bitcoin.pen;
   }
 
   // Bitcoin price proxy endpoint with multiple providers and caching

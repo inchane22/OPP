@@ -19,7 +19,7 @@ interface BitcoinPriceError {
 type FetchBitcoinPriceResult = BitcoinPriceResponse | BitcoinPriceError;
 
 async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
-  const timeoutDuration = 10000; // Increased timeout since we're using multiple providers
+  const timeoutDuration = 15000; // 15 seconds timeout for multiple provider attempts
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
@@ -31,32 +31,46 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
         'Accept': 'application/json',
       },
       signal: controller.signal,
+      cache: 'no-cache' // Ensure fresh data
     });
 
     clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 503) {
+        const errorData = await response.json();
+        throw new Error('Servicio temporalmente no disponible. Por favor, intente más tarde.');
+      }
+      throw new Error('Error al obtener el precio de Bitcoin. Por favor, intente más tarde.');
+    }
 
     const data = await response.json() as FetchBitcoinPriceResult;
     console.log('Bitcoin price data:', data);
     
     if ('error' in data) {
-      throw new Error(data.details || data.error);
+      const errorDetails = data.details ? `: ${data.details}` : '';
+      throw new Error(`${data.error}${errorDetails}`);
     }
 
-    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
+    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
       console.error('Invalid data structure received:', data);
-      throw new Error('Invalid price data structure');
+      throw new Error('Datos de precio inválidos. Por favor, intente más tarde.');
     }
     
     return data;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error fetching Bitcoin price:', errorMessage);
+    console.error('Error fetching Bitcoin price:', error);
     
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Request timed out. Please try again.');
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('La solicitud ha tardado demasiado. Por favor, intente más tarde.');
+      }
+      throw error; // Re-throw the already formatted error
     }
     
-    throw new Error(`Failed to fetch Bitcoin price: ${errorMessage}`);
+    throw new Error('Error desconocido al obtener el precio. Por favor, intente más tarde.');
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -149,7 +163,26 @@ export default function PriceDisplay() {
   };
 
   if (error) {
-    throw error;
+    return (
+      <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-medium">Bitcoin Price</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-red-500">
+            {error instanceof Error 
+              ? error.message
+              : 'Error fetching Bitcoin price. Please try again later.'}
+          </p>
+          <button 
+            onClick={refreshPrice}
+            className="mt-2 text-xs text-primary hover:underline"
+          >
+            Try Again
+          </button>
+        </CardContent>
+      </Card>
+    );
   }
 
   const isUpdating = isPending || isFetching;
