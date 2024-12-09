@@ -6,70 +6,61 @@ import { Loader2 } from "lucide-react";
 interface BitcoinPriceResponse {
   bitcoin: {
     pen: number;
+    provider: string;
+    timestamp: number;
   };
 }
 
-async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
-  const maxRetries = 3;
-  const retryDelay = 1000;
-  const timeoutDuration = 5000;
-
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`Initiating Bitcoin price fetch (attempt ${attempt + 1}/${maxRetries})...`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
-
-      const response = await fetch('/api/bitcoin/price', {
-        headers: {
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-        cache: 'no-store'
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API error (${response.status}):`, errorText);
-        throw new Error(`API error: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Bitcoin price data:', data);
-      
-      if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
-        console.error('Invalid data structure received:', data);
-        throw new Error('Invalid price data structure');
-      }
-      
-      return data;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.error(`Error fetching Bitcoin price (attempt ${attempt + 1}):`, lastError.message);
-      
-      if (lastError.name === 'AbortError') {
-        console.log('Request timed out');
-      }
-      
-      if (attempt === maxRetries - 1) {
-        throw new Error(`Failed to fetch Bitcoin price: ${lastError.message}`);
-      }
-      
-      const backoff = retryDelay * Math.pow(2, attempt);
-      console.log(`Waiting ${backoff}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, backoff));
-    }
-  }
-  
-  throw lastError || new Error('Failed to fetch Bitcoin price after all retries');
+interface BitcoinPriceError {
+  error: string;
+  details?: string;
 }
 
-function PriceContent({ data }: { data: any }) {
+type FetchBitcoinPriceResult = BitcoinPriceResponse | BitcoinPriceError;
+
+async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
+  const timeoutDuration = 10000; // Increased timeout since we're using multiple providers
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
+  try {
+    console.log('Initiating Bitcoin price fetch...');
+    
+    const response = await fetch('/api/bitcoin/price', {
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const data = await response.json() as FetchBitcoinPriceResult;
+    console.log('Bitcoin price data:', data);
+    
+    if ('error' in data) {
+      throw new Error(data.details || data.error);
+    }
+
+    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
+      console.error('Invalid data structure received:', data);
+      throw new Error('Invalid price data structure');
+    }
+    
+    return data;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching Bitcoin price:', errorMessage);
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    
+    throw new Error(`Failed to fetch Bitcoin price: ${errorMessage}`);
+  }
+}
+
+function PriceContent({ data }: { data: BitcoinPriceResponse }) {
   console.log('PriceContent data:', JSON.stringify(data, null, 2));
   
   const btcInPen = Number(data?.bitcoin?.pen);
@@ -100,6 +91,13 @@ function PriceContent({ data }: { data: any }) {
   console.log('satsPerPen:', satsPerPen);
   const formattedSatsPerPen = Math.floor(satsPerPen).toLocaleString('es-PE');
 
+  // Format the timestamp
+  const updatedAt = new Date(data.bitcoin.timestamp);
+  const timeAgo = new Intl.RelativeTimeFormat('es', { numeric: 'auto' }).format(
+    Math.round((updatedAt.getTime() - Date.now()) / 1000),
+    'seconds'
+  );
+
   return (
     <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
       <CardHeader className="pb-2">
@@ -112,6 +110,10 @@ function PriceContent({ data }: { data: any }) {
           <div className="text-lg font-semibold text-primary">{formattedSatsPerPen} sats</div>
           <p className="text-sm text-muted-foreground">por 1 PEN</p>
         </div>
+        <div className="mt-4 text-xs text-muted-foreground">
+          <p>Fuente: {data.bitcoin.provider}</p>
+          <p>Actualizado {timeAgo}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -121,13 +123,15 @@ export default function PriceDisplay() {
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
   
-  const { data, error, isFetching, isLoading } = useQuery({
+  const { data, error, isFetching, isLoading } = useQuery<BitcoinPriceResponse, Error>({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
     refetchInterval: 30000,
     staleTime: 15000,
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000)
+    retryDelay: (attemptIndex) => Math.min(1000 * (2 ** attemptIndex), 30000),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true
   });
 
   const refreshPrice = () => {
@@ -161,9 +165,9 @@ export default function PriceDisplay() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </CardContent>
         </Card>
-      ) : (
+      ) : data ? (
         <PriceContent data={data} />
-      )}
+      ) : null}
     </div>
   );
 }
