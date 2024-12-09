@@ -116,33 +116,42 @@ app.use((req, res, next) => {
         port: PORT,
         host: HOST
       });
-      
-      // Only close server if it's already listening
-      if (server.listening) {
-        await new Promise((resolve) => {
-          server.close(() => {
-            log('Cleaned up existing server instance');
-            resolve(undefined);
-          });
-        });
-      }
 
       try {
-        // Ensure database is initialized first
-        try {
-          const { db } = await import('../db/index.js');
-          await db.execute(sql`SELECT 1`);
-          log('Database connection established');
-        } catch (error) {
-          log('Database connection failed', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-          });
-          throw error;
-        }
+        // Initialize database connection first
+        const { db } = await import('../db/index.js');
+        await db.execute(sql`SELECT 1`);
+        log('Database connection established');
 
-        // Setup Vite middleware
+        // Set up middleware
+        app.use(compression());
+        app.use(express.json());
+        app.use(express.urlencoded({ extended: true }));
+
+        // Register API routes before Vite middleware
+        await registerRoutes(app);
+        log('API routes registered');
+
+        // Setup Vite middleware last
         await setupVite(app, server);
         log('Vite middleware setup completed');
+
+        // Start the server with proper error handling
+        await new Promise<void>((resolve, reject) => {
+          server.listen(PORT, HOST, () => {
+            log(`Development server running at http://${HOST}:${PORT}`);
+            resolve();
+          });
+
+          server.on('error', (error: NodeJS.ErrnoException) => {
+            if (error.code === 'EADDRINUSE') {
+              log(`Port ${PORT} is already in use`);
+              reject(new Error(`Port ${PORT} is already in use`));
+            } else {
+              reject(error);
+            }
+          });
+        });
       } catch (error) {
         log('Server initialization failed', {
           error: error instanceof Error ? error.message : 'Unknown error',

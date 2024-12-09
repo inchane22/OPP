@@ -9,54 +9,18 @@ interface BitcoinPriceResponse {
   };
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3, delay = 1000): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let i = 0; i < retries; i++) {
-    try {
-      const response = await fetch(url, options);
-      if (response.ok) {
-        console.log(`Successful response on attempt ${i + 1}`);
-        return response;
-      }
-      
-      const errorMessage = `Attempt ${i + 1} failed with status ${response.status}`;
-      console.warn(errorMessage);
-      lastError = new Error(errorMessage);
-      
-      if (i < retries - 1) {
-        const waitTime = delay * Math.pow(2, i);
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    } catch (error) {
-      const errorMessage = `Attempt ${i + 1} failed with error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      console.warn(errorMessage);
-      lastError = error instanceof Error ? error : new Error(errorMessage);
-      
-      if (i < retries - 1) {
-        const waitTime = delay * Math.pow(2, i);
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
-  }
-  
-  throw lastError || new Error(`Failed after ${retries} attempts`);
-}
-
 async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
   try {
     console.log('Initiating Bitcoin price fetch...');
-    const response = await fetchWithRetry('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
+    const response = await fetch('/api/bitcoin/price', {
       headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'BitcoinPENTracker/1.0',
-      },
-      cache: 'no-store',
-      mode: 'cors',
-      referrerPolicy: 'no-referrer'
-    }, 5, 1000);
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
     
     const data = await response.json();
     console.log('Bitcoin price data:', JSON.stringify(data, null, 2));
