@@ -19,9 +19,9 @@ function PriceContent({ data }: { data: any }) {
   });
   
   // Calculate sats per 1 PEN
-  const SATS_PER_BTC = 100000000;
-  const satsPerPen = SATS_PER_BTC / btcInPen;
-  const formattedSatsPerPen = Math.round(satsPerPen).toLocaleString('es-PE');
+  const SATS_PER_BTC = 100_000_000; // 100 million sats in 1 BTC
+  const satsPerPen = btcInPen > 0 ? SATS_PER_BTC / btcInPen : 0;
+  const formattedSatsPerPen = Math.floor(satsPerPen).toLocaleString('es-PE');
 
   return (
     <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
