@@ -56,16 +56,8 @@ const getEmbedUrl = (url: string): string => {
       const matches = urlObj.pathname.match(/\/status\/(\d+)/);
       if (matches && matches[1]) {
         const tweetId = matches[1];
-        const embedUrl = new URL('https://platform.twitter.com/embed/Tweet.html');
-        embedUrl.searchParams.set('id', tweetId);
-        embedUrl.searchParams.set('theme', 'light');
-        embedUrl.searchParams.set('dnt', 'true');
-        embedUrl.searchParams.set('embedId', `twitter-${tweetId}`);
-        embedUrl.searchParams.set('frame', 'false');
-        embedUrl.searchParams.set('hideCard', 'false');
-        embedUrl.searchParams.set('hideThread', 'false');
-        embedUrl.searchParams.set('lang', 'en');
-        return embedUrl.toString();
+        // Use the updated X/Twitter embed URL format
+        return `https://platform.twitter.com/embed/index.html?dnt=false&embedId=twitter-widget-${tweetId}&frame=false&hideCard=false&hideThread=false&id=${tweetId}&lang=en&theme=light&widgetsVersion=2615f7e52b7e0%3A1702314776716`;
       }
     }
 

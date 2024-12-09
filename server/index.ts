@@ -117,6 +117,8 @@ app.use((req, res, next) => {
 
     const PORT = Number(process.env.PORT || 5000);
     const HOST = '0.0.0.0';
+    
+    log('Attempting to start server on port:', { port: PORT, host: HOST });
 
     // Clean up function for server shutdown with proper error handling
     const cleanup = async (server: any): Promise<void> => {
