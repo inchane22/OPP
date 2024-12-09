@@ -86,7 +86,21 @@ app.use((req, res, next) => {
 // Async IIFE for better error handling
 (async () => {
   try {
-    const server = createServer(app);
+    const PORT = Number(process.env.PORT || 5000);
+    const HOST = '0.0.0.0';
+    
+    // Initialize database first
+    try {
+      const { db } = await import('../db/index.js');
+      await db.execute(sql`SELECT 1`);
+      log('Database connection established');
+    } catch (dbError) {
+      log('Failed to connect to database', {
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+        stack: process.env.NODE_ENV === 'development' ? dbError instanceof Error ? dbError.stack : undefined : undefined
+      });
+      throw dbError;
+    }
 
     // Register API routes
     await registerRoutes(app);
@@ -106,8 +120,7 @@ app.use((req, res, next) => {
       });
     });
 
-    const PORT = Number(process.env.PORT || 5000);
-    const HOST = '0.0.0.0';
+    let server = createServer(app);
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
@@ -118,25 +131,11 @@ app.use((req, res, next) => {
       });
 
       try {
-        // Initialize database connection first
-        const { db } = await import('../db/index.js');
-        await db.execute(sql`SELECT 1`);
-        log('Database connection established');
-
-        // Set up middleware
-        app.use(compression());
-        app.use(express.json());
-        app.use(express.urlencoded({ extended: true }));
-
-        // Register API routes before Vite middleware
-        await registerRoutes(app);
-        log('API routes registered');
-
         // Setup Vite middleware last
         await setupVite(app, server);
         log('Vite middleware setup completed');
 
-        // Start the server with proper error handling
+        // Start the server
         await new Promise<void>((resolve, reject) => {
           server.listen(PORT, HOST, () => {
             log(`Development server running at http://${HOST}:${PORT}`);

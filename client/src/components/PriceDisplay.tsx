@@ -10,31 +10,41 @@ interface BitcoinPriceResponse {
 }
 
 async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
-  try {
-    console.log('Initiating Bitcoin price fetch...');
-    const response = await fetch('/api/bitcoin/price', {
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
+  const maxRetries = 3;
+  const retryDelay = 1000;
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Initiating Bitcoin price fetch (attempt ${attempt + 1}/${maxRetries})...`);
+      const response = await fetch('/api/bitcoin/price', {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Bitcoin price data:', JSON.stringify(data, null, 2));
+      
+      if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
+        console.error('Invalid data structure received:', data);
+        throw new Error('Invalid price data received');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error(`Error fetching Bitcoin price (attempt ${attempt + 1}):`, error);
+      if (attempt === maxRetries - 1) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
     }
-    
-    const data = await response.json();
-    console.log('Bitcoin price data:', JSON.stringify(data, null, 2));
-    
-    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number') {
-      console.error('Invalid data structure received:', data);
-      throw new Error('Invalid price data received');
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching Bitcoin price:', error);
-    throw error;
   }
+  throw new Error('Failed to fetch Bitcoin price after all retries');
 }
 
 function PriceContent({ data }: { data: any }) {
