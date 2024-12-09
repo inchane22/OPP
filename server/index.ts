@@ -105,20 +105,47 @@ app.use((req, res, next) => {
       });
     });
 
+    const PORT = Number(process.env.PORT || 5000);
+    const HOST = '0.0.0.0';
+
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
-      log('Setting up development server with Vite...', {});
-      await setupVite(app, server);
+      log('Setting up development server with Vite...', {
+        nodeEnv: process.env.NODE_ENV,
+        port: PORT,
+        host: HOST
+      });
+      
+      // Ensure all previous connections are closed
+      await new Promise((resolve) => {
+        server.close(() => {
+          log('Cleaned up existing server instance');
+          resolve(undefined);
+        });
+      });
+
+      try {
+        await setupVite(app, server);
+        log('Vite middleware setup completed');
+      } catch (error) {
+        log('Failed to setup Vite middleware', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        process.exit(1);
+      }
     } else {
       log('Setting up production server...', {});
       const { setupProduction } = await import('./production.js');
       await setupProduction(app);
     }
-
-    const PORT = Number(process.env.PORT || 5000);
-    const HOST = '0.0.0.0';
     
-    log('Attempting to start server on port:', { port: PORT, host: HOST });
+    log('Attempting to start server...', { 
+      port: PORT,
+      host: HOST,
+      environment: process.env.NODE_ENV,
+      nodeVersion: process.version
+    });
 
     // Clean up function for server shutdown with proper error handling
     const cleanup = async (server: any): Promise<void> => {
@@ -150,10 +177,23 @@ app.use((req, res, next) => {
 
     // Enhanced server startup with better port retry logic
     const startServer = async (port: number, retryCount = 0): Promise<void> => {
-      const maxRetries = process.env.NODE_ENV === 'development' ? 10 : 0;
+      const maxRetries = process.env.NODE_ENV === 'development' ? 3 : 0;
+      log('Starting server with configuration:', {
+        port,
+        retryCount,
+        maxRetries,
+        environment: process.env.NODE_ENV
+      });
       
       return new Promise((resolve, reject) => {
         const handleError = async (error: NodeJS.ErrnoException) => {
+          log(`Server startup error: ${error.message}`, {
+            code: error.code,
+            port: port,
+            retryCount: retryCount,
+            maxRetries: maxRetries
+          });
+
           if (error.code === 'EADDRINUSE') {
             if (retryCount >= maxRetries) {
               log('Maximum retry attempts reached. Exiting.');
@@ -175,13 +215,14 @@ app.use((req, res, next) => {
           }
         };
 
+        // Ensure server is clean before starting
+        server.removeAllListeners('error');
+        server.removeAllListeners('listening');
+        
+        // Set up error handling
+        server.once('error', handleError);
+        
         try {
-          // Clear any existing error handlers
-          server.removeAllListeners('error');
-          
-          // Set up error handling before attempting to listen
-          server.once('error', handleError);
-          
           server.listen(port, HOST, () => {
             log(`Server starting in ${process.env.NODE_ENV || 'development'} mode...`);
             log(`Server running on port ${port}`);
@@ -206,7 +247,11 @@ app.use((req, res, next) => {
     process.once('SIGINT', handleShutdown);
 
     log('Starting server...', {});
-    startServer(PORT);
+    startServer(PORT).catch(error => {
+      log(`Failed to start server: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Detailed error:', error);
+      process.exit(1);
+    });
 
   } catch (error) {
     log(`Failed to start server: ${error}`);
