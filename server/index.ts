@@ -82,204 +82,98 @@ app.use((req, res, next) => {
   next();
 });
 
+// Server configuration
+const PORT = Number(process.env.PORT || 5000);
+const HOST = '0.0.0.0';
+let server: ReturnType<typeof createServer> | null = null;
 
-// Async IIFE for better error handling
-(async () => {
-  try {
-    const PORT = Number(process.env.PORT || 5000);
-    const HOST = '0.0.0.0';
-    
-    // Initialize database first
-    try {
-      const { db } = await import('../db/index.js');
-      await db.execute(sql`SELECT 1`);
-      log('Database connection established');
-    } catch (dbError) {
-      log('Failed to connect to database', {
-        error: dbError instanceof Error ? dbError.message : 'Unknown error',
-        stack: process.env.NODE_ENV === 'development' ? dbError instanceof Error ? dbError.stack : undefined : undefined
+// Cleanup function
+async function cleanup(): Promise<void> {
+  if (server && server.listening) {
+    return new Promise((resolve) => {
+      server!.close(() => {
+        server = null;
+        resolve();
       });
-      throw dbError;
-    }
+    });
+  }
+}
+
+// Register error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  const status = err instanceof Error ? 500 : 400;
+  const message = process.env.NODE_ENV === 'production'
+    ? 'Internal Server Error'
+    : err.message || "Internal Server Error";
+
+  console.error('Error:', err);
+
+  res.status(status).json({ 
+    message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
+});
+
+// Initialize database and start server
+async function init() {
+  try {
+    // Initialize database
+    const { db } = await import('../db/index.js');
+    await db.execute(sql`SELECT 1`);
+    log('Database connection established');
 
     // Register API routes
     await registerRoutes(app);
 
-    // Error handling middleware
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-      const status = err instanceof Error ? 500 : 400;
-      const message = process.env.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : err.message || "Internal Server Error";
+    // Ensure cleanup of any existing server
+    await cleanup();
 
-      console.error('Error:', err);
-
-      res.status(status).json({ 
-        message,
-        ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
-      });
-    });
-
-    let server = createServer(app);
+    // Create new server instance
+    server = createServer(app);
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
-      log('Setting up development server with Vite...', {
-        nodeEnv: process.env.NODE_ENV,
-        port: PORT,
-        host: HOST
-      });
-
-      try {
-        // Setup Vite middleware last
-        await setupVite(app, server);
-        log('Vite middleware setup completed');
-
-        // Start the server
-        await new Promise<void>((resolve, reject) => {
-          server.listen(PORT, HOST, () => {
-            log(`Development server running at http://${HOST}:${PORT}`);
-            resolve();
-          });
-
-          server.on('error', (error: NodeJS.ErrnoException) => {
-            if (error.code === 'EADDRINUSE') {
-              log(`Port ${PORT} is already in use`);
-              reject(new Error(`Port ${PORT} is already in use`));
-            } else {
-              reject(error);
-            }
-          });
-        });
-      } catch (error) {
-        log('Server initialization failed', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
-        });
-        process.exit(1);
-      }
+      log('Setting up development server...');
+      await setupVite(app, server);
     } else {
-      log('Setting up production server...', {});
+      log('Setting up production server...');
       const { setupProduction } = await import('./production.js');
       await setupProduction(app);
     }
-    
-    log('Attempting to start server...', { 
-      port: PORT,
-      host: HOST,
-      environment: process.env.NODE_ENV,
-      nodeVersion: process.version
-    });
 
-    // Clean up function for server shutdown with proper error handling
-    const cleanup = async (server: any): Promise<void> => {
-      return new Promise((resolve) => {
-        let hasResolved = false;
-        
-        // Attempt graceful shutdown
-        server.close(() => {
-          if (!hasResolved) {
-            hasResolved = true;
-            log('Server closed successfully');
-            resolve();
-          }
-        });
-
-        // Force close after timeout
-        setTimeout(() => {
-          if (!hasResolved) {
-            hasResolved = true;
-            log('Force closing server after timeout');
-            resolve();
-          }
-        }, 5000);
-
-        // Handle any remaining connections
-        server.unref();
-      });
-    };
-
-    // Enhanced server startup with better port retry logic
-    const startServer = async (port: number, retryCount = 0): Promise<void> => {
-      const maxRetries = process.env.NODE_ENV === 'development' ? 3 : 0;
-      log('Starting server with configuration:', {
-        port,
-        retryCount,
-        maxRetries,
-        environment: process.env.NODE_ENV
-      });
-      
-      return new Promise((resolve, reject) => {
-        const handleError = async (error: NodeJS.ErrnoException) => {
-          log(`Server startup error: ${error.message}`, {
-            code: error.code,
-            port: port,
-            retryCount: retryCount,
-            maxRetries: maxRetries
-          });
-
-          if (error.code === 'EADDRINUSE') {
-            if (retryCount >= maxRetries) {
-              log('Maximum retry attempts reached. Exiting.');
-              process.exit(1);
-            }
-            
-            const nextPort = port + 1;
-            log(`Port ${port} is in use, attempting port ${nextPort} (attempt ${retryCount + 1}/${maxRetries})`);
-            
-            try {
-              await cleanup(server);
-              resolve(startServer(nextPort, retryCount + 1));
-            } catch (cleanupError) {
-              reject(cleanupError);
-            }
-          } else {
-            log(`Failed to start server: ${error.message}`);
-            reject(error);
-          }
-        };
-
-        // Ensure server is clean before starting
-        server.removeAllListeners('error');
-        server.removeAllListeners('listening');
-        
-        // Set up error handling
-        server.once('error', handleError);
-        
-        try {
-          server.listen(port, HOST, () => {
-            log(`Server starting in ${process.env.NODE_ENV || 'development'} mode...`);
-            log(`Server running on port ${port}`);
-            log(`Server address: http://${HOST}:${port}`);
-            resolve();
-          });
-        } catch (error) {
-          handleError(error as NodeJS.ErrnoException);
+    // Start server
+    await new Promise<void>((resolve, reject) => {
+      const onError = (error: NodeJS.ErrnoException) => {
+        if (error.code === 'EADDRINUSE') {
+          reject(new Error(`Port ${PORT} is already in use`));
+        } else {
+          reject(error);
         }
+      };
+
+      server!.once('error', onError);
+      
+      server!.listen(PORT, HOST, () => {
+        server!.removeListener('error', onError);
+        log(`Server running at http://${HOST}:${PORT}`);
+        resolve();
       });
-    };
-
-    // Graceful shutdown handler
-    const handleShutdown = async () => {
-      log('Received shutdown signal');
-      await cleanup(server);
-      process.exit(0);
-    };
-
-    // Register shutdown handlers once
-    process.once('SIGTERM', handleShutdown);
-    process.once('SIGINT', handleShutdown);
-
-    log('Starting server...', {});
-    startServer(PORT).catch(error => {
-      log(`Failed to start server: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      console.error('Detailed error:', error);
-      process.exit(1);
     });
 
   } catch (error) {
-    log(`Failed to start server: ${error}`);
-    console.error(error);
+    log('Server startup error:', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     process.exit(1);
   }
-})();
+}
+
+// Graceful shutdown handlers
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+
+// Start server
+init().catch((error) => {
+  log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  process.exit(1);
+});

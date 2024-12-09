@@ -12,18 +12,28 @@ interface BitcoinPriceResponse {
 async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
   const maxRetries = 3;
   const retryDelay = 1000;
+  const timeoutDuration = 5000;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       console.log(`Initiating Bitcoin price fetch (attempt ${attempt + 1}/${maxRetries})...`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+
       const response = await fetch('/api/bitcoin/price', {
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache'
-        }
+        },
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error (${response.status}):`, errorText);
         throw new Error(`API error: ${response.status}`);
       }
       
@@ -38,6 +48,9 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
       return data;
     } catch (error) {
       console.error(`Error fetching Bitcoin price (attempt ${attempt + 1}):`, error);
+      if (error.name === 'AbortError') {
+        console.log('Request timed out');
+      }
       if (attempt === maxRetries - 1) {
         throw error;
       }
