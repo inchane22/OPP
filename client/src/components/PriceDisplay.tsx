@@ -12,10 +12,16 @@ async function fetchBitcoinPrice() {
 }
 
 function PriceContent({ data }: { data: any }) {
-  const penPrice = (data?.bitcoin?.pen || 0).toLocaleString('es-PE', {
+  const btcInPen = data?.bitcoin?.pen || 0;
+  const penPrice = btcInPen.toLocaleString('es-PE', {
     style: 'currency',
     currency: 'PEN'
   });
+  
+  // Calculate sats per 1 PEN
+  const SATS_PER_BTC = 100000000;
+  const satsPerPen = SATS_PER_BTC / btcInPen;
+  const formattedSatsPerPen = Math.round(satsPerPen).toLocaleString('es-PE');
 
   return (
     <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
@@ -25,6 +31,10 @@ function PriceContent({ data }: { data: any }) {
       <CardContent>
         <div className="text-2xl font-bold text-primary">{penPrice}</div>
         <p className="text-sm text-muted-foreground mt-1">PEN/BTC</p>
+        <div className="mt-2">
+          <div className="text-lg font-semibold text-primary">{formattedSatsPerPen} sats</div>
+          <p className="text-sm text-muted-foreground">por 1 PEN</p>
+        </div>
       </CardContent>
     </Card>
   );
