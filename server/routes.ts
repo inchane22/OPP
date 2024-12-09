@@ -208,10 +208,25 @@ export function registerRoutes(app: Express) {
     }
 
     try {
-      // Parse the date string into a Date object
+      const { date, ...otherData } = req.body;
+      
+      // Validate and parse the date
+      let parsedDate;
+      if (date) {
+        try {
+          parsedDate = new Date(date);
+          if (isNaN(parsedDate.getTime())) {
+            throw new Error('Invalid date format');
+          }
+        } catch (dateError) {
+          console.error("Date parsing error:", dateError);
+          return res.status(400).json({ error: "Invalid date format provided" });
+        }
+      }
+
       const updatedData = {
-        ...req.body,
-        date: req.body.date ? new Date(req.body.date) : undefined,
+        ...otherData,
+        ...(parsedDate && { date: parsedDate }),
         updatedAt: new Date()
       };
 
@@ -225,9 +240,20 @@ export function registerRoutes(app: Express) {
         .set(updatedData)
         .where(eq(events.id, parseInt(req.params.id)))
         .returning();
+
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
       return res.json(event);
     } catch (error) {
       console.error("Failed to update event:", error);
+      if (error instanceof Error) {
+        return res.status(500).json({ 
+          error: "Failed to update event", 
+          details: error.message 
+        });
+      }
       return res.status(500).json({ error: "Failed to update event" });
     }
   });

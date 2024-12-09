@@ -127,10 +127,17 @@ app.use((req, res, next) => {
       }
 
       try {
+        // Ensure database is initialized first
+        const { DatabasePool } = await import('./db/pool.js');
+        const db = DatabasePool.getInstance();
+        await db.getPool();
+        log('Database connection established');
+
+        // Setup Vite middleware
         await setupVite(app, server);
         log('Vite middleware setup completed');
       } catch (error) {
-        log('Failed to setup Vite middleware', {
+        log('Server initialization failed', {
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
         });
