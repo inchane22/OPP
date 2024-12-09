@@ -848,7 +848,7 @@ export default function AdminPanel() {
                                   title: formData.get('title'),
                                   description: formData.get('description'),
                                   location: formData.get('location'),
-                                  date: new Date(formData.get('date') as string),
+                                  date: new Date(formData.get('date') as string).toISOString(),
                                 };
 
                                 try {
@@ -865,10 +865,31 @@ export default function AdminPanel() {
                                     throw new Error('Failed to update event');
                                   }
 
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                  queryClient.invalidateQueries({ queryKey: ['events'] });
+                                  // Show success toast
+                                  toast({
+                                    title: "Event updated successfully",
+                                    description: `Updated: ${String(updatedEvent.title)}`,
+                                    variant: "default"
+                                  });
+
+                                  // Close the dialog
+                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                  if (closeButton) {
+                                    closeButton.click();
+                                  }
+
+                                  // Invalidate queries to refresh the data
+                                  await Promise.all([
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                    queryClient.invalidateQueries({ queryKey: ['events'] })
+                                  ]);
                                 } catch (error) {
                                   console.error('Error updating event:', error);
+                                  toast({
+                                    title: "Failed to update event",
+                                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                                    variant: "destructive"
+                                  });
                                 }
                               }} className="space-y-4 mt-4">
                                 <div>
