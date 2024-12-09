@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { setupVite } from "./vite.js";
+import { sql } from "drizzle-orm";
 import { createServer } from "http";
 import compression from 'compression';
 import cors from 'cors';
@@ -128,10 +129,16 @@ app.use((req, res, next) => {
 
       try {
         // Ensure database is initialized first
-        const { DatabasePool } = await import('./db/pool.js');
-        const db = DatabasePool.getInstance();
-        await db.getPool();
-        log('Database connection established');
+        try {
+          const { db } = await import('../db/index.js');
+          await db.execute(sql`SELECT 1`);
+          log('Database connection established');
+        } catch (error) {
+          log('Database connection failed', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+          throw error;
+        }
 
         // Setup Vite middleware
         await setupVite(app, server);
