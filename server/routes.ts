@@ -795,8 +795,6 @@ export function registerRoutes(app: Express) {
     }
   }
 
-  async function fetchCoingeckoPrice() {
-    const controller = new AbortController();
   async function fetchBlockchainPrice() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -852,6 +850,9 @@ export function registerRoutes(app: Express) {
       clearTimeout(timeoutId);
     }
   }
+
+  async function fetchCoingeckoPrice() {
+    const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
