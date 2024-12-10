@@ -4,10 +4,21 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "./ui/form";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
-import type { Business } from "@db/schema";
+import type { Business } from "../../db/schema";
 
 interface EditBusinessFormProps {
-  business: Business;
+  business: {
+    id: string;
+    name: string;
+    description: string;
+    address: string;
+    city: string;
+    phone: string | null;
+    website: string | null;
+    acceptsLightning: boolean;
+    verified: boolean;
+    createdAt: string;
+  };
   onSubmit: (data: Partial<Business>) => Promise<void>;
   isPending: boolean;
 }

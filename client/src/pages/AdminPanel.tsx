@@ -18,19 +18,34 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { EditBusinessForm } from "@/components/EditBusinessForm";
 import { Loader2 } from "lucide-react";
 
-import type { Post, User, Resource, Business, Event } from "@/db/schema";
+import type { Post, User, Resource, Business, Event } from "../../db/schema";
 
+// Define interfaces with all required properties
 interface PostWithAuthor extends Omit<Post, 'authorId'> {
-  author: User;
+  author: {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+    createdAt: string;
+  };
 }
 
 interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
-  author: User;
+  author: {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+    createdAt: string;
+  };
 }
+
+type BusinessData = Business;
 
 interface AdminStats {
   posts: PostWithAuthor[];
-  businesses: Business[];
+  businesses: BusinessData[];
   resources: ResourceWithAuthor[];
   events: Event[];
   totalUsers: number;

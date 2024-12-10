@@ -25,7 +25,8 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./client/src/*"],
-      "@db/*": ["./db/*"]
+      "@db/*": ["./db/*"],
+      "db/*": ["./db/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "useUnknownInCatchVariables": false
