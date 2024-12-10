@@ -1137,10 +1137,169 @@ export default function AdminPanel() {
                         </div>
                         <div className="space-x-2">
                           {!business.verified && (
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/businesses/${business.id}/verify`, {
+                                    method: 'POST',
+                                    credentials: 'include'
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error('Failed to verify business');
+                                  }
+                                  
+                                  await Promise.all([
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                    queryClient.invalidateQueries({ queryKey: ['businesses'] })
+                                  ]);
+                                  
+                                  toast({
+                                    title: "Negocio verificado exitosamente",
+                                    variant: "default"
+                                  });
+                                } catch (error) {
+                                  console.error('Error verifying business:', error);
+                                  toast({
+                                    title: "Error al verificar el negocio",
+                                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                            >
                               Verificar
                             </Button>
                           )}
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="mr-2">
+                                Editar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Editar Negocio</DialogTitle>
+                              </DialogHeader>
+                              <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                
+                                try {
+                                  const updatedBusiness = {
+                                    name: formData.get('name'),
+                                    description: formData.get('description'),
+                                    address: formData.get('address'),
+                                    city: formData.get('city'),
+                                    phone: formData.get('phone'),
+                                    website: formData.get('website'),
+                                    acceptsLightning: formData.get('acceptsLightning') === 'on'
+                                  };
+
+                                  const response = await fetch(`/api/businesses/${business.id}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(updatedBusiness),
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) {
+                                    throw new Error('Failed to update business');
+                                  }
+
+                                  await Promise.all([
+                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                    queryClient.invalidateQueries({ queryKey: ['businesses'] })
+                                  ]);
+
+                                  toast({
+                                    title: "Negocio actualizado exitosamente",
+                                    variant: "default"
+                                  });
+
+                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                  if (closeButton) {
+                                    closeButton.click();
+                                  }
+                                } catch (error) {
+                                  console.error('Error updating business:', error);
+                                  toast({
+                                    title: "Error al actualizar el negocio",
+                                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }} className="space-y-4 mt-4">
+                                <div>
+                                  <Label htmlFor="name">Nombre</Label>
+                                  <Input 
+                                    id="name" 
+                                    name="name" 
+                                    defaultValue={business.name}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="description">Descripción</Label>
+                                  <Textarea 
+                                    id="description" 
+                                    name="description" 
+                                    defaultValue={business.description}
+                                    required
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="address">Dirección</Label>
+                                  <Input 
+                                    id="address" 
+                                    name="address" 
+                                    defaultValue={business.address}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="city">Ciudad</Label>
+                                  <Input 
+                                    id="city" 
+                                    name="city" 
+                                    defaultValue={business.city}
+                                    required 
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="phone">Teléfono (opcional)</Label>
+                                  <Input 
+                                    id="phone" 
+                                    name="phone" 
+                                    defaultValue={business.phone || ''}
+                                  />
+                                </div>
+                                <div>
+                                  <Label htmlFor="website">Sitio Web (opcional)</Label>
+                                  <Input 
+                                    id="website" 
+                                    name="website" 
+                                    defaultValue={business.website || ''}
+                                  />
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="acceptsLightning"
+                                    name="acceptsLightning"
+                                    defaultChecked={business.acceptsLightning}
+                                  />
+                                  <Label htmlFor="acceptsLightning">
+                                    Acepta Lightning Network
+                                  </Label>
+                                </div>
+                                <Button type="submit">Guardar Cambios</Button>
+                              </form>
+                            </DialogContent>
+                          </Dialog>
                           <Button 
                             variant="destructive" 
                             size="sm"
