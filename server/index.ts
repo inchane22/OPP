@@ -125,9 +125,12 @@ async function init() {
     // Initialize database
     const { db } = await import('../db/index.js');
     try {
+      log('Attempting to connect to database...');
+      console.log('Database URL format:', process.env.DATABASE_URL ? 'Present' : 'Missing');
       await db.execute(sql`SELECT 1`);
-      log('Database connection established');
+      log('Database connection established successfully');
     } catch (dbError) {
+      console.error('Detailed database connection error:', dbError);
       log('Database connection error:', {
         error: dbError instanceof Error ? dbError.message : 'Unknown database error',
         stack: dbError instanceof Error ? dbError.stack : undefined
