@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useTransition, useEffect } from "react";
+import { useTransition, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useUser } from "../hooks/use-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
 import { useLanguage } from "../hooks/use-language";
 import { Loader2 } from "lucide-react";
 import type { Post, User, Resource, Business, Event } from "@db/schema";
@@ -1186,24 +1188,15 @@ export default function AdminPanel() {
                               </DialogHeader>
                               <form 
                                 id={`editBusinessForm-${business.id}`}
-                                onSubmit={async (e) => {
-                                e.preventDefault();
+                                onSubmit={async (values) => {
                                 if (isPending) return;
-
-                                const formData = new FormData(e.currentTarget);
-                                const lightningValue = formData.get('acceptsLightning');
                                 
                                 try {
                                   startTransition(() => {
                                     (async () => {
                                       const updatedBusiness = {
-                                        name: formData.get('name'),
-                                        description: formData.get('description'),
-                                        address: formData.get('address'),
-                                        city: formData.get('city'),
-                                        phone: formData.get('phone'),
-                                        website: formData.get('website'),
-                                        acceptsLightning: lightningValue === 'true'
+                                        ...values,
+                                        acceptsLightning: !!values.acceptsLightning
                                       };
 
                                       console.log('Updating business with data:', updatedBusiness);
@@ -1340,20 +1333,24 @@ export default function AdminPanel() {
                                   />
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="acceptsLightning"
+                                  <FormField
                                     name="acceptsLightning"
-                                    defaultChecked={business.acceptsLightning}
-                                    onCheckedChange={(checked) => {
-                                      const form = document.getElementById(`editBusinessForm-${business.id}`) as HTMLFormElement;
-                                      const input = form.querySelector('input[name="acceptsLightning"]') as HTMLInputElement;
-                                      input.value = checked ? 'true' : 'false';
-                                    }}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                          <FormLabel>
+                                            Acepta Lightning Network
+                                          </FormLabel>
+                                        </div>
+                                      </FormItem>
+                                    )}
                                   />
-                                  <Label htmlFor="acceptsLightning">
-                                    Acepta Lightning Network
-                                  </Label>
-                                  <input type="hidden" name="acceptsLightning" defaultValue={business.acceptsLightning.toString()} />
                                 </div>
                                 <Button type="submit">Guardar Cambios</Button>
                               </form>
