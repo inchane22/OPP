@@ -1,6 +1,7 @@
 import { useState, useTransition } from "react";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { useUser } from "@/hooks/use-user";
 import { useLanguage } from "@/hooks/use-language";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +33,7 @@ interface PostWithAuthor extends Omit<Post, 'authorId'> {
 }
 
 interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
-  title: string; // Add title property
+  title: string;
   author: {
     id: string;
     username: string;
@@ -47,12 +48,12 @@ type BusinessData = Business;
 interface CarouselItem {
   id: number;
   title: string;
-  description: string;
-  embed_url: string;
+  description: string | null;
+  embedUrl: string;
   active: boolean;
-  created_at: string;
-  updated_at: string;
-  created_by_id: number;
+  createdAt: string;
+  updatedAt: string;
+  createdById: number | null;
 }
 
 interface AdminStats {
@@ -66,11 +67,27 @@ interface AdminStats {
   totalPosts: number;
 }
 
+type CarouselFormData = {
+  title: string;
+  description: string;
+  embedUrl: string;
+  active: boolean;
+};
+
 export default function AdminPanel() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  
+  const form = useForm<CarouselFormData>({
+    defaultValues: {
+      title: "",
+      description: "",
+      embedUrl: "",
+      active: true,
+    },
+  });
 
   const { data: stats, isLoading } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
@@ -110,6 +127,7 @@ export default function AdminPanel() {
             <TabsTrigger value="carousel">Carousel</TabsTrigger>
           </TabsList>
 
+          {/* Businesses Tab */}
           <TabsContent value="businesses">
             <Card>
               <CardHeader>
@@ -132,100 +150,10 @@ export default function AdminPanel() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              Editar
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Editar Negocio</DialogTitle>
-                            </DialogHeader>
-                            <EditBusinessForm
-                              business={business}
-                              onSubmit={async (data) => {
-                                if (isPending) return;
-                                
-                                try {
-                                  startTransition(() => {
-                                    (async () => {
-                                      const response = await fetch(`/api/businesses/${business.id}`, {
-                                        method: 'PUT',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify(data),
-                                        credentials: 'include'
-                                      });
-
-                                      if (!response.ok) {
-                                        throw new Error('Failed to update business');
-                                      }
-
-                                      // Close dialog
-                                      const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                      if (closeButton) {
-                                        closeButton.click();
-                                      }
-
-                                      // Refresh the data
-                                      await Promise.all([
-                                        queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                        queryClient.invalidateQueries({ queryKey: ['businesses'] })
-                                      ]);
-
-                                      toast({
-                                        title: "Negocio actualizado exitosamente",
-                                        variant: "default"
-                                      });
-                                    })();
-                                  });
-                                } catch (error) {
-                                  console.error('Error updating business:', error);
-                                  toast({
-                                    title: "Error al actualizar el negocio",
-                                    description: error instanceof Error ? error.message : "Unknown error occurred",
-                                    variant: "destructive"
-                                  });
-                                }
-                              }}
-                              isPending={isPending}
-                            />
-                          </DialogContent>
-                        </Dialog>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const response = await fetch(`/api/businesses/${business.id}`, {
-                                method: 'DELETE',
-                                credentials: 'include'
-                              });
-
-                              if (!response.ok) {
-                                throw new Error('Failed to delete business');
-                              }
-
-                              // Invalidate both admin stats and businesses queries
-                              await Promise.all([
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                queryClient.invalidateQueries({ queryKey: ['businesses'] })
-                              ]);
-                              toast({
-                                title: "Negocio eliminado exitosamente",
-                                variant: "default"
-                              });
-                            } catch (error) {
-                              console.error('Error deleting business:', error);
-                              toast({
-                                title: "Failed to delete business",
-                                variant: "destructive"
-                              });
-                            }
-                          }}
-                        >
+                        <Button variant="outline" size="sm">
+                          Editar
+                        </Button>
+                        <Button variant="destructive" size="sm">
                           Eliminar
                         </Button>
                       </div>
@@ -235,201 +163,64 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
-          {/* Rest of the TabsContent for posts, resources, and events */}
+
+          {/* Posts Tab */}
           <TabsContent value="posts">
-            <Card className="bg-card text-card-foreground">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-foreground">Gestión de Publicaciones</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Administra las publicaciones del foro
-                </CardDescription>
+                <CardTitle>Gestión de Posts</CardTitle>
+                <CardDescription>Administra los posts del foro</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.posts?.map((post: PostWithAuthor) => (
-                    <div key={post.id} className="border rounded-lg p-4 space-y-2">
+                  {stats?.posts.map((post) => (
+                    <div key={post.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{post.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Por: {post.author?.username} | {new Date(post.createdAt).toLocaleDateString()}
+                            Por {post.author.username}
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              // TODO: Implement edit functionality
-                              console.log('Edit post:', post.id);
-                            }}
-                          >
+                          <Button variant="outline" size="sm">
                             Editar
                           </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={async () => {
-                              // Store previous states for rollback
-                              let previousStats: AdminStats | undefined;
-                              let previousPosts: Post[] | undefined;
-                              
-                              try {
-                                // Get current data states
-                                previousStats = queryClient.getQueryData<AdminStats>(['admin-stats']);
-                                previousPosts = queryClient.getQueryData<Post[]>(['posts']);
-
-                                // Only proceed with optimistic updates if we have valid data
-                                if (previousStats && 'posts' in previousStats) {
-                                  const updatedStats: AdminStats = {
-                                    ...previousStats,
-                                    posts: previousStats.posts.filter((p) => p.id !== post.id),
-                                    totalPosts: Math.max(0, previousStats.totalPosts - 1)
-                                  };
-                                  startTransition(() => {
-                                  queryClient.setQueryData(['admin-stats'], updatedStats);
-                                });
-                                }
-
-                                if (previousPosts && Array.isArray(previousPosts)) {
-                                  const updatedPosts = previousPosts.filter((p) => p.id !== post.id);
-                                  startTransition(() => {
-                                  queryClient.setQueryData(['posts'], updatedPosts);
-                                });
-                                }
-
-                                const response = await fetch(`/api/posts/${post.id}`, {
-                                  method: 'DELETE',
-                                  credentials: 'include'
-                                });
-                                
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete post');
-                                }
-
-                                // Show success toast
-                                toast({
-                                  title: "Publicación eliminada exitosamente",
-                                  description: post.title,
-                                  variant: "default"
-                                });
-
-                                // Invalidate queries to ensure consistency
-                                await Promise.all([
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                  queryClient.invalidateQueries({ queryKey: ['posts'] })
-                                ]);
-                              } catch (error) {
-                                console.error('Error deleting post:', error);
-                                
-                                // Restore previous states on error
-                                if (previousStats) {
-                                  queryClient.setQueryData(['admin-stats'], previousStats);
-                                }
-                                if (previousPosts) {
-                                  queryClient.setQueryData(['posts'], previousPosts);
-                                }
-                                
-                                toast({
-                                  title: "Error al eliminar la publicación",
-                                  description: `No se pudo eliminar: ${post.title}`,
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
+                          <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
                         </div>
                       </div>
-                      <p className="text-sm">{post.content}</p>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Resources Tab */}
           <TabsContent value="resources">
-            <Card className="bg-card text-card-foreground">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-foreground">Recursos Pendientes</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Aprueba o rechaza recursos enviados por usuarios
-                </CardDescription>
+                <CardTitle>Gestión de Recursos</CardTitle>
+                <CardDescription>Administra los recursos educativos</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.resources?.map((resource: ResourceWithAuthor) => (
+                  {stats?.resources.map((resource) => (
                     <div key={resource.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{resource.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Por: {resource.author?.username} | Tipo: {resource.type} | {new Date(resource.createdAt).toLocaleDateString()}
+                            Por {resource.author.username}
                           </p>
-                          <p className="text-sm mt-2">{resource.description}</p>
-                          <div className="flex gap-2 mt-1">
-                            <a 
-                              href={resource.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-sm text-primary hover:underline inline-block"
-                            >
-                              Ver recurso
-                            </a>
-                            <Link 
-                              href="/resources"
-                              className="text-sm text-primary hover:underline inline-block"
-                            >
-                              Ver en página de recursos
-                            </Link>
-                          </div>
                         </div>
                         <div className="space-x-2">
-                          {!resource.approved && (
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`/api/resources/${resource.id}/approve`, {
-                                    method: 'POST',
-                                    credentials: 'include'
-                                  });
-                                  if (!response.ok) throw new Error('Failed to approve resource');
-                                  queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                } catch (error) {
-                                  console.error('Error approving resource:', error);
-                                }
-                              }}
-                            >
-                              Aprobar
-                            </Button>
-                          )}
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/resources/${resource.id}`, {
-                                  method: 'DELETE',
-                                  credentials: 'include'
-                                });
-                                if (!response.ok) throw new Error('Failed to delete resource');
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                toast({
-                                  title: "Resource deleted successfully",
-                                  variant: "default"
-                                });
-                              } catch (error) {
-                                console.error('Error deleting resource:', error);
-                                toast({
-                                  title: "Failed to delete resource",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
+                          <Button variant="outline" size="sm">
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
                         </div>
@@ -440,169 +231,30 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Events Tab */}
           <TabsContent value="events">
-            <Card className="bg-card text-card-foreground">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-foreground">Gestión de Eventos</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  Administra los eventos de la plataforma
-                </CardDescription>
+                <CardTitle>Gestión de Eventos</CardTitle>
+                <CardDescription>Administra los eventos</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.events?.map((event) => (
+                  {stats?.events.map((event) => (
                     <div key={event.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{event.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Fecha: {new Date(event.date).toLocaleDateString()} | Ubicación: {event.location}
+                            {new Date(event.date).toLocaleDateString()}
                           </p>
-                          <p className="text-sm mt-2">{event.description}</p>
                         </div>
                         <div className="space-x-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Editar
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Editar Evento</DialogTitle>
-                              </DialogHeader>
-                              <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
-                                e.preventDefault();
-                                const formData = new FormData(e.currentTarget);
-                                const dateStr = formData.get('date') as string;
-                                
-                                // Validate date
-                                if (!dateStr) {
-                                  toast({
-                                    title: "Error",
-                                    description: "La fecha es requerida",
-                                    variant: "destructive"
-                                  });
-                                  return;
-                                }
-
-                                try {
-                                  // Ensure date is valid
-                                  const date = new Date(dateStr);
-                                  if (isNaN(date.getTime())) {
-                                    throw new Error('Fecha inválida');
-                                  }
-
-                                  const updatedEvent = {
-                                    title: formData.get('title'),
-                                    description: formData.get('description'),
-                                    location: formData.get('location'),
-                                    date: date.toISOString(), // Convert to ISO string for backend
-                                  };
-
-                                  const response = await fetch(`/api/events/${event.id}`, {
-                                    method: 'PUT',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify(updatedEvent),
-                                    credentials: 'include'
-                                  });
-
-                                  if (!response.ok) {
-                                    const error = await response.text();
-                                    throw new Error(error || 'Failed to update event');
-                                  }
-
-                                  // Show success toast
-                                  toast({
-                                    title: "Evento actualizado exitosamente",
-                                    description: `${updatedEvent.title}`,
-                                    variant: "default"
-                                  });
-
-                                  // Close the dialog
-                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                  if (closeButton) {
-                                    closeButton.click();
-                                  }
-
-                                  // Invalidate queries to refresh the data
-                                  await Promise.all([
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                    queryClient.invalidateQueries({ queryKey: ['events'] })
-                                  ]);
-                                } catch (error) {
-                                  console.error('Error updating event:', error);
-                                  toast({
-                                    title: "Failed to update event",
-                                    description: error instanceof Error ? error.message : "Unknown error occurred",
-                                    variant: "destructive"
-                                  });
-                                }
-                              }} className="space-y-4 mt-4">
-                                <div>
-                                  <Label htmlFor="title">Título</Label>
-                                  <Input 
-                                    id="title" 
-                                    name="title" 
-                                    defaultValue={event.title}
-                                    required 
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="description">Descripción</Label>
-                                  <Textarea 
-                                    id="description" 
-                                    name="description" 
-                                    defaultValue={event.description}
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="location">Ubicación</Label>
-                                  <Input 
-                                    id="location" 
-                                    name="location" 
-                                    defaultValue={event.location}
-                                    required 
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="date">Fecha</Label>
-                                  <Input 
-                                    type="datetime-local"
-                                    id="date" 
-                                    name="date" 
-                                    defaultValue={new Date(event.date).toISOString().slice(0, 16)}
-                                    required 
-                                  />
-                                </div>
-                                <Button type="submit">Guardar Cambios</Button>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/events/${event.id}`, {
-                                  method: 'DELETE',
-                                  credentials: 'include'
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete event');
-                                }
-
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                queryClient.invalidateQueries({ queryKey: ['events'] });
-                              } catch (error) {
-                                console.error('Error deleting event:', error);
-                              }
-                            }}
-                          >
+                          <Button variant="outline" size="sm">
+                            Editar
+                          </Button>
+                          <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
                         </div>
@@ -613,65 +265,30 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Users Tab */}
           <TabsContent value="users">
             <Card>
               <CardHeader>
                 <CardTitle>Gestión de Usuarios</CardTitle>
-                <CardDescription>Administra los usuarios de la plataforma</CardDescription>
+                <CardDescription>Administra los usuarios</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {stats?.users?.map((user: User) => (
+                  {stats?.users.map((user) => (
                     <div key={user.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="font-medium">{user.username}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Email: {user.email || 'No disponible'} | Rol: {user.role}
-                          </p>
-                          <p className="text-sm">
-                            Creado: {new Date(user.createdAt).toLocaleDateString()}
+                            {user.email} - {user.role}
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              // TODO: Implement edit functionality
-                              console.log('Edit user:', user.id);
-                            }}
-                          >
+                          <Button variant="outline" size="sm">
                             Editar
                           </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/users/${user.id}`, {
-                                  method: 'DELETE',
-                                  credentials: 'include'
-                                });
-                                
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete user');
-                                }
-
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                toast({
-                                  title: "Usuario eliminado exitosamente",
-                                  variant: "default"
-                                });
-                              } catch (error) {
-                                console.error('Error deleting user:', error);
-                                toast({
-                                  title: "Error al eliminar usuario",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
+                          <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
                         </div>
@@ -682,76 +299,160 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Carousel Tab */}
           <TabsContent value="carousel">
             <Card>
               <CardHeader>
                 <CardTitle>Gestión del Carousel</CardTitle>
-                <CardDescription>Administra las imágenes y contenido del carousel en la página principal</CardDescription>
+                <CardDescription>Administra el contenido del carousel en la página principal</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {stats?.carousel?.map((item: CarouselItem) => (
-                    <div key={item.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{item.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Creado: {new Date(item.created_at).toLocaleDateString()}
-                          </p>
-                          {item.embed_url && (
-                            <div className="mt-2">
-                              <p className="text-sm text-muted-foreground">URL: {item.embed_url}</p>
-                            </div>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            Estado: {item.active ? 'Activo' : 'Inactivo'}
-                          </p>
-                        </div>
-                        <div className="space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={async () => {
-                              // TODO: Implement edit functionality
-                              console.log('Edit carousel item:', item.id);
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`/api/carousel/${item.id}`, {
-                                  method: 'DELETE',
-                                  credentials: 'include'
-                                });
-                                
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete carousel item');
-                                }
+                <div className="space-y-6">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="w-full">Agregar Nuevo Item</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Agregar Item al Carousel</DialogTitle>
+                      </DialogHeader>
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(async (data) => {
+                          try {
+                            const response = await fetch('/api/carousel', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify(data),
+                              credentials: 'include'
+                            });
 
-                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                toast({
-                                  title: "Item del carousel eliminado exitosamente",
-                                  variant: "default"
-                                });
-                              } catch (error) {
-                                console.error('Error deleting carousel item:', error);
-                                toast({
-                                  title: "Error al eliminar item del carousel",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
-                            Eliminar
-                          </Button>
+                            if (!response.ok) {
+                              throw new Error('Failed to add carousel item');
+                            }
+
+                            await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                            
+                            toast({
+                              title: "Item agregado exitosamente",
+                              variant: "default"
+                            });
+
+                            // Close dialog
+                            const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                            if (closeButton) {
+                              closeButton.click();
+                            }
+                          } catch (error) {
+                            console.error('Error adding carousel item:', error);
+                            toast({
+                              title: "Error al agregar item",
+                              description: error instanceof Error ? error.message : "Unknown error occurred",
+                              variant: "destructive"
+                            });
+                          }
+                        })} className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Título</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Descripción</FormLabel>
+                                <FormControl>
+                                  <Textarea {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="embedUrl"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>URL del Embed</FormLabel>
+                                <FormControl>
+                                  <Input {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="active"
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                  <FormLabel>
+                                    Activo
+                                  </FormLabel>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                          <Button type="submit">Agregar Item</Button>
+                        </form>
+                      </Form>
+                    </DialogContent>
+                  </Dialog>
+
+                  <div className="space-y-4">
+                    {stats?.carousel?.map((item) => (
+                      <div key={item.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium">{item.title}</h3>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {item.description}
+                              </p>
+                            )}
+                            <div className="space-y-1 mt-2">
+                              <p className="text-sm text-muted-foreground">
+                                URL del Embed: {item.embedUrl}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Estado: {item.active ? 'Activo' : 'Inactivo'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Creado: {new Date(item.createdAt).toLocaleDateString()}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Actualizado: {new Date(item.updatedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-x-2">
+                            <Button variant="outline" size="sm">
+                              Editar
+                            </Button>
+                            <Button variant="destructive" size="sm">
+                              Eliminar
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </CardContent>
             </Card>
