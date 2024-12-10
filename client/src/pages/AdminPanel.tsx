@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EditBusinessForm } from "@/components/EditBusinessForm";
 import { EditPostForm } from "@/components/EditPostForm";
 import { EditResourceForm } from "@/components/EditResourceForm";
+import { EditEventForm } from "@/components/EditEventForm";
 import { Loader2 } from "lucide-react";
 
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
@@ -381,9 +382,46 @@ export default function AdminPanel() {
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button variant="outline" size="sm">
-                            Editar
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Editar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Editar Evento</DialogTitle>
+                              </DialogHeader>
+                              <EditEventForm 
+                                event={event}
+                                onSubmit={async (data) => {
+                                  try {
+                                    const response = await fetch(`/api/events/${event.id}`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(data)
+                                    });
+                                    
+                                    if (!response.ok) throw new Error('Failed to update event');
+                                    
+                                    await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({ title: "Evento actualizado exitosamente" });
+                                    
+                                    const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                    if (closeButton) closeButton.click();
+                                  } catch (error) {
+                                    console.error('Error updating event:', error);
+                                    toast({
+                                      title: "Error al actualizar evento",
+                                      description: error instanceof Error ? error.message : "Unknown error occurred",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                isPending={isPending}
+                              />
+                            </DialogContent>
+                          </Dialog>
                           <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
