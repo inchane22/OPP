@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, MapPin, Phone, Globe, Zap } from "lucide-react";
-import type { Business, InsertBusiness } from "@db/schema";
+import type { Business, InsertBusiness } from "@/types/business";
 
 export default function BusinessesPage() {
   const { user } = useUser();
@@ -22,7 +22,20 @@ export default function BusinessesPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [acceptsLightningFilter, setAcceptsLightningFilter] = useState<boolean | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "created_at" | "city">("created_at");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const categories = [
+    { value: "restaurant", label: "Restaurantes" },
+    { value: "retail", label: "Tiendas" },
+    { value: "service", label: "Servicios" },
+    { value: "education", label: "Educación" },
+    { value: "tourism", label: "Turismo" },
+    { value: "other", label: "Otros" }
+  ];
 
   const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
@@ -38,7 +51,9 @@ export default function BusinessesPage() {
   });
 
   const filteredBusinesses = React.useMemo(() => {
-    return businesses?.filter(business => {
+    if (!businesses) return [];
+    
+    let filtered = businesses.filter(business => {
       const matchesSearch = 
         business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -48,9 +63,39 @@ export default function BusinessesPage() {
         acceptsLightningFilter === null || 
         business.acceptsLightning === acceptsLightningFilter;
 
-      return matchesSearch && matchesLightning;
+      const matchesCategory =
+        selectedCategory === null ||
+        business.category === selectedCategory;
+
+      const matchesCity =
+        selectedCity === null ||
+        business.city === selectedCity;
+
+      return matchesSearch && matchesLightning && matchesCategory && matchesCity;
     });
-  }, [businesses, searchTerm, acceptsLightningFilter]);
+
+    // Get unique cities for the filter dropdown
+    const cities = Array.from(new Set(businesses.map(b => b.city))).sort();
+
+    // Sort the filtered results
+    filtered.sort((a, b) => {
+      if (sortBy === "name") {
+        return sortOrder === "asc" 
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === "city") {
+        return sortOrder === "asc"
+          ? a.city.localeCompare(b.city)
+          : b.city.localeCompare(a.city);
+      } else {
+        return sortOrder === "asc"
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return { filtered, cities };
+  }, [businesses, searchTerm, acceptsLightningFilter, selectedCategory, selectedCity, sortBy, sortOrder]);
 
   const form = useForm<InsertBusiness>({
     defaultValues: {
@@ -60,6 +105,7 @@ export default function BusinessesPage() {
       city: "",
       phone: "",
       website: "",
+      category: "other",
       acceptsLightning: false,
     }
   });
@@ -135,6 +181,61 @@ export default function BusinessesPage() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                startTransition(() => {
+                  setSelectedCategory(value === '' ? null : value);
+                });
+              }}
+              className="h-9 rounded-md border border-input bg-white/90 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map(category => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={selectedCity || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                startTransition(() => {
+                  setSelectedCity(value === '' ? null : value);
+                });
+              }}
+              className="h-9 rounded-md border border-input bg-white/90 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Todas las ciudades</option>
+              {filteredBusinesses.cities?.map(city => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [newSortBy, newSortOrder] = e.target.value.split('-') as ["name" | "created_at" | "city", "asc" | "desc"];
+                startTransition(() => {
+                  setSortBy(newSortBy);
+                  setSortOrder(newSortOrder);
+                });
+              }}
+              className="h-9 rounded-md border border-input bg-white/90 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="created_at-desc">Más recientes</option>
+              <option value="created_at-asc">Más antiguos</option>
+              <option value="name-asc">Nombre (A-Z)</option>
+              <option value="name-desc">Nombre (Z-A)</option>
+              <option value="city-asc">Ciudad (A-Z)</option>
+              <option value="city-desc">Ciudad (Z-A)</option>
+            </select>
+
             <Button
               variant="default"
               size="sm"
@@ -272,6 +373,27 @@ export default function BusinessesPage() {
                     />
                     <FormField
                       control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Categoría</FormLabel>
+                          <FormControl>
+                            <select
+                              {...field}
+                              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {categories.map(category => (
+                                <option key={category.value} value={category.value}>
+                                  {category.label}
+                                </option>
+                              ))}
+                            </select>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name="acceptsLightning"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
@@ -315,16 +437,21 @@ export default function BusinessesPage() {
         </div>
 
         <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
-          {filteredBusinesses?.map(business => (
+          {filteredBusinesses.filtered?.map(business => (
             <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl group-hover:text-primary transition-colors duration-200">
-                    {business.name}
-                    {business.acceptsLightning && (
-                      <Zap className="inline-block ml-2 h-5 w-5 text-yellow-500" />
-                    )}
-                  </CardTitle>
+                  <div>
+                    <CardTitle className="text-xl group-hover:text-primary transition-colors duration-200">
+                      {business.name}
+                      {business.acceptsLightning && (
+                        <Zap className="inline-block ml-2 h-5 w-5 text-yellow-500" />
+                      )}
+                    </CardTitle>
+                    <span className="inline-block mt-1 text-xs font-medium text-muted-foreground">
+                      {categories.find(c => c.value === business.category)?.label || 'Otros'}
+                    </span>
+                  </div>
                   {business.verified && (
                     <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                       Verificado
