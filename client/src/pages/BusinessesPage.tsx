@@ -37,8 +37,19 @@ export default function BusinessesPage() {
     refetchOnWindowFocus: false
   });
 
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("name");
+
   const filteredBusinesses = React.useMemo(() => {
-    return businesses?.filter(business => {
+    if (!businesses) return { filtered: [], cities: [], categories: [] };
+
+    // Get unique cities and categories
+    const cities = [...new Set(businesses.map(b => b.city))].sort();
+    const categories = [...new Set(businesses.map(b => b.category))].sort();
+
+    // Filter businesses
+    let filtered = businesses.filter(business => {
       const matchesSearch = 
         business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -48,9 +59,28 @@ export default function BusinessesPage() {
         acceptsLightningFilter === null || 
         business.acceptsLightning === acceptsLightningFilter;
 
-      return matchesSearch && matchesLightning;
+      const matchesCity = !selectedCity || business.city === selectedCity;
+      const matchesCategory = !selectedCategory || business.category === selectedCategory;
+
+      return matchesSearch && matchesLightning && matchesCity && matchesCategory;
     });
-  }, [businesses, searchTerm, acceptsLightningFilter]);
+
+    // Sort businesses
+    filtered = filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "recent":
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "city":
+          return a.city.localeCompare(b.city);
+        default:
+          return 0;
+      }
+    });
+
+    return { filtered, cities, categories };
+  }, [businesses, searchTerm, acceptsLightningFilter, selectedCity, selectedCategory, sortBy]);
 
   const form = useForm<InsertBusiness>({
     defaultValues: {
@@ -134,7 +164,63 @@ export default function BusinessesPage() {
               </div>
             )}
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
+            <select
+              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={selectedCity}
+              onChange={(e) => {
+                startTransition(() => {
+                  setSelectedCity(e.target.value);
+                });
+              }}
+              disabled={isPending}
+            >
+              <option value="">Todas las ciudades</option>
+              {filteredBusinesses.cities?.map(city => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={selectedCategory}
+              onChange={(e) => {
+                startTransition(() => {
+                  setSelectedCategory(e.target.value);
+                });
+              }}
+              disabled={isPending}
+            >
+              <option value="">Todas las categorías</option>
+              {filteredBusinesses.categories?.map(category => (
+                <option key={category} value={category}>
+                  {category === 'restaurant' ? 'Restaurantes' :
+                   category === 'retail' ? 'Tiendas' :
+                   category === 'service' ? 'Servicios' :
+                   category === 'education' ? 'Educación' :
+                   category === 'tourism' ? 'Turismo' :
+                   'Otros'}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={sortBy}
+              onChange={(e) => {
+                startTransition(() => {
+                  setSortBy(e.target.value);
+                });
+              }}
+              disabled={isPending}
+            >
+              <option value="name">Ordenar por nombre</option>
+              <option value="recent">Más recientes</option>
+              <option value="city">Ordenar por ciudad</option>
+            </select>
+
             <Button
               variant="default"
               size="sm"
@@ -315,7 +401,7 @@ export default function BusinessesPage() {
         </div>
 
         <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
-          {filteredBusinesses?.map(business => (
+          {filteredBusinesses.filtered?.map(business => (
             <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
