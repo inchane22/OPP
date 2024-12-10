@@ -1,25 +1,40 @@
 import { useState, useTransition } from "react";
+import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "@/hooks/use-user";
+import { useLanguage } from "@/hooks/use-language";
+import { useToast } from "@/hooks/use-toast";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { useLanguage } from "../hooks/use-language";
-import { Loader2 } from "lucide-react";
-import { EditBusinessForm } from "@/components/EditBusinessForm";
-import type { Post, User, Resource, Business, Event } from "@db/schema";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 
-interface PostWithAuthor extends Post {
+import { EditBusinessForm } from "@/components/EditBusinessForm";
+import { Loader2 } from "lucide-react";
+
+import type { Post, User, Resource, Business, Event } from "@/db/schema";
+
+interface PostWithAuthor extends Omit<Post, 'authorId'> {
+  author: User;
+}
+
+interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
   author: User;
 }
 
 interface AdminStats {
   posts: PostWithAuthor[];
   businesses: Business[];
-  resources: Resource[];
+  resources: ResourceWithAuthor[];
   events: Event[];
   totalUsers: number;
+  totalPosts: number;
 }
 
 export default function AdminPanel() {
@@ -263,7 +278,7 @@ export default function AdminPanel() {
 
                                 // Show success toast
                                 toast({
-                                  title: t('admin.posts.delete_success'),
+                                  title: "Publicación eliminada exitosamente",
                                   description: post.title,
                                   variant: "default"
                                 });
@@ -285,8 +300,8 @@ export default function AdminPanel() {
                                 }
                                 
                                 toast({
-                                  title: t('admin.posts.delete_error'),
-                                  description: `Failed to delete post: ${post.title}`,
+                                  title: "Error al eliminar la publicación",
+                                  description: `No se pudo eliminar: ${post.title}`,
                                   variant: "destructive"
                                 });
                               }
