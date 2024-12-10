@@ -18,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { EditBusinessForm } from "@/components/EditBusinessForm";
 import { Loader2 } from "lucide-react";
 
-import type { Post, User, Resource, Business, Event } from "../../db/schema";
+import type { Post, User, Resource, Business, Event } from "@/db/schema";
 
 // Define interfaces with all required properties
 interface PostWithAuthor extends Omit<Post, 'authorId'> {
@@ -32,6 +32,7 @@ interface PostWithAuthor extends Omit<Post, 'authorId'> {
 }
 
 interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
+  title: string; // Add title property
   author: {
     id: string;
     username: string;
@@ -43,11 +44,24 @@ interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
 
 type BusinessData = Business;
 
+interface CarouselItem {
+  id: number;
+  title: string;
+  description: string;
+  embed_url: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by_id: number;
+}
+
 interface AdminStats {
   posts: PostWithAuthor[];
   businesses: BusinessData[];
   resources: ResourceWithAuthor[];
   events: Event[];
+  users: User[];
+  carousel: CarouselItem[];
   totalUsers: number;
   totalPosts: number;
 }
@@ -92,6 +106,8 @@ export default function AdminPanel() {
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
             <TabsTrigger value="events">Eventos</TabsTrigger>
+            <TabsTrigger value="users">Usuarios</TabsTrigger>
+            <TabsTrigger value="carousel">Carousel</TabsTrigger>
           </TabsList>
 
           <TabsContent value="businesses">
@@ -455,7 +471,7 @@ export default function AdminPanel() {
                               <DialogHeader>
                                 <DialogTitle>Editar Evento</DialogTitle>
                               </DialogHeader>
-                              <form onSubmit={async (e) => {
+                              <form onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
                                 const dateStr = formData.get('date') as string;
@@ -584,6 +600,148 @@ export default function AdminPanel() {
                                 queryClient.invalidateQueries({ queryKey: ['events'] });
                               } catch (error) {
                                 console.error('Error deleting event:', error);
+                              }
+                            }}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestión de Usuarios</CardTitle>
+                <CardDescription>Administra los usuarios de la plataforma</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.users?.map((user: User) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{user.username}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Email: {user.email || 'No disponible'} | Rol: {user.role}
+                          </p>
+                          <p className="text-sm">
+                            Creado: {new Date(user.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              // TODO: Implement edit functionality
+                              console.log('Edit user:', user.id);
+                            }}
+                          >
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/users/${user.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+                                
+                                if (!response.ok) {
+                                  throw new Error('Failed to delete user');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({
+                                  title: "Usuario eliminado exitosamente",
+                                  variant: "default"
+                                });
+                              } catch (error) {
+                                console.error('Error deleting user:', error);
+                                toast({
+                                  title: "Error al eliminar usuario",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="carousel">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestión del Carousel</CardTitle>
+                <CardDescription>Administra las imágenes y contenido del carousel en la página principal</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats?.carousel?.map((item: CarouselItem) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{item.title}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Orden: {item.order}
+                          </p>
+                          {item.imageUrl && (
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.title}
+                              className="mt-2 max-w-[200px] h-auto rounded"
+                            />
+                          )}
+                        </div>
+                        <div className="space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={async () => {
+                              // TODO: Implement edit functionality
+                              console.log('Edit carousel item:', item.id);
+                            }}
+                          >
+                            Editar
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`/api/carousel/${item.id}`, {
+                                  method: 'DELETE',
+                                  credentials: 'include'
+                                });
+                                
+                                if (!response.ok) {
+                                  throw new Error('Failed to delete carousel item');
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({
+                                  title: "Item del carousel eliminado exitosamente",
+                                  variant: "default"
+                                });
+                              } catch (error) {
+                                console.error('Error deleting carousel item:', error);
+                                toast({
+                                  title: "Error al eliminar item del carousel",
+                                  variant: "destructive"
+                                });
                               }
                             }}
                           >

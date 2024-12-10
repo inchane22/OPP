@@ -88,6 +88,7 @@
     "react-resizable-panels": "^2.1.7",
     "react-toastify": "^10.0.6",
     "recharts": "^2.14.1",
+    "rest-express": "file:",
     "satoshi-bitcoin": "^1.0.5",
     "shadcn-ui": "^0.9.3",
     "tailwind-merge": "^2.5.5",

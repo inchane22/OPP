@@ -4,7 +4,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "./ui/form";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
-import type { Business } from "../../db/schema";
+import type { Business } from "@/db/schema";
 
 interface EditBusinessFormProps {
   business: {
