@@ -82,14 +82,27 @@ export default function AdminPanel() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   
-  const form = useForm<CarouselFormData>({
-    defaultValues: {
-      title: "",
-      description: "",
-      embed_url: "",
-      active: true,
-    },
-  });
+  const [editingItem, setEditingItem] = useState<CarouselItem | null>(null);
+  const form = useForm<CarouselFormData>();
+  
+  // Reset form when editing item changes
+  React.useEffect(() => {
+    if (editingItem) {
+      form.reset({
+        title: editingItem.title,
+        description: editingItem.description || "",
+        embed_url: editingItem.embed_url,
+        active: editingItem.active,
+      });
+    } else {
+      form.reset({
+        title: "",
+        description: "",
+        embed_url: "",
+        active: true,
+      });
+    }
+  }, [editingItem, form]);
 
   const { data: stats, isLoading, error } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
@@ -618,7 +631,13 @@ export default function AdminPanel() {
                             </div>
                           </div>
                           <div className="space-x-2">
-                            <Dialog>
+                            <Dialog onOpenChange={(open) => {
+                              if (open) {
+                                setEditingItem(item);
+                              } else {
+                                setEditingItem(null);
+                              }
+                            }}>
                               <DialogTrigger asChild>
                                 <Button variant="outline" size="sm">
                                   Editar
