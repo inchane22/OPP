@@ -2,10 +2,12 @@ import React, { useState, useTransition } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "../hooks/use-user";
+
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -21,9 +23,6 @@ export default function BusinessesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [acceptsLightningFilter, setAcceptsLightningFilter] = useState<boolean | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [selectedCity, setSelectedCity] = useState<string>("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [sortBy, setSortBy] = useState<string>("name");
 
   const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
@@ -39,14 +38,7 @@ export default function BusinessesPage() {
   });
 
   const filteredBusinesses = React.useMemo(() => {
-    if (!businesses) return { filtered: [], cities: [], categories: [] };
-
-    // Get unique cities and categories
-    const cities = [...new Set(businesses.map(b => b.city))].sort();
-    const categories = [...new Set(businesses.map(b => b.category))].sort();
-
-    // Filter businesses
-    let filtered = businesses.filter(business => {
+    return businesses?.filter(business => {
       const matchesSearch = 
         business.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         business.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,28 +48,9 @@ export default function BusinessesPage() {
         acceptsLightningFilter === null || 
         business.acceptsLightning === acceptsLightningFilter;
 
-      const matchesCity = !selectedCity || business.city === selectedCity;
-      const matchesCategory = !selectedCategory || business.category === selectedCategory;
-
-      return matchesSearch && matchesLightning && matchesCity && matchesCategory;
+      return matchesSearch && matchesLightning;
     });
-
-    // Sort businesses
-    filtered = filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "recent":
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        case "city":
-          return a.city.localeCompare(b.city);
-        default:
-          return 0;
-      }
-    });
-
-    return { filtered, cities, categories };
-  }, [businesses, searchTerm, acceptsLightningFilter, selectedCity, selectedCategory, sortBy]);
+  }, [businesses, searchTerm, acceptsLightningFilter]);
 
   const form = useForm<InsertBusiness>({
     defaultValues: {
@@ -87,7 +60,6 @@ export default function BusinessesPage() {
       city: "",
       phone: "",
       website: "",
-      category: "other",
       acceptsLightning: false,
     }
   });
@@ -127,38 +99,18 @@ export default function BusinessesPage() {
   });
 
   const isUpdating = isPending || isLoading || isFetching;
-  const isRefetching = !isLoading && isFetching;
-
-  // Business card loading skeleton
-  const BusinessSkeleton = () => (
-    <Card className="group">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-start">
-          <div className="w-3/4 h-6 bg-gray-200 rounded animate-pulse" />
-          <div className="w-20 h-5 bg-gray-200 rounded animate-pulse" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="w-full h-4 bg-gray-200 rounded animate-pulse" />
-          <div className="w-3/4 h-4 bg-gray-200 rounded animate-pulse" />
-          <div className="w-2/3 h-4 bg-gray-200 rounded animate-pulse" />
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <BusinessSkeleton key={i} />
-          ))}
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </div>
     );
   }
+
+  const isRefetching = !isLoading && isFetching;
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -182,63 +134,7 @@ export default function BusinessesPage() {
               </div>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <select
-              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              value={selectedCity}
-              onChange={(e) => {
-                startTransition(() => {
-                  setSelectedCity(e.target.value);
-                });
-              }}
-              disabled={isPending}
-            >
-              <option value="">Todas las ciudades</option>
-              {filteredBusinesses.cities?.map(city => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              value={selectedCategory}
-              onChange={(e) => {
-                startTransition(() => {
-                  setSelectedCategory(e.target.value);
-                });
-              }}
-              disabled={isPending}
-            >
-              <option value="">Todas las categorías</option>
-              {filteredBusinesses.categories?.map(category => (
-                <option key={category} value={category}>
-                  {category === 'restaurant' ? 'Restaurantes' :
-                   category === 'retail' ? 'Tiendas' :
-                   category === 'service' ? 'Servicios' :
-                   category === 'education' ? 'Educación' :
-                   category === 'tourism' ? 'Turismo' :
-                   'Otros'}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="h-10 rounded-md border bg-white/90 px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              value={sortBy}
-              onChange={(e) => {
-                startTransition(() => {
-                  setSortBy(e.target.value);
-                });
-              }}
-              disabled={isPending}
-            >
-              <option value="name">Ordenar por nombre</option>
-              <option value="recent">Más recientes</option>
-              <option value="city">Ordenar por ciudad</option>
-            </select>
-
+          <div className="flex gap-2 items-center">
             <Button
               variant="default"
               size="sm"
@@ -275,70 +171,8 @@ export default function BusinessesPage() {
       </div>
 
       <div className="space-y-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-2xl font-bold">Negocios Verificados</h2>
-              {!isLoading && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {filteredBusinesses.filtered.length} {filteredBusinesses.filtered.length === 1 ? 'negocio encontrado' : 'negocios encontrados'}
-                </p>
-              )}
-            </div>
-            
-            {/* Active filters display */}
-            <div className="flex flex-wrap gap-2">
-              {selectedCity && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSelectedCity("")}
-                  className="h-7 text-xs"
-                >
-                  {selectedCity} ×
-                </Button>
-              )}
-              {selectedCategory && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSelectedCategory("")}
-                  className="h-7 text-xs"
-                >
-                  {selectedCategory === 'restaurant' ? 'Restaurantes' :
-                   selectedCategory === 'retail' ? 'Tiendas' :
-                   selectedCategory === 'service' ? 'Servicios' :
-                   selectedCategory === 'education' ? 'Educación' :
-                   selectedCategory === 'tourism' ? 'Turismo' :
-                   'Otros'} ×
-                </Button>
-              )}
-              {acceptsLightningFilter !== null && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setAcceptsLightningFilter(null)}
-                  className="h-7 text-xs"
-                >
-                  Lightning Network ×
-                </Button>
-              )}
-              {(selectedCity || selectedCategory || acceptsLightningFilter !== null) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedCity("");
-                    setSelectedCategory("");
-                    setAcceptsLightningFilter(null);
-                  }}
-                  className="h-7 text-xs"
-                >
-                  Limpiar filtros
-                </Button>
-              )}
-            </div>
-          </div>
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Negocios Verificados</h2>
           
           {user ? (
             <Dialog>
@@ -438,28 +272,6 @@ export default function BusinessesPage() {
                     />
                     <FormField
                       control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Categoría</FormLabel>
-                          <FormControl>
-                            <select
-                              {...field}
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              <option value="restaurant">Restaurantes</option>
-                              <option value="retail">Tiendas</option>
-                              <option value="service">Servicios</option>
-                              <option value="education">Educación</option>
-                              <option value="tourism">Turismo</option>
-                              <option value="other">Otros</option>
-                            </select>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
                       name="acceptsLightning"
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
@@ -502,83 +314,55 @@ export default function BusinessesPage() {
           )}
         </div>
 
-        {/* Error state */}
-        {businesses instanceof Error && (
-          <div className="text-center py-12">
-            <div className="text-lg font-semibold text-red-600">Error al cargar los negocios</div>
-            <p className="text-muted-foreground mt-2">Por favor intenta nuevamente más tarde</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ["businesses"] })}
-            >
-              Reintentar
-            </Button>
-          </div>
-        )}
-
-        {/* No results state */}
-        {businesses && filteredBusinesses.filtered.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-lg font-semibold">No se encontraron negocios</div>
-            <p className="text-muted-foreground mt-2">
-              Intenta ajustar los filtros o realizar una nueva búsqueda
-            </p>
-          </div>
-        )}
-
-        {/* Results grid */}
-        {businesses && filteredBusinesses.filtered.length > 0 && (
-          <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
-            {filteredBusinesses.filtered.map(business => (
-              <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
-                <CardHeader className="pb-4">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors duration-200">
-                      {business.name}
-                      {business.acceptsLightning && (
-                        <Zap className="inline-block ml-2 h-5 w-5 text-yellow-500" />
-                      )}
-                    </CardTitle>
-                    {business.verified && (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                        Verificado
-                      </span>
+        <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
+          {filteredBusinesses?.map(business => (
+            <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-xl group-hover:text-primary transition-colors duration-200">
+                    {business.name}
+                    {business.acceptsLightning && (
+                      <Zap className="inline-block ml-2 h-5 w-5 text-yellow-500" />
                     )}
+                  </CardTitle>
+                  {business.verified && (
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                      Verificado
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground mb-4 line-clamp-2">{business.description}</p>
+                <div className="space-y-3">
+                  <div className="flex items-center text-sm">
+                    <MapPin className="mr-2 h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="line-clamp-2">{business.address}, {business.city}</span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground mb-4 line-clamp-2">{business.description}</p>
-                  <div className="space-y-3">
+                  {business.phone && (
                     <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-4 w-4 text-primary flex-shrink-0" />
-                      <span className="line-clamp-2">{business.address}, {business.city}</span>
+                      <Phone className="mr-2 h-4 w-4 text-primary" />
+                      <span>{business.phone}</span>
                     </div>
-                    {business.phone && (
-                      <div className="flex items-center text-sm">
-                        <Phone className="mr-2 h-4 w-4 text-primary" />
-                        <span>{business.phone}</span>
-                      </div>
-                    )}
-                    {business.website && (
-                      <div className="flex items-center text-sm">
-                        <Globe className="mr-2 h-4 w-4 text-primary" />
-                        <a 
-                          href={business.website} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {business.website}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  )}
+                  {business.website && (
+                    <div className="flex items-center text-sm">
+                      <Globe className="mr-2 h-4 w-4 text-primary" />
+                      <a 
+                        href={business.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {business.website}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   );

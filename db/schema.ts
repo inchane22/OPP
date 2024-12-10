@@ -63,24 +63,11 @@ export const businesses = pgTable("businesses", {
   city: text("city").notNull(),
   phone: text("phone"),
   website: text("website"),
-  category: text("category").default("other").notNull(),
   acceptsLightning: boolean("accepts_lightning").default(false).notNull(),
   verified: boolean("verified").default(false).notNull(),
   submittedById: integer("submitted_by_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
-
-// Define valid business categories
-export const BUSINESS_CATEGORIES = [
-  'restaurant',
-  'retail',
-  'service',
-  'education',
-  'tourism',
-  'other'
-] as const;
-
-export type BusinessCategory = typeof BUSINESS_CATEGORIES[number];
 export const carousel_items = pgTable("carousel_items", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
