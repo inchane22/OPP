@@ -1188,52 +1188,99 @@ export default function AdminPanel() {
                                 id={`editBusinessForm-${business.id}`}
                                 onSubmit={async (e) => {
                                 e.preventDefault();
+                                if (isPending) return;
+
                                 const formData = new FormData(e.currentTarget);
+                                const lightningValue = formData.get('acceptsLightning');
                                 
                                 try {
-                                  const updatedBusiness = {
-                                    name: formData.get('name'),
-                                    description: formData.get('description'),
-                                    address: formData.get('address'),
-                                    city: formData.get('city'),
-                                    phone: formData.get('phone'),
-                                    website: formData.get('website'),
-                                    acceptsLightning: formData.get('acceptsLightning') === 'true'
-                                  };
+                                  startTransition(() => {
+                                    (async () => {
+                                      const updatedBusiness = {
+                                        name: formData.get('name'),
+                                        description: formData.get('description'),
+                                        address: formData.get('address'),
+                                        city: formData.get('city'),
+                                        phone: formData.get('phone'),
+                                        website: formData.get('website'),
+                                        acceptsLightning: lightningValue === 'true'
+                                      };
 
-                                  console.log('Updating business with data:', updatedBusiness);
+                                      console.log('Updating business with data:', updatedBusiness);
 
-                                  const response = await fetch(`/api/businesses/${business.id}`, {
-                                    method: 'PUT',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify(updatedBusiness),
-                                    credentials: 'include'
+                                      // Optimistic update
+                                      const previousStats = queryClient.getQueryData(['admin-stats']);
+                                      const previousBusinesses = queryClient.getQueryData(['businesses']);
+
+                                      // Update the cache optimistically
+                                      if (previousStats) {
+                                        queryClient.setQueryData(['admin-stats'], (old: any) => ({
+                                          ...old,
+                                          businesses: old.businesses.map((b: any) =>
+                                            b.id === business.id ? { ...b, ...updatedBusiness } : b
+                                          )
+                                        }));
+                                      }
+
+                                      if (previousBusinesses) {
+                                        queryClient.setQueryData(['businesses'], (old: any) =>
+                                          old.map((b: any) =>
+                                            b.id === business.id ? { ...b, ...updatedBusiness } : b
+                                          )
+                                        );
+                                      }
+
+                                      try {
+                                        const response = await fetch(`/api/businesses/${business.id}`, {
+                                          method: 'PUT',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                          },
+                                          body: JSON.stringify(updatedBusiness),
+                                          credentials: 'include'
+                                        });
+
+                                        if (!response.ok) {
+                                          throw new Error('Failed to update business');
+                                        }
+
+                                        // Refresh the data to ensure consistency
+                                        await Promise.all([
+                                          queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
+                                          queryClient.invalidateQueries({ queryKey: ['businesses'] })
+                                        ]);
+
+                                        toast({
+                                          title: "Negocio actualizado exitosamente",
+                                          variant: "default"
+                                        });
+
+                                        const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                        if (closeButton) {
+                                          closeButton.click();
+                                        }
+                                      } catch (error) {
+                                        // Revert optimistic updates on error
+                                        if (previousStats) {
+                                          queryClient.setQueryData(['admin-stats'], previousStats);
+                                        }
+                                        if (previousBusinesses) {
+                                          queryClient.setQueryData(['businesses'], previousBusinesses);
+                                        }
+
+                                        console.error('Error updating business:', error);
+                                        toast({
+                                          title: "Error al actualizar el negocio",
+                                          description: error instanceof Error ? error.message : "Unknown error occurred",
+                                          variant: "destructive"
+                                        });
+                                      }
+                                    })();
                                   });
-
-                                  if (!response.ok) {
-                                    throw new Error('Failed to update business');
-                                  }
-
-                                  await Promise.all([
-                                    queryClient.invalidateQueries({ queryKey: ['admin-stats'] }),
-                                    queryClient.invalidateQueries({ queryKey: ['businesses'] })
-                                  ]);
-
-                                  toast({
-                                    title: "Negocio actualizado exitosamente",
-                                    variant: "default"
-                                  });
-
-                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                  if (closeButton) {
-                                    closeButton.click();
-                                  }
                                 } catch (error) {
-                                  console.error('Error updating business:', error);
+                                  console.error('Error in form submission:', error);
                                   toast({
-                                    title: "Error al actualizar el negocio",
+                                    title: "Error al procesar el formulario",
                                     description: error instanceof Error ? error.message : "Unknown error occurred",
                                     variant: "destructive"
                                   });
