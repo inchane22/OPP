@@ -87,6 +87,9 @@ const PORT = Number(process.env.PORT || 5000);
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
 
+// Ensure process.env.NODE_ENV is set
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
 // Cleanup function
 async function cleanup(): Promise<void> {
   if (server && server.listening) {
@@ -196,7 +199,9 @@ async function init() {
 
         if (error.code === 'EADDRINUSE') {
           log('Port already in use:', { port: PORT, host: HOST });
-          reject(new Error(`Port ${PORT} is already in use`));
+          cleanup().then(() => {
+            server?.listen(PORT, HOST);
+          }).catch(reject);
         } else {
           log('Server startup error:', { 
             code: error.code,
