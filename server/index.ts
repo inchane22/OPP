@@ -194,6 +194,7 @@ async function init() {
       }
 
       const onError = (error: NodeJS.ErrnoException) => {
+        console.error('Detailed server error:', error);
         log('Server encountered an error:', {
           code: error.code,
           message: error.message,
@@ -203,7 +204,9 @@ async function init() {
         if (error.code === 'EADDRINUSE') {
           log('Port already in use:', { port: PORT, host: HOST });
           cleanup().then(() => {
-            server?.listen(PORT, HOST);
+            setTimeout(() => {
+              server?.listen(PORT, HOST);
+            }, 1000);
           }).catch(reject);
         } else {
           log('Server startup error:', { 
@@ -218,6 +221,7 @@ async function init() {
       const onListening = () => {
         const addr = server!.address();
         const actualPort = typeof addr === 'string' ? addr : addr?.port;
+        console.log(`Server is now listening on ${HOST}:${actualPort}`);
         log(`Server listening on port ${actualPort}`, {
           host: HOST,
           port: actualPort,
@@ -227,10 +231,16 @@ async function init() {
         resolve();
       };
 
+      process.on('uncaughtException', (error) => {
+        console.error('Uncaught Exception:', error);
+        cleanup().then(() => process.exit(1));
+      });
+
       server.once('error', onError);
       server.once('listening', onListening);
       
       log('Attempting to bind server...', { host: HOST, port: PORT });
+      console.log(`Starting server on ${HOST}:${PORT}`);
       server.listen(PORT, HOST);
     });
 
