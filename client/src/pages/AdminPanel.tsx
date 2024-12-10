@@ -1185,19 +1185,33 @@ export default function AdminPanel() {
                             <DialogContent>
                               <DialogHeader>
                                 <DialogTitle>Editar Negocio</DialogTitle>
+const form = useForm({
+  defaultValues: {
+    name: business.name,
+    description: business.description,
+    address: business.address,
+    city: business.city,
+    phone: business.phone || '',
+    website: business.website || '',
+    acceptsLightning: business.acceptsLightning
+  }
+});
                               </DialogHeader>
-                              <form 
-                                id={`editBusinessForm-${business.id}`}
-                                onSubmit={async (values) => {
-                                if (isPending) return;
-                                
-                                try {
-                                  startTransition(() => {
-                                    (async () => {
-                                      const updatedBusiness = {
-                                        ...values,
-                                        acceptsLightning: !!values.acceptsLightning
-                                      };
+                              <Form
+                                {...form}
+                                >
+                                <form 
+                                  id={`editBusinessForm-${business.id}`}
+                                  onSubmit={form.handleSubmit(async (values) => {
+                                  if (isPending) return;
+                                  
+                                  try {
+                                    startTransition(() => {
+                                      (async () => {
+                                        const updatedBusiness = {
+                                          ...values,
+                                          acceptsLightning: !!values.acceptsLightning
+                                        };
 
                                       console.log('Updating business with data:', updatedBusiness);
 
@@ -1280,57 +1294,77 @@ export default function AdminPanel() {
                                 }
                               }} 
                               className="space-y-4 mt-4">
-                                <div>
-                                  <Label htmlFor="name">Nombre</Label>
-                                  <Input 
-                                    id="name" 
-                                    name="name" 
-                                    defaultValue={business.name}
-                                    required 
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="description">Descripción</Label>
-                                  <Textarea 
-                                    id="description" 
-                                    name="description" 
-                                    defaultValue={business.description}
-                                    required
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="address">Dirección</Label>
-                                  <Input 
-                                    id="address" 
-                                    name="address" 
-                                    defaultValue={business.address}
-                                    required 
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="city">Ciudad</Label>
-                                  <Input 
-                                    id="city" 
-                                    name="city" 
-                                    defaultValue={business.city}
-                                    required 
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="phone">Teléfono (opcional)</Label>
-                                  <Input 
-                                    id="phone" 
-                                    name="phone" 
-                                    defaultValue={business.phone || ''}
-                                  />
-                                </div>
-                                <div>
-                                  <Label htmlFor="website">Sitio Web (opcional)</Label>
-                                  <Input 
-                                    id="website" 
-                                    name="website" 
-                                    defaultValue={business.website || ''}
-                                  />
+                                <FormField
+                                  control={form.control}
+                                  name="name"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Nombre</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} required />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="description"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Descripción</FormLabel>
+                                      <FormControl>
+                                        <Textarea {...field} required />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="address"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Dirección</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} required />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="city"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Ciudad</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} required />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="phone"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Teléfono (opcional)</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormField
+                                  control={form.control}
+                                  name="website"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Sitio Web (opcional)</FormLabel>
+                                      <FormControl>
+                                        <Input {...field} />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <FormField
