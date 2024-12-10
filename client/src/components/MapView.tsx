@@ -13,38 +13,37 @@ L.Icon.Default.mergeOptions({
 });
 
 interface MapViewProps {
-  businesses: Business[];
+  business: Business;
   className?: string;
 }
 
-export function MapView({ businesses, className = "" }: MapViewProps) {
+export function MapView({ business, className = "" }: MapViewProps) {
   // Center map on Peru's approximate center
   const defaultCenter: [number, number] = [-12.0464, -77.0428]; // Lima coordinates as default
+  const position: [number, number] = [
+    Number(business.latitude) || defaultCenter[0],
+    Number(business.longitude) || defaultCenter[1]
+  ];
 
   return (
     <MapContainer
-      center={defaultCenter}
-      zoom={13}
-      className={`w-full h-[400px] ${className}`}
+      center={position}
+      zoom={15}
+      className={`w-full h-[200px] ${className}`}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {businesses.map((business) => (
-        <Marker 
-          key={business.id} 
-          position={[business.latitude || defaultCenter[0], business.longitude || defaultCenter[1]]}
-        >
-          <Popup>
-            <div className="p-2">
-              <h3 className="font-semibold">{business.name}</h3>
-              <p className="text-sm text-gray-600">{business.address}</p>
-              <p className="text-sm text-gray-600">{business.city}</p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      <Marker position={position}>
+        <Popup>
+          <div className="p-2">
+            <h3 className="font-semibold">{business.name}</h3>
+            <p className="text-sm text-gray-600">{business.address}</p>
+            <p className="text-sm text-gray-600">{business.city}</p>
+          </div>
+        </Popup>
+      </Marker>
     </MapContainer>
   );
 }

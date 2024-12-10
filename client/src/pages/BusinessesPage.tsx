@@ -172,7 +172,6 @@ export default function BusinessesPage() {
       </div>
 
       <div className="space-y-6">
-        <MapView businesses={filteredBusinesses || []} className="mb-6 rounded-lg shadow-lg" />
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Negocios Verificados</h2>
           
@@ -360,6 +359,7 @@ export default function BusinessesPage() {
                       </a>
                     </div>
                   )}
+                  <MapView business={business} className="mt-4 rounded-md overflow-hidden" />
                 </div>
               </CardContent>
             </Card>
