@@ -408,7 +408,18 @@ export function registerRoutes(app: Express) {
       const totalResources = await db.select({ count: sql<number>`count(*)::int` }).from(resources);
       const totalEvents = await db.select({ count: sql<number>`count(*)::int` }).from(events);
       const totalBusinesses = await db.select({ count: sql<number>`count(*)::int` }).from(businesses);
-      const carouselItemsData = await db.select().from(carousel_items).orderBy(desc(carousel_items.createdAt));
+      const carouselItemsData = await db.select({
+        id: carousel_items.id,
+        title: carousel_items.title,
+        embed_url: carousel_items.embed_url,
+        description: carousel_items.description,
+        active: carousel_items.active,
+        created_at: carousel_items.created_at,
+        updated_at: carousel_items.updated_at,
+        created_by_id: carousel_items.created_by_id
+      })
+      .from(carousel_items)
+      .orderBy(desc(carousel_items.created_at));
       
       const postsData = await db.select({
         id: posts.id,
@@ -959,22 +970,23 @@ export function registerRoutes(app: Express) {
         .select({
           id: carousel_items.id,
           title: carousel_items.title,
-          embedUrl: carousel_items.embed_url,
+          embed_url: carousel_items.embed_url,
           description: carousel_items.description,
           active: carousel_items.active,
-          createdAt: sql`to_char(${carousel_items.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
-          updatedAt: sql`to_char(${carousel_items.updatedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
-          createdById: carousel_items.createdById
+          created_at: carousel_items.created_at,
+          updated_at: carousel_items.updated_at,
+          created_by_id: carousel_items.created_by_id
         })
         .from(carousel_items)
         .where(eq(carousel_items.active, true))
-        .orderBy(desc(carousel_items.createdAt));
+        .orderBy(desc(carousel_items.created_at));
 
-      if (!items) {
-        return res.status(404).json({ error: "No carousel items found" });
+      if (!items || items.length === 0) {
+        console.log('No active carousel items found');
+        return res.json([]);  // Return empty array instead of 404 for better client handling
       }
 
-      console.log('Successfully fetched carousel items:', items.length);
+      console.log(`Successfully fetched ${items.length} carousel items`);
       return res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');

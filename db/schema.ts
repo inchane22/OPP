@@ -73,12 +73,12 @@ export const businesses = pgTable("businesses", {
 export const carousel_items = pgTable("carousel_items", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
-  embedUrl: text("embed_url").notNull(),
+  embed_url: text("embed_url").notNull(),
   description: text("description"),
   active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  createdById: integer("created_by_id").references(() => users.id)
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  created_by_id: integer("created_by_id").references(() => users.id)
 });
 
 export const carousel_items_backup_history = pgTable("carousel_items_backup_history", {
