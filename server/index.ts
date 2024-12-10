@@ -117,6 +117,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Initialize database and start server
 async function init() {
   try {
+    log('Starting server initialization...');
+    
     // Initialize database
     const { db } = await import('../db/index.js');
     try {
@@ -124,7 +126,8 @@ async function init() {
       log('Database connection established');
     } catch (dbError) {
       log('Database connection error:', {
-        error: dbError instanceof Error ? dbError.message : 'Unknown database error'
+        error: dbError instanceof Error ? dbError.message : 'Unknown database error',
+        stack: dbError instanceof Error ? dbError.stack : undefined
       });
       throw dbError;
     }
@@ -135,16 +138,19 @@ async function init() {
       log('API routes registered successfully');
     } catch (routesError) {
       log('Failed to register routes:', {
-        error: routesError instanceof Error ? routesError.message : 'Unknown routes error'
+        error: routesError instanceof Error ? routesError.message : 'Unknown routes error',
+        stack: routesError instanceof Error ? routesError.stack : undefined
       });
       throw routesError;
     }
 
     // Ensure cleanup of any existing server
     await cleanup();
+    log('Previous server instance cleaned up');
 
     // Create new server instance
     server = createServer(app);
+    log('Created new server instance');
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
@@ -154,7 +160,8 @@ async function init() {
         log('Vite development server setup completed');
       } catch (viteError) {
         log('Vite setup failed:', {
-          error: viteError instanceof Error ? viteError.message : 'Unknown Vite error'
+          error: viteError instanceof Error ? viteError.message : 'Unknown Vite error',
+          stack: viteError instanceof Error ? viteError.stack : undefined
         });
         throw viteError;
       }
@@ -166,35 +173,60 @@ async function init() {
         log('Production server setup completed');
       } catch (prodError) {
         log('Production setup failed:', {
-          error: prodError instanceof Error ? prodError.message : 'Unknown production error'
+          error: prodError instanceof Error ? prodError.message : 'Unknown production error',
+          stack: prodError instanceof Error ? prodError.stack : undefined
         });
         throw prodError;
       }
     }
 
-    // Start server
+    // Start server with enhanced error handling
     await new Promise<void>((resolve, reject) => {
+      if (!server) {
+        reject(new Error('Server instance is null'));
+        return;
+      }
+
       const onError = (error: NodeJS.ErrnoException) => {
+        log('Server encountered an error:', {
+          code: error.code,
+          message: error.message,
+          stack: error.stack
+        });
+
         if (error.code === 'EADDRINUSE') {
-          log('Port already in use:', { port: PORT });
+          log('Port already in use:', { port: PORT, host: HOST });
           reject(new Error(`Port ${PORT} is already in use`));
         } else {
           log('Server startup error:', { 
             code: error.code,
-            message: error.message
+            message: error.message,
+            stack: error.stack
           });
           reject(error);
         }
       };
 
-      server!.once('error', onError);
-      
-      server!.listen(PORT, HOST, () => {
+      const onListening = () => {
+        const addr = server!.address();
+        const actualPort = typeof addr === 'string' ? addr : addr?.port;
+        log(`Server listening on port ${actualPort}`, {
+          host: HOST,
+          port: actualPort,
+          env: process.env.NODE_ENV
+        });
         server!.removeListener('error', onError);
-        log(`Server running at http://${HOST}:${PORT}`);
         resolve();
-      });
+      };
+
+      server.once('error', onError);
+      server.once('listening', onListening);
+      
+      log('Attempting to bind server...', { host: HOST, port: PORT });
+      server.listen(PORT, HOST);
     });
+
+    log('Server started successfully');
 
   } catch (error) {
     log('Fatal server startup error:', {
@@ -205,18 +237,15 @@ async function init() {
   }
 }
 
-// Start server with error handling
-init().catch((error) => {
-  log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  process.exit(1);
-});
-
 // Graceful shutdown handlers
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
-// Start server
+// Start server with error handling
 init().catch((error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  if (error instanceof Error && error.stack) {
+    log('Error stack trace:', { stack: error.stack });
+  }
   process.exit(1);
 });

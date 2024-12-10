@@ -49,11 +49,11 @@ interface CarouselItem {
   id: number;
   title: string;
   description: string | null;
-  embedUrl: string;
+  embed_url: string;
   active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdById: number | null;
+  created_at: string;
+  updated_at: string;
+  created_by_id: number | null;
 }
 
 interface AdminStats {
@@ -70,7 +70,7 @@ interface AdminStats {
 type CarouselFormData = {
   title: string;
   description: string;
-  embedUrl: string;
+  embed_url: string;
   active: boolean;
 };
 
@@ -84,7 +84,7 @@ export default function AdminPanel() {
     defaultValues: {
       title: "",
       description: "",
-      embedUrl: "",
+      embed_url: "",
       active: true,
     },
   });
@@ -397,7 +397,7 @@ export default function AdminPanel() {
                           />
                           <FormField
                             control={form.control}
-                            name="embedUrl"
+                            name="embed_url"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>URL del Embed</FormLabel>
@@ -454,16 +454,16 @@ export default function AdminPanel() {
                             )}
                             <div className="space-y-1 mt-2">
                               <p className="text-sm text-muted-foreground">
-                                URL del Embed: {item.embedUrl}
+                                URL del Embed: {item.embed_url}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 Estado: {item.active ? 'Activo' : 'Inactivo'}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Creado: {new Date(item.createdAt).toLocaleDateString()}
+                                Creado: {new Date(item.created_at).toLocaleDateString()}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Actualizado: {new Date(item.updatedAt).toLocaleDateString()}
+                                Actualizado: {new Date(item.updated_at).toLocaleDateString()}
                               </p>
                             </div>
                           </div>

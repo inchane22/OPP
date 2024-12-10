@@ -91,12 +91,12 @@ LoadingSpinner.displayName = "LoadingSpinner";
 interface CarouselItem {
   id: number;
   title: string;
-  embedUrl: string;
-  description?: string;
+  embed_url: string;
+  description: string | null;
   active: boolean;
-  createdAt: string;
-  updatedAt: string;
-  createdById?: number | null;
+  created_at: string;
+  updated_at: string;
+  created_by_id: number | null;
 }
 
 // Memoized carousel item display component
@@ -107,7 +107,7 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
         <div className="w-full h-full">
           <iframe
             title={item.title}
-            src={getEmbedUrl(item.embedUrl)}
+            src={getEmbedUrl(item.embed_url)}
             className="w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
