@@ -36,10 +36,6 @@ args = "Create Admin"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Database Setup"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Build and Start"
 
 [[workflows.workflow.tasks]]
@@ -67,20 +63,6 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx create-admin.ts"
-
-[[workflows.workflow]]
-name = "Database Setup"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run db:push"
 
 [[workflows.workflow]]
 name = "Build and Start"
@@ -138,5 +120,5 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "NODE_ENV=development DEBUG=* npm run dev"
 waitForPort = 5000
