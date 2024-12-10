@@ -119,11 +119,26 @@ async function init() {
   try {
     // Initialize database
     const { db } = await import('../db/index.js');
-    await db.execute(sql`SELECT 1`);
-    log('Database connection established');
+    try {
+      await db.execute(sql`SELECT 1`);
+      log('Database connection established');
+    } catch (dbError) {
+      log('Database connection error:', {
+        error: dbError instanceof Error ? dbError.message : 'Unknown database error'
+      });
+      throw dbError;
+    }
 
     // Register API routes
-    await registerRoutes(app);
+    try {
+      await registerRoutes(app);
+      log('API routes registered successfully');
+    } catch (routesError) {
+      log('Failed to register routes:', {
+        error: routesError instanceof Error ? routesError.message : 'Unknown routes error'
+      });
+      throw routesError;
+    }
 
     // Ensure cleanup of any existing server
     await cleanup();
@@ -134,19 +149,40 @@ async function init() {
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
       log('Setting up development server...');
-      await setupVite(app, server);
+      try {
+        await setupVite(app, server);
+        log('Vite development server setup completed');
+      } catch (viteError) {
+        log('Vite setup failed:', {
+          error: viteError instanceof Error ? viteError.message : 'Unknown Vite error'
+        });
+        throw viteError;
+      }
     } else {
       log('Setting up production server...');
-      const { setupProduction } = await import('./production.js');
-      await setupProduction(app);
+      try {
+        const { setupProduction } = await import('./production.js');
+        await setupProduction(app);
+        log('Production server setup completed');
+      } catch (prodError) {
+        log('Production setup failed:', {
+          error: prodError instanceof Error ? prodError.message : 'Unknown production error'
+        });
+        throw prodError;
+      }
     }
 
     // Start server
     await new Promise<void>((resolve, reject) => {
       const onError = (error: NodeJS.ErrnoException) => {
         if (error.code === 'EADDRINUSE') {
+          log('Port already in use:', { port: PORT });
           reject(new Error(`Port ${PORT} is already in use`));
         } else {
+          log('Server startup error:', { 
+            code: error.code,
+            message: error.message
+          });
           reject(error);
         }
       };
@@ -161,12 +197,19 @@ async function init() {
     });
 
   } catch (error) {
-    log('Server startup error:', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    log('Fatal server startup error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
-    process.exit(1);
+    throw error;
   }
 }
+
+// Start server with error handling
+init().catch((error) => {
+  log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  process.exit(1);
+});
 
 // Graceful shutdown handlers
 process.on('SIGTERM', cleanup);

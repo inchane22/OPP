@@ -954,16 +954,34 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/carousel", async (_req, res) => {
-
     try {
-      const items = await db.query.carousel_items.findMany({
-        where: eq(carousel_items.active, true),
-        orderBy: [desc(carousel_items.createdAt)]
-      });
+      const items = await db
+        .select({
+          id: carousel_items.id,
+          title: carousel_items.title,
+          embedUrl: carousel_items.embed_url,
+          description: carousel_items.description,
+          active: carousel_items.active,
+          createdAt: sql`to_char(${carousel_items.createdAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+          updatedAt: sql`to_char(${carousel_items.updatedAt}, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
+          createdById: carousel_items.createdById
+        })
+        .from(carousel_items)
+        .where(eq(carousel_items.active, true))
+        .orderBy(desc(carousel_items.createdAt));
+
+      if (!items) {
+        return res.status(404).json({ error: "No carousel items found" });
+      }
+
+      console.log('Successfully fetched carousel items:', items.length);
       return res.json(items);
     } catch (error) {
-      console.error("Failed to fetch carousel items:", error);
-      return res.status(500).json({ error: "Failed to fetch carousel items" });
+      console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');
+      return res.status(500).json({ 
+        error: "Failed to fetch carousel items",
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
+      });
     }
   });
 
