@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "postgresql-16"]
+modules = ["nodejs-20", "web", "postgresql-16", "typescript"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -49,6 +49,10 @@ args = "Production Build"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Development Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend Dev Server"
 
 [[workflows.workflow]]
 name = "Create Admin"
@@ -110,6 +114,21 @@ args = "npm run build"
 
 [[workflows.workflow]]
 name = "Development Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development DEBUG=express:* npx tsx watch --clear-screen=false server/index.ts"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Backend Dev Server"
 author = "agent"
 
 [workflows.workflow.metadata]
