@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   city TEXT NOT NULL,
   phone TEXT,
   website TEXT,
+  category TEXT NOT NULL DEFAULT 'other',
   accepts_lightning BOOLEAN NOT NULL DEFAULT false,
   verified BOOLEAN NOT NULL DEFAULT false,
   submitted_by_id INTEGER REFERENCES users(id),

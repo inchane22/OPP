@@ -22,7 +22,19 @@ export default function BusinessesPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [acceptsLightningFilter, setAcceptsLightningFilter] = useState<boolean | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [cityFilter, setCityFilter] = useState<string>("");
   const [isPending, startTransition] = useTransition();
+
+  const categories = [
+    { value: "", label: "Todas las Categorías" },
+    { value: "restaurant", label: "Restaurantes" },
+    { value: "retail", label: "Tiendas" },
+    { value: "service", label: "Servicios" },
+    { value: "education", label: "Educación" },
+    { value: "tech", label: "Tecnología" },
+    { value: "other", label: "Otros" }
+  ];
 
   const { data: businesses, isLoading, isFetching } = useQuery<Business[]>({
     queryKey: ["businesses"],
@@ -37,6 +49,11 @@ export default function BusinessesPage() {
     refetchOnWindowFocus: false
   });
 
+  const availableCities = React.useMemo(() => {
+    const cities = businesses?.map(b => b.city) || [];
+    return Array.from(new Set(cities)).sort();
+  }, [businesses]);
+
   const filteredBusinesses = React.useMemo(() => {
     return businesses?.filter(business => {
       const matchesSearch = 
@@ -48,9 +65,15 @@ export default function BusinessesPage() {
         acceptsLightningFilter === null || 
         business.acceptsLightning === acceptsLightningFilter;
 
-      return matchesSearch && matchesLightning;
+      const matchesCategory =
+        !categoryFilter || business.category === categoryFilter;
+
+      const matchesCity =
+        !cityFilter || business.city === cityFilter;
+
+      return matchesSearch && matchesLightning && matchesCategory && matchesCity;
     });
-  }, [businesses, searchTerm, acceptsLightningFilter]);
+  }, [businesses, searchTerm, acceptsLightningFilter, categoryFilter, cityFilter]);
 
   const form = useForm<InsertBusiness>({
     defaultValues: {
@@ -135,6 +158,39 @@ export default function BusinessesPage() {
             )}
           </div>
           <div className="flex gap-2 items-center">
+            <select
+              value={categoryFilter}
+              onChange={(e) => {
+                startTransition(() => {
+                  setCategoryFilter(e.target.value);
+                });
+              }}
+              className="h-9 rounded-md border border-input bg-white/90 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {categories.map(category => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={cityFilter}
+              onChange={(e) => {
+                startTransition(() => {
+                  setCityFilter(e.target.value);
+                });
+              }}
+              className="h-9 rounded-md border border-input bg-white/90 px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">Todas las Ciudades</option>
+              {availableCities.map(city => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
+
             <Button
               variant="default"
               size="sm"
@@ -314,7 +370,16 @@ export default function BusinessesPage() {
           )}
         </div>
 
-        <div className={`grid md:grid-cols-2 lg:grid-cols-3 gap-6 ${isPending ? 'opacity-50' : ''}`}>
+        <div className={`${isPending ? 'opacity-50' : ''}`}>
+          {filteredBusinesses?.length === 0 ? (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium">No se encontraron negocios</h3>
+              <p className="text-muted-foreground mt-2">
+                Intenta ajustar los filtros de búsqueda o agrega un nuevo negocio
+              </p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBusinesses?.map(business => (
             <Card key={business.id} className="group hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="pb-4">
@@ -362,6 +427,8 @@ export default function BusinessesPage() {
               </CardContent>
             </Card>
           ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
