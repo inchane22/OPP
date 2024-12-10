@@ -1,4 +1,4 @@
-import { useState, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -89,16 +89,33 @@ export default function AdminPanel() {
     },
   });
 
-  const { data: stats, isLoading } = useQuery<AdminStats>({
+  const { data: stats, isLoading, error } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/stats");
-      if (!response.ok) {
-        throw new Error("Failed to fetch admin stats");
+      try {
+        const response = await fetch("/api/admin/stats");
+        if (!response.ok) {
+          throw new Error(`Failed to fetch admin stats: ${response.statusText}`);
+        }
+        const data = await response.json();
+        console.log("Fetched admin stats:", data); // Debug log
+        return data;
+      } catch (err) {
+        console.error("Error fetching admin stats:", err);
+        throw err;
       }
-      return response.json();
     },
+    retry: 1,
+    staleTime: 30000,
   });
+
+  // Debug log for stats data
+  React.useEffect(() => {
+    if (stats) {
+      console.log("Stats data updated:", stats);
+      console.log("Carousel items:", stats.carousel);
+    }
+  }, [stats]);
 
   if (isLoading) {
     return (
@@ -416,8 +433,17 @@ export default function AdminPanel() {
                   </Dialog>
 
                   <div className="space-y-4">
-                    {stats?.carousel?.map((item) => (
-                      <div key={item.id} className="border rounded-lg p-4">
+                    {!stats?.carousel ? (
+                      <div className="text-center text-muted-foreground">
+                        No carousel items available
+                      </div>
+                    ) : stats.carousel.length === 0 ? (
+                      <div className="text-center text-muted-foreground">
+                        No carousel items found
+                      </div>
+                    ) : (
+                      stats.carousel.map((item) => (
+                        <div key={item.id} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="font-medium">{item.title}</h3>
@@ -451,7 +477,8 @@ export default function AdminPanel() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    ))
+                    )}
                   </div>
                 </div>
               </CardContent>

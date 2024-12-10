@@ -498,7 +498,7 @@ export function registerRoutes(app: Express) {
         users: usersData,
         resources: resourcesData,
         businesses: businessesData,
-        carouselItems: carouselItemsData,
+        carousel: carouselItemsData,
         events: eventsData
       };
 
