@@ -35,8 +35,7 @@ interface PostWithAuthor extends Omit<Post, 'authorId'> {
   };
 }
 
-interface ResourceWithAuthor extends Omit<Resource, 'authorId'> {
-  title: string;
+interface ResourceWithAuthor extends Resource {
   author: {
     id: string;
     username: string;
@@ -619,9 +618,116 @@ export default function AdminPanel() {
                             </div>
                           </div>
                           <div className="space-x-2">
-                            <Button variant="outline" size="sm">
-                              Editar
-                            </Button>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  Editar
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Editar Item del Carousel</DialogTitle>
+                                </DialogHeader>
+                                <Form {...form}>
+                                  <form onSubmit={form.handleSubmit(async (data) => {
+                                    try {
+                                      const response = await fetch(`/api/carousel/${item.id}`, {
+                                        method: 'PATCH',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(data),
+                                        credentials: 'include'
+                                      });
+
+                                      if (!response.ok) {
+                                        throw new Error('Failed to update carousel item');
+                                      }
+
+                                      await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                      
+                                      toast({
+                                        title: "Item actualizado exitosamente",
+                                        variant: "default"
+                                      });
+
+                                      const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                      if (closeButton) {
+                                        closeButton.click();
+                                      }
+                                    } catch (error) {
+                                      console.error('Error updating carousel item:', error);
+                                      toast({
+                                        title: "Error al actualizar item",
+                                        description: error instanceof Error ? error.message : "Unknown error occurred",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  })} className="space-y-4">
+                                    <FormField
+                                      control={form.control}
+                                      name="title"
+                                      defaultValue={item.title}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Título</FormLabel>
+                                          <FormControl>
+                                            <Input {...field} />
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <FormField
+                                      control={form.control}
+                                      name="description"
+                                      defaultValue={item.description || ""}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Descripción</FormLabel>
+                                          <FormControl>
+                                            <Textarea {...field} />
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <FormField
+                                      control={form.control}
+                                      name="embed_url"
+                                      defaultValue={item.embed_url}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>URL del Embed</FormLabel>
+                                          <FormControl>
+                                            <Input {...field} />
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <FormField
+                                      control={form.control}
+                                      name="active"
+                                      defaultValue={item.active}
+                                      render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={field.value}
+                                              onCheckedChange={field.onChange}
+                                            />
+                                          </FormControl>
+                                          <div className="space-y-1 leading-none">
+                                            <FormLabel>
+                                              Activo
+                                            </FormLabel>
+                                          </div>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <Button type="submit">Actualizar Item</Button>
+                                  </form>
+                                </Form>
+                              </DialogContent>
+                            </Dialog>
                             <Button variant="destructive" size="sm">
                               Eliminar
                             </Button>
