@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import { EditBusinessForm } from "@/components/EditBusinessForm";
+import { EditPostForm } from "@/components/EditPostForm";
 import { Loader2 } from "lucide-react";
 
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
@@ -167,9 +168,46 @@ export default function AdminPanel() {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm">
-                          Editar
-                        </Button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Editar
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Editar Negocio</DialogTitle>
+                            </DialogHeader>
+                            <EditBusinessForm 
+                              business={business}
+                              onSubmit={async (data) => {
+                                try {
+                                  const response = await fetch(`/api/businesses/${business.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(data)
+                                  });
+                                  
+                                  if (!response.ok) throw new Error('Failed to update business');
+                                  
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({ title: "Negocio actualizado exitosamente" });
+                                  
+                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                  if (closeButton) closeButton.click();
+                                } catch (error) {
+                                  console.error('Error updating business:', error);
+                                  toast({
+                                    title: "Error al actualizar negocio",
+                                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              isPending={isPending}
+                            />
+                          </DialogContent>
+                        </Dialog>
                         <Button variant="destructive" size="sm">
                           Eliminar
                         </Button>
@@ -200,9 +238,46 @@ export default function AdminPanel() {
                           </p>
                         </div>
                         <div className="space-x-2">
-                          <Button variant="outline" size="sm">
-                            Editar
-                          </Button>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                Editar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Editar Post</DialogTitle>
+                              </DialogHeader>
+                              <EditPostForm 
+                                post={post}
+                                onSubmit={async (data) => {
+                                  try {
+                                    const response = await fetch(`/api/posts/${post.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify(data)
+                                    });
+                                    
+                                    if (!response.ok) throw new Error('Failed to update post');
+                                    
+                                    await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                    toast({ title: "Post actualizado exitosamente" });
+                                    
+                                    const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                    if (closeButton) closeButton.click();
+                                  } catch (error) {
+                                    console.error('Error updating post:', error);
+                                    toast({
+                                      title: "Error al actualizar post",
+                                      description: error instanceof Error ? error.message : "Unknown error occurred",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                isPending={isPending}
+                              />
+                            </DialogContent>
+                          </Dialog>
                           <Button variant="destructive" size="sm">
                             Eliminar
                           </Button>
