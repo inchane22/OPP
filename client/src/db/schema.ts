@@ -5,6 +5,9 @@ export const userSchema = z.object({
   username: z.string(),
   email: z.string().nullable(),
   role: z.string(),
+  language: z.string(),
+  avatar: z.string().nullable(),
+  bio: z.string().nullable(),
   createdAt: z.string(),
 });
 
