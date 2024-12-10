@@ -1184,7 +1184,9 @@ export default function AdminPanel() {
                               <DialogHeader>
                                 <DialogTitle>Editar Negocio</DialogTitle>
                               </DialogHeader>
-                              <form onSubmit={async (e) => {
+                              <form 
+                                id={`editBusinessForm-${business.id}`}
+                                onSubmit={async (e) => {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
                                 
@@ -1196,8 +1198,10 @@ export default function AdminPanel() {
                                     city: formData.get('city'),
                                     phone: formData.get('phone'),
                                     website: formData.get('website'),
-                                    acceptsLightning: formData.get('acceptsLightning') === 'on'
+                                    acceptsLightning: formData.get('acceptsLightning') === 'true'
                                   };
+
+                                  console.log('Updating business with data:', updatedBusiness);
 
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PUT',
@@ -1234,7 +1238,8 @@ export default function AdminPanel() {
                                     variant: "destructive"
                                   });
                                 }
-                              }} className="space-y-4 mt-4">
+                              }} 
+                              className="space-y-4 mt-4">
                                 <div>
                                   <Label htmlFor="name">Nombre</Label>
                                   <Input 
@@ -1292,10 +1297,16 @@ export default function AdminPanel() {
                                     id="acceptsLightning"
                                     name="acceptsLightning"
                                     defaultChecked={business.acceptsLightning}
+                                    onCheckedChange={(checked) => {
+                                      const form = document.getElementById(`editBusinessForm-${business.id}`) as HTMLFormElement;
+                                      const input = form.querySelector('input[name="acceptsLightning"]') as HTMLInputElement;
+                                      input.value = checked ? 'true' : 'false';
+                                    }}
                                   />
                                   <Label htmlFor="acceptsLightning">
                                     Acepta Lightning Network
                                   </Label>
+                                  <input type="hidden" name="acceptsLightning" defaultValue={business.acceptsLightning.toString()} />
                                 </div>
                                 <Button type="submit">Guardar Cambios</Button>
                               </form>
