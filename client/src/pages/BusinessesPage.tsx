@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MapView } from "@/components/MapView";
 
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,6 +172,7 @@ export default function BusinessesPage() {
       </div>
 
       <div className="space-y-6">
+        <MapView businesses={filteredBusinesses || []} className="mb-6 rounded-lg shadow-lg" />
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Negocios Verificados</h2>
           

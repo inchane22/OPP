@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, boolean, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, serial, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -63,6 +63,8 @@ export const businesses = pgTable("businesses", {
   city: text("city").notNull(),
   phone: text("phone"),
   website: text("website"),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
   acceptsLightning: boolean("accepts_lightning").default(false).notNull(),
   verified: boolean("verified").default(false).notNull(),
   submittedById: integer("submitted_by_id").references(() => users.id),
