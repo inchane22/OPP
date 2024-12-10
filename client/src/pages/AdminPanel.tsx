@@ -696,15 +696,16 @@ export default function AdminPanel() {
                         <div>
                           <h3 className="font-medium">{item.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Orden: {item.order}
+                            Creado: {new Date(item.created_at).toLocaleDateString()}
                           </p>
-                          {item.imageUrl && (
-                            <img 
-                              src={item.imageUrl} 
-                              alt={item.title}
-                              className="mt-2 max-w-[200px] h-auto rounded"
-                            />
+                          {item.embed_url && (
+                            <div className="mt-2">
+                              <p className="text-sm text-muted-foreground">URL: {item.embed_url}</p>
+                            </div>
                           )}
+                          <p className="text-sm text-muted-foreground">
+                            Estado: {item.active ? 'Activo' : 'Inactivo'}
+                          </p>
                         </div>
                         <div className="space-x-2">
                           <Button 
