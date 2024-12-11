@@ -127,7 +127,8 @@ async function init() {
     try {
       log('Attempting to connect to database...');
       console.log('Database URL format:', process.env.DATABASE_URL ? 'Present' : 'Missing');
-      await db.execute(sql`SELECT 1`);
+      const result = await db.execute(sql`SELECT 1`);
+      console.log('Database test query result:', result);
       log('Database connection established successfully');
     } catch (dbError) {
       console.error('Detailed database connection error:', dbError);

@@ -128,7 +128,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development DEBUG=express:* PORT=5000 npx tsx watch --clear-screen=false server/index.ts"
+args = "NODE_ENV=development PORT=5000 npx tsx watch server/index.ts"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -158,5 +158,5 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd client && npm run dev"
+args = "vite --port 3000 --host 0.0.0.0"
 waitForPort = 3000
