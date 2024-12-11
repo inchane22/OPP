@@ -198,28 +198,47 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   
   const updateLanguage = useMutation({
     mutationFn: async (lang: Language) => {
+      // Always update localStorage first
+      localStorage.setItem('language_preference', lang);
+      
+      // Only try to update server if user is logged in
       if (!user) return;
       
-      const response = await fetch('/api/user/language', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: lang }),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update language preference');
+      try {
+        const response = await fetch('/api/user/language', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language: lang }),
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          console.warn('Failed to update language preference on server, falling back to local storage');
+        }
+      } catch (error) {
+        console.warn('Error updating language preference:', error);
+        // Don't throw - we already updated localStorage
       }
     }
   });
 
-  const [language, setLanguageState] = React.useState<Language>((user?.language as Language) || 'es');
+  // Initialize language from user preference, localStorage, or default to 'es'
+  const [language, setLanguageState] = React.useState<Language>(() => {
+    if (user?.language) return user.language as Language;
+    const storedLang = localStorage.getItem('language_preference') as Language;
+    return storedLang && (storedLang === 'es' || storedLang === 'en') ? storedLang : 'es';
+  });
+
+  // Effect to sync language when user logs in/out
+  React.useEffect(() => {
+    if (user?.language && user.language !== language) {
+      setLanguageState(user.language as Language);
+    }
+  }, [user?.language]);
 
   const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
-    if (user) {
-      await updateLanguage.mutateAsync(lang);
-    }
+    await updateLanguage.mutateAsync(lang);
   };
 
   const t = (key: TranslationKeys | `forum.category.${string}`): string => {
