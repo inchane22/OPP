@@ -31,19 +31,8 @@ const businessFormSchema = z.object({
 type BusinessFormData = z.infer<typeof businessFormSchema>;
 
 interface EditBusinessFormProps {
-  business: {
-    id: string;
-    name: string;
-    description: string;
-    address: string;
-    city: string;
-    phone: string | null;
-    website: string | null;
-    acceptsLightning: boolean;
-    verified: boolean;
-    createdAt: string;
-  };
-  onSubmit: (data: Partial<Business>) => Promise<void>;
+  business: Business;
+  onSubmit: (data: BusinessFormData) => Promise<void>;
   isPending: boolean;
 }
 
@@ -51,13 +40,13 @@ export function EditBusinessForm({ business, onSubmit, isPending }: EditBusiness
   const form = useForm<BusinessFormData>({
     resolver: zodResolver(businessFormSchema),
     defaultValues: {
-      name: business.name,
-      description: business.description,
-      address: business.address,
-      city: business.city,
-      phone: business.phone ?? '',
-      website: business.website ?? '',
-      acceptsLightning: business.acceptsLightning
+      name: business.name || '',
+      description: business.description || '',
+      address: business.address || '',
+      city: business.city || '',
+      phone: business.phone || '',
+      website: business.website || '',
+      acceptsLightning: business.acceptsLightning || false
     }
   });
 

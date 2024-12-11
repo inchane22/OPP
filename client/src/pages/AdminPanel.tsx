@@ -563,17 +563,31 @@ export default function AdminPanel() {
                             </DialogHeader>
                             <EditBusinessForm 
                               business={business}
-                              onSubmit={async (data) => {
+                              onSubmit={async (formData) => {
                                 if (isPending) return;
                                 
                                 try {
-                                  startTransition(() => {}); // Start loading state
-                                  
+                                  startTransition(() => {
+                                    // Optimistically update the UI
+                                    queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
+                                      if (!oldData) return oldData;
+                                      return {
+                                        ...oldData,
+                                        businesses: oldData.businesses.map(b =>
+                                          b.id === business.id ? { ...b, ...formData } : b
+                                        )
+                                      };
+                                    });
+                                  });
+
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: { 
+                                      'Content-Type': 'application/json',
+                                      'Accept': 'application/json'
+                                    },
                                     credentials: 'include',
-                                    body: JSON.stringify(data)
+                                    body: JSON.stringify(formData)
                                   });
                                   
                                   if (!response.ok) {
@@ -581,16 +595,33 @@ export default function AdminPanel() {
                                     throw new Error(errorData.message || 'Failed to update business');
                                   }
 
-                                  // Close dialog first
+                                  const updatedBusiness = await response.json();
+                                  
+                                  // Update both caches with the server response
+                                  queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
+                                    if (!oldData) return oldData;
+                                    return {
+                                      ...oldData,
+                                      businesses: oldData.businesses.map(b =>
+                                        b.id === business.id ? updatedBusiness : b
+                                      )
+                                    };
+                                  });
+
+                                  // Close dialog and show success message
                                   const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                   if (closeButton) closeButton.click();
                                   
-                                  // Show success message and refetch data
                                   toast({ title: "Negocio actualizado exitosamente" });
-                                  await refetch(); // Use the refetch function from useQuery
+                                  
+                                  // Force a refetch to ensure consistency
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  await queryClient.invalidateQueries({ queryKey: ['businesses'] });
                                   
                                 } catch (error) {
                                   console.error('Error updating business:', error);
+                                  // Revert optimistic update on error
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                   toast({
                                     title: "Error al actualizar negocio",
                                     description: error instanceof Error ? error.message : "Unknown error occurred",
