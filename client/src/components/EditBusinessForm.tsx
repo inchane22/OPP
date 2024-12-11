@@ -33,6 +33,7 @@ type BusinessFormData = z.infer<typeof businessFormSchema>;
 interface EditBusinessFormProps {
   business: Business;
   onSubmit: (data: BusinessFormData) => Promise<void>;
+  onError?: (error: Error) => void;
   isPending: boolean;
 }
 

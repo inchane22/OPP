@@ -586,16 +586,31 @@ export default function AdminPanel() {
                                       'Content-Type': 'application/json',
                                       'Accept': 'application/json'
                                     },
-                                    credentials: 'include',
-                                    body: JSON.stringify(formData)
+                                    body: JSON.stringify(formData),
+                                    credentials: 'include'
                                   });
+
+                                  let responseData;
+                                  const contentType = response.headers.get("content-type");
+                                  const text = await response.text();
                                   
-                                  if (!response.ok) {
-                                    const errorData = await response.json();
-                                    throw new Error(errorData.message || 'Failed to update business');
+                                  if (contentType && contentType.includes("application/json")) {
+                                    try {
+                                      responseData = JSON.parse(text);
+                                    } catch (e) {
+                                      console.error('Invalid JSON response:', text);
+                                      throw new Error('Invalid JSON response from server');
+                                    }
+                                  } else {
+                                    console.error('Non-JSON response:', text);
+                                    throw new Error('Unexpected response format from server');
                                   }
 
-                                  const updatedBusiness = await response.json();
+                                  if (!response.ok) {
+                                    throw new Error(responseData.message || 'Failed to update business');
+                                  }
+
+                                  const updatedBusiness = responseData;
                                   
                                   // Update both caches with the server response
                                   queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {

@@ -603,6 +603,51 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Update business endpoint
+  app.patch("/api/businesses/:id", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    try {
+      const businessId = parseInt(req.params.id);
+      if (isNaN(businessId)) {
+        return res.status(400).json({ error: "Invalid business ID" });
+      }
+
+      const updateData = {
+        ...req.body,
+        // Remove any fields that shouldn't be updated
+        id: undefined,
+        submittedById: undefined,
+        createdAt: undefined
+      };
+
+      // Remove undefined fields
+      Object.keys(updateData).forEach(key => 
+        updateData[key] === undefined && delete updateData[key]
+      );
+
+      const [updatedBusiness] = await db
+        .update(businesses)
+        .set(updateData)
+        .where(eq(businesses.id, businessId))
+        .returning();
+
+      if (!updatedBusiness) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+
+      return res.json(updatedBusiness);
+    } catch (error) {
+      console.error("Failed to update business:", error);
+      return res.status(500).json({ 
+        error: "Failed to update business",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
 
   // Language preference update endpoint
   app.post("/api/user/language", async (req, res) => {
