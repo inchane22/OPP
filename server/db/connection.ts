@@ -1,3 +1,4 @@
+
 import { logger } from '../utils/logger';
 import pg from 'pg';
 import type { Pool } from 'pg';
@@ -8,6 +9,7 @@ export class DatabaseConnection {
   private retryCount = 0;
   private readonly maxRetries = 5;
   private readonly retryDelay = 5000;
+  private isShuttingDown = false;
 
   private constructor() {}
 
@@ -26,6 +28,10 @@ export class DatabaseConnection {
   }
 
   private async createPool(): Promise<Pool> {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+
     const poolConfig = {
       connectionString: process.env.DATABASE_URL,
       max: 20,
@@ -37,8 +43,10 @@ export class DatabaseConnection {
     const pool = new pg.Pool(poolConfig);
 
     pool.on('error', (err: Error) => {
-      logger('Unexpected error on idle client', { error: err.message });
-      this.handlePoolError(err);
+      if (!this.isShuttingDown) {
+        logger('Unexpected error on idle client', { error: err.message });
+        this.handlePoolError(err);
+      }
     });
 
     try {
@@ -46,7 +54,7 @@ export class DatabaseConnection {
       this.retryCount = 0;
       return pool;
     } catch (error) {
-      await pool.end();
+      await pool.end().catch(() => {});
       throw error;
     }
   }
@@ -76,7 +84,7 @@ export class DatabaseConnection {
 
   private handlePoolError(error: Error): void {
     logger('Pool error occurred', { error: error.message });
-    if (this.pool) {
+    if (this.pool && !this.isShuttingDown) {
       this.pool.end().catch(err => {
         logger('Error while ending pool', { error: err.message });
       });
@@ -85,12 +93,12 @@ export class DatabaseConnection {
   }
 
   async cleanup(): Promise<void> {
+    this.isShuttingDown = true;
     if (this.pool) {
-      await this.pool.end();
+      await this.pool.end().catch(() => {});
       this.pool = null;
     }
   }
 }
 
-// Export singleton instance
 export const db = DatabaseConnection.getInstance();
