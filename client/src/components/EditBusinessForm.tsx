@@ -130,7 +130,7 @@ export function EditBusinessForm({ business, onSubmit, isPending }: EditBusiness
                 <Input 
                   type="tel" 
                   {...field} 
-                  value={field.value ?? ''} 
+                  value={field.value || ''} 
                 />
               </FormControl>
               <FormMessage />
@@ -148,7 +148,7 @@ export function EditBusinessForm({ business, onSubmit, isPending }: EditBusiness
                 <Input 
                   type="url" 
                   {...field} 
-                  value={field.value ?? ''} 
+                  value={field.value || ''} 
                 />
               </FormControl>
               <FormMessage />

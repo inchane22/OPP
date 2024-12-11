@@ -141,7 +141,7 @@ export default function AdminPanel() {
     }
   }, [editingItem, form]);
 
-  const { data: stats, isLoading, error } = useQuery<AdminStats>({
+  const { data: stats, isLoading, error, refetch } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
     queryFn: async () => {
       try {
@@ -157,7 +157,10 @@ export default function AdminPanel() {
       }
     },
     retry: 1,
-    staleTime: 30000,
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true
   });
 
   if (isLoading) {
@@ -561,7 +564,11 @@ export default function AdminPanel() {
                             <EditBusinessForm 
                               business={business}
                               onSubmit={async (data) => {
+                                if (isPending) return;
+                                
                                 try {
+                                  startTransition(() => {}); // Start loading state
+                                  
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PATCH',
                                     headers: { 'Content-Type': 'application/json' },
@@ -573,12 +580,15 @@ export default function AdminPanel() {
                                     const errorData = await response.json();
                                     throw new Error(errorData.message || 'Failed to update business');
                                   }
-                                  
-                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                  toast({ title: "Negocio actualizado exitosamente" });
-                                  
+
+                                  // Close dialog first
                                   const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                   if (closeButton) closeButton.click();
+                                  
+                                  // Show success message and refetch data
+                                  toast({ title: "Negocio actualizado exitosamente" });
+                                  await refetch(); // Use the refetch function from useQuery
+                                  
                                 } catch (error) {
                                   console.error('Error updating business:', error);
                                   toast({
