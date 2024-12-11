@@ -565,21 +565,21 @@ export default function AdminPanel() {
                               business={business}
                               onSubmit={async (formData) => {
                                 if (isPending) return;
-                                
-                                try {
-                                  startTransition(() => {
-                                    // Optimistically update the UI
-                                    queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
-                                      if (!oldData) return oldData;
-                                      return {
-                                        ...oldData,
-                                        businesses: oldData.businesses.map(b =>
-                                          b.id === business.id ? { ...b, ...formData } : b
-                                        )
-                                      };
-                                    });
-                                  });
 
+                                startTransition(() => {
+                                  // Optimistically update the UI
+                                  queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
+                                    if (!oldData) return oldData;
+                                    return {
+                                      ...oldData,
+                                      businesses: oldData.businesses.map(b =>
+                                        b.id === business.id ? { ...b, ...formData } : b
+                                      )
+                                    };
+                                  });
+                                });
+
+                                try {
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PATCH',
                                     headers: { 
@@ -590,21 +590,7 @@ export default function AdminPanel() {
                                     credentials: 'include'
                                   });
 
-                                  let responseData;
-                                  const contentType = response.headers.get("content-type");
-                                  const text = await response.text();
-                                  
-                                  if (contentType && contentType.includes("application/json")) {
-                                    try {
-                                      responseData = JSON.parse(text);
-                                    } catch (e) {
-                                      console.error('Invalid JSON response:', text);
-                                      throw new Error('Invalid JSON response from server');
-                                    }
-                                  } else {
-                                    console.error('Non-JSON response:', text);
-                                    throw new Error('Unexpected response format from server');
-                                  }
+                                  const responseData = await response.json();
 
                                   if (!response.ok) {
                                     throw new Error(responseData.message || 'Failed to update business');
@@ -612,27 +598,28 @@ export default function AdminPanel() {
 
                                   const updatedBusiness = responseData;
                                   
-                                  // Update both caches with the server response
-                                  queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
-                                    if (!oldData) return oldData;
-                                    return {
-                                      ...oldData,
-                                      businesses: oldData.businesses.map(b =>
-                                        b.id === business.id ? updatedBusiness : b
-                                      )
-                                    };
+                                  startTransition(() => {
+                                    // Update cache with the server response
+                                    queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
+                                      if (!oldData) return oldData;
+                                      return {
+                                        ...oldData,
+                                        businesses: oldData.businesses.map(b =>
+                                          b.id === business.id ? updatedBusiness : b
+                                        )
+                                      };
+                                    });
                                   });
 
-                                  // Close dialog and show success message
-                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                  if (closeButton) closeButton.click();
-                                  
-                                  toast({ title: "Negocio actualizado exitosamente" });
-                                  
                                   // Force a refetch to ensure consistency
                                   await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                   await queryClient.invalidateQueries({ queryKey: ['businesses'] });
                                   
+                                  toast({ title: "Negocio actualizado exitosamente" });
+                                  
+                                  // Close dialog
+                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                  if (closeButton) closeButton.click();
                                 } catch (error) {
                                   console.error('Error updating business:', error);
                                   // Revert optimistic update on error
