@@ -5,24 +5,31 @@ import { useForm } from "react-hook-form";
 import { useUser } from "@/hooks/use-user";
 import { useLanguage } from "@/hooks/use-language";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
+// UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
+// Icons
+import { Loader2, Plus, FolderOpen, Link2, Calendar, Pencil } from "lucide-react";
+
+// Form Components
 import { EditBusinessForm } from "@/components/EditBusinessForm";
 import { EditPostForm } from "@/components/EditPostForm";
 import { EditResourceForm } from "@/components/EditResourceForm";
 import { EditEventForm } from "@/components/EditEventForm";
 import { EditUserForm } from "@/components/EditUserForm";
-import { Loader2 } from "lucide-react";
 
+// Types
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
 
 // Define interfaces with all required properties
@@ -77,6 +84,35 @@ type CarouselFormData = {
   active: boolean;
 };
 
+interface CarouselFormSubmitHandler {
+  (data: CarouselFormData): Promise<void>;
+}
+
+interface FormSubmitHandler<T> {
+  (data: T): Promise<void>;
+}
+
+// Utility function for handling embed URLs
+const getEmbedUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    // Handle YouTube URLs
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
+      const videoId = urlObj.searchParams.get('v') || urlObj.pathname.slice(1);
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    // Handle Twitter/X URLs
+    if (urlObj.hostname.includes('twitter.com') || urlObj.hostname.includes('x.com')) {
+      return `https://platform.twitter.com/embed/Tweet.html?url=${encodeURIComponent(url)}`;
+    }
+    // Return original URL for direct embeds
+    return url;
+  } catch (e) {
+    console.error('Invalid URL:', e);
+    return url;
+  }
+};
+
 export default function AdminPanel() {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -114,7 +150,6 @@ export default function AdminPanel() {
           throw new Error(`Failed to fetch admin stats: ${response.statusText}`);
         }
         const data = await response.json();
-        console.log("Fetched admin stats:", data); // Debug log
         return data;
       } catch (err) {
         console.error("Error fetching admin stats:", err);
@@ -124,14 +159,6 @@ export default function AdminPanel() {
     retry: 1,
     staleTime: 30000,
   });
-
-  // Debug log for stats data
-  React.useEffect(() => {
-    if (stats) {
-      console.log("Stats data updated:", stats);
-      console.log("Carousel items:", stats.carousel);
-    }
-  }, [stats]);
 
   if (isLoading) {
     return (
@@ -150,16 +177,354 @@ export default function AdminPanel() {
           <h1 className="text-3xl font-bold">Panel de Administración</h1>
         </div>
 
-        <Tabs defaultValue="businesses" className="w-full">
+        <Tabs defaultValue="carousel" className="w-full">
           <TabsList>
+            <TabsTrigger value="carousel">Carousel</TabsTrigger>
             <TabsTrigger value="businesses">Negocios</TabsTrigger>
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="resources">Recursos</TabsTrigger>
             <TabsTrigger value="events">Eventos</TabsTrigger>
             <TabsTrigger value="users">Usuarios</TabsTrigger>
-            <TabsTrigger value="carousel">Carousel</TabsTrigger>
           </TabsList>
 
+          {/* Carousel Tab */}
+          <TabsContent value="carousel">
+            <Card>
+              <CardHeader className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Gestión del Carousel</CardTitle>
+                  <CardDescription>Administra el contenido del carousel en la página principal</CardDescription>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar Nuevo Item
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                      <DialogTitle>Agregar Item al Carousel</DialogTitle>
+                      <DialogDescription>Añade un nuevo elemento al carrusel de la página principal.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(async (data) => {
+                        try {
+                          const response = await fetch('/api/carousel', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data),
+                            credentials: 'include'
+                          });
+
+                          if (!response.ok) throw new Error('Failed to add carousel item');
+
+                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                          toast({ title: "Item agregado exitosamente" });
+                          
+                          const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                          if (closeButton) closeButton.click();
+                        } catch (error) {
+                          console.error('Error adding carousel item:', error);
+                          toast({
+                            title: "Error al agregar item",
+                            description: error instanceof Error ? error.message : "Unknown error occurred",
+                            variant: "destructive"
+                          });
+                        }
+                      })} className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Título</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Título del elemento" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="embed_url"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>URL del Embed</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="https://..." />
+                                </FormControl>
+                                <FormDescription>
+                                  Soporta URLs de YouTube, Twitter/X y enlaces directos
+                                </FormDescription>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Descripción</FormLabel>
+                              <FormControl>
+                                <Textarea {...field} placeholder="Descripción del elemento..." className="min-h-[100px]" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="active"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel className="font-normal">
+                                  Mostrar en el carousel
+                                </FormLabel>
+                                <FormDescription>
+                                  Este elemento será visible en la página principal si está activo
+                                </FormDescription>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex justify-end space-x-2">
+                          <Button type="submit" disabled={isPending}>
+                            {isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Guardando...
+                              </>
+                            ) : (
+                              <>Agregar Item</>
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+
+              <CardContent>
+                <div className="mt-6 space-y-6">
+                  {!stats?.carousel ? (
+                    <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                      <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
+                      <p className="mt-2">No hay elementos disponibles</p>
+                    </div>
+                  ) : stats.carousel.length === 0 ? (
+                    <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                      <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
+                      <p className="mt-2">No se encontraron elementos</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {stats.carousel.map((item) => (
+                        <Card key={item.id} className={cn(
+                          "transition-all duration-200",
+                          !item.active && "opacity-60"
+                        )}>
+                          <CardHeader className="relative pb-0">
+                            <div className="absolute -right-1 -top-1">
+                              <Badge variant={item.active ? "default" : "secondary"} className="rounded-lg">
+                                {item.active ? 'Activo' : 'Inactivo'}
+                              </Badge>
+                            </div>
+                            <CardTitle className="line-clamp-1">{item.title}</CardTitle>
+                            {item.description && (
+                              <CardDescription className="mt-1.5 line-clamp-2">
+                                {item.description}
+                              </CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent className="pt-4">
+                            <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden mb-4">
+                              <iframe
+                                src={getEmbedUrl(item.embed_url)}
+                                className="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            </div>
+                            <div className="space-y-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Link2 className="w-4 h-4" />
+                                <span className="truncate">{item.embed_url}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>Actualizado: {new Date(item.updated_at).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </CardContent>
+                          <CardFooter className="flex justify-end gap-2">
+                            <Dialog onOpenChange={(open) => {
+                              if (open) {
+                                setEditingItem(item);
+                              } else {
+                                setEditingItem(null);
+                              }
+                            }}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Editar
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="sm:max-w-[600px]">
+                                <DialogHeader>
+                                  <DialogTitle>Editar Item del Carousel</DialogTitle>
+                                  <DialogDescription>
+                                    Modifica los detalles del elemento seleccionado.
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <Form {...form}>
+                                  <form onSubmit={form.handleSubmit(async (data) => {
+                                    try {
+                                      const response = await fetch(`/api/carousel/${item.id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(data),
+                                        credentials: 'include'
+                                      });
+
+                                      if (!response.ok) throw new Error('Failed to update carousel item');
+
+                                      await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                      toast({ title: "Item actualizado exitosamente" });
+
+                                      const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                      if (closeButton) closeButton.click();
+                                    } catch (error) {
+                                      console.error('Error updating carousel item:', error);
+                                      toast({
+                                        title: "Error al actualizar item",
+                                        description: error instanceof Error ? error.message : "Unknown error occurred",
+                                        variant: "destructive"
+                                      });
+                                    }
+                                  })} className="space-y-6">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <FormField
+                                        control={form.control}
+                                        name="title"
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel>Título</FormLabel>
+                                            <FormControl>
+                                              <Input {...field} />
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                      <FormField
+                                        control={form.control}
+                                        name="embed_url"
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel>URL del Embed</FormLabel>
+                                            <FormControl>
+                                              <Input {...field} />
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                    </div>
+                                    <FormField
+                                      control={form.control}
+                                      name="description"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Descripción</FormLabel>
+                                          <FormControl>
+                                            <Textarea {...field} className="min-h-[100px]" />
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <FormField
+                                      control={form.control}
+                                      name="active"
+                                      render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={field.value}
+                                              onCheckedChange={field.onChange}
+                                            />
+                                          </FormControl>
+                                          <div className="space-y-1 leading-none">
+                                            <FormLabel className="font-normal">
+                                              Mostrar en el carousel
+                                            </FormLabel>
+                                            <FormDescription>
+                                              Este elemento será visible en la página principal si está activo
+                                            </FormDescription>
+                                          </div>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    <div className="flex justify-end space-x-2">
+                                      <Button type="submit" disabled={isPending}>
+                                        {isPending ? (
+                                          <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Guardando...
+                                          </>
+                                        ) : (
+                                          <>Guardar Cambios</>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </form>
+                                </Form>
+                              </DialogContent>
+                            </Dialog>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch(`/api/carousel/${item.id}`, {
+                                    method: 'DELETE',
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) throw new Error('Failed to delete carousel item');
+
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({ title: "Item eliminado exitosamente" });
+                                } catch (error) {
+                                  console.error('Error deleting carousel item:', error);
+                                  toast({
+                                    title: "Error al eliminar item",
+                                    description: error instanceof Error ? error.message : "Unknown error occurred",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                            >
+                              Eliminar
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
           {/* Businesses Tab */}
           <TabsContent value="businesses">
             <Card>
@@ -513,317 +878,6 @@ export default function AdminPanel() {
                       </div>
                     </div>
                   ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Carousel Tab */}
-          <TabsContent value="carousel">
-            <Card>
-              <CardHeader className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Gestión del Carousel</CardTitle>
-                  <CardDescription>Administra el contenido del carousel en la página principal</CardDescription>
-                </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Agregar Nuevo Item
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                      <DialogTitle>Agregar Item al Carousel</DialogTitle>
-                      <DialogDescription>Añade un nuevo elemento al carrusel de la página principal.</DialogDescription>
-                    </DialogHeader>
-                      <Form {...form}>
-                        <form onSubmit={form.handleSubmit(async (data) => {
-                          try {
-                            const response = await fetch('/api/carousel', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify(data),
-                              credentials: 'include'
-                            });
-
-                            if (!response.ok) throw new Error('Failed to add carousel item');
-
-                            await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                            toast({ title: "Item agregado exitosamente" });
-                            const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                            if (closeButton) closeButton.click();
-                          } catch (error) {
-                            console.error('Error adding carousel item:', error);
-                            toast({
-                              title: "Error al agregar item",
-                              description: error instanceof Error ? error.message : "Unknown error occurred",
-                              variant: "destructive"
-                            });
-                          }
-                        })} className="space-y-6">
-                          <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name="title"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Título</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="Título del elemento" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="embed_url"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>URL del Embed</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="https://..." />
-                                  </FormControl>
-                                  <FormDescription>
-                                    Soporta URLs de YouTube, Twitter/X y enlaces directos
-                                  </FormDescription>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          <FormField
-                            control={form.control}
-                            name="description"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Descripción</FormLabel>
-                                <FormControl>
-                                  <Textarea {...field} placeholder="Descripción del elemento..." className="min-h-[100px]" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="active"
-                            render={({ field }) => (
-                              <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                  />
-                                </FormControl>
-                                <div className="space-y-1 leading-none">
-                                  <FormLabel className="font-normal">
-                                    Mostrar en el carousel
-                                  </FormLabel>
-                                  <FormDescription>
-                                    Este elemento será visible en la página principal si está activo
-                                  </FormDescription>
-                                </div>
-                              </FormItem>
-                            )}
-                          />
-                          <div className="flex justify-end space-x-2">
-                            <Button type="submit" disabled={isPending}>
-                              {isPending ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Guardando...
-                                </>
-                              ) : (
-                                <>Agregar Item</>
-                              )}
-                            </Button>
-                          </div>
-                        </form>
-                      </Form>
-                    </DialogContent>
-                  </Dialog>
-
-                  <div className="mt-6 space-y-6">
-                    {!stats?.carousel ? (
-                      <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                        <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
-                        <p className="mt-2">No hay elementos disponibles</p>
-                      </div>
-                    ) : stats.carousel.length === 0 ? (
-                      <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                        <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
-                        <p className="mt-2">No se encontraron elementos</p>
-                      </div>
-                    ) : (
-                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {stats.carousel.map((item) => (
-                          <Card key={item.id} className={cn(
-                            "transition-all duration-200",
-                            !item.active && "opacity-60"
-                          )}>
-                            <CardHeader className="relative pb-0">
-                              <div className="absolute -right-1 -top-1">
-                                <Badge variant={item.active ? "default" : "secondary"} className="rounded-lg">
-                                  {item.active ? 'Activo' : 'Inactivo'}
-                                </Badge>
-                              </div>
-                              <CardTitle className="line-clamp-1">{item.title}</CardTitle>
-                              {item.description && (
-                                <CardDescription className="mt-1.5 line-clamp-2">
-                                  {item.description}
-                                </CardDescription>
-                              )}
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                              <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden mb-4">
-                                <iframe
-                                  src={getEmbedUrl(item.embed_url)}
-                                  className="w-full h-full"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              </div>
-                              <div className="space-y-2 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                  <Link2 className="w-4 h-4" />
-                                  <span className="truncate">{item.embed_url}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>Actualizado: {new Date(item.updated_at).toLocaleDateString()}</span>
-                                </div>
-                              </div>
-                            </CardContent>
-                            <CardFooter className="flex justify-end gap-2">
-                            <Dialog onOpenChange={(open) => {
-                              if (open) {
-                                setEditingItem(item);
-                              } else {
-                                setEditingItem(null);
-                              }
-                            }}>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Pencil className="w-4 h-4 mr-2" />
-                                  Editar
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-[600px]">
-                                <DialogHeader>
-                                  <DialogTitle>Editar Item del Carousel</DialogTitle>
-                                  <DialogDescription>
-                                    Modifica los detalles del elemento seleccionado.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <Form {...form}>
-                                  <form onSubmit={form.handleSubmit(async (data) => {
-                                    try {
-                                      const response = await fetch(`/api/carousel/${item.id}`, {
-                                        method: 'PATCH',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify(data),
-                                        credentials: 'include'
-                                      });
-
-                                      if (!response.ok) {
-                                        throw new Error('Failed to update carousel item');
-                                      }
-
-                                      await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                      
-                                      toast({
-                                        title: "Item actualizado exitosamente",
-                                        variant: "default"
-                                      });
-
-                                      const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                      if (closeButton) {
-                                        closeButton.click();
-                                      }
-                                    } catch (error) {
-                                      console.error('Error updating carousel item:', error);
-                                      toast({
-                                        title: "Error al actualizar item",
-                                        description: error instanceof Error ? error.message : "Unknown error occurred",
-                                        variant: "destructive"
-                                      });
-                                    }
-                                  })} className="space-y-4">
-                                    <FormField
-                                      control={form.control}
-                                      name="title"
-                                      defaultValue={item.title}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel>Título</FormLabel>
-                                          <FormControl>
-                                            <Input {...field} />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-                                    <FormField
-                                      control={form.control}
-                                      name="description"
-                                      defaultValue={item.description || ""}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel>Descripción</FormLabel>
-                                          <FormControl>
-                                            <Textarea {...field} />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-                                    <FormField
-                                      control={form.control}
-                                      name="embed_url"
-                                      defaultValue={item.embed_url}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel>URL del Embed</FormLabel>
-                                          <FormControl>
-                                            <Input {...field} />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-                                    <FormField
-                                      control={form.control}
-                                      name="active"
-                                      defaultValue={item.active}
-                                      render={({ field }) => (
-                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                                          <FormControl>
-                                            <Checkbox
-                                              checked={field.value}
-                                              onCheckedChange={field.onChange}
-                                            />
-                                          </FormControl>
-                                          <div className="space-y-1 leading-none">
-                                            <FormLabel>
-                                              Activo
-                                            </FormLabel>
-                                          </div>
-                                        </FormItem>
-                                      )}
-                                    />
-                                    <Button type="submit">Actualizar Item</Button>
-                                  </form>
-                                </Form>
-                              </DialogContent>
-                            </Dialog>
-                            <Button variant="destructive" size="sm">
-                              Eliminar
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                    )}
-                  </div>
                 </div>
               </CardContent>
             </Card>
