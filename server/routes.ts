@@ -4,6 +4,7 @@ import { posts, events, resources, users, comments, businesses } from "@db/schem
 import { eq, desc, sql } from "drizzle-orm";
 import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
+import { geocodeAddress } from "./utils/geocoding";
 
 export function registerRoutes(app: Express) {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
@@ -628,6 +629,25 @@ export function registerRoutes(app: Express) {
         updateData[key] === undefined && delete updateData[key]
       );
 
+      // Update coordinates if address or city changed
+      if (updateData.address || updateData.city) {
+        const currentBusiness = await db
+          .select()
+          .from(businesses)
+          .where(eq(businesses.id, businessId))
+          .limit(1);
+
+        if (currentBusiness.length > 0) {
+          const address = updateData.address || currentBusiness[0].address;
+          const city = updateData.city || currentBusiness[0].city;
+          const coordinates = await geocodeAddress(address, city);
+          if (coordinates) {
+            updateData.latitude = coordinates.latitude;
+            updateData.longitude = coordinates.longitude;
+          }
+        }
+      }
+
       const [updatedBusiness] = await db
         .update(businesses)
         .set(updateData)
@@ -723,16 +743,22 @@ export function registerRoutes(app: Express) {
     }
 
     try {
+      // Get coordinates from address
+      const coordinates = await geocodeAddress(req.body.address, req.body.city);
+      
       const [business] = await db
         .insert(businesses)
         .values({
           ...req.body,
           submittedById: req.user.id,
-          verified: false // New submissions start as unverified
+          verified: false, // New submissions start as unverified
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null
         })
         .returning();
       return res.json(business);
     } catch (error) {
+      console.error("Failed to create business:", error);
       return res.status(500).json({ error: "Failed to create business" });
     }
   });
