@@ -521,48 +521,39 @@ export default function AdminPanel() {
           {/* Carousel Tab */}
           <TabsContent value="carousel">
             <Card>
-              <CardHeader>
-                <CardTitle>Gestión del Carousel</CardTitle>
-                <CardDescription>Administra el contenido del carousel en la página principal</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">Agregar Nuevo Item</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Agregar Item al Carousel</DialogTitle>
-                      </DialogHeader>
+              <CardHeader className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Gestión del Carousel</CardTitle>
+                  <CardDescription>Administra el contenido del carousel en la página principal</CardDescription>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar Nuevo Item
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                      <DialogTitle>Agregar Item al Carousel</DialogTitle>
+                      <DialogDescription>Añade un nuevo elemento al carrusel de la página principal.</DialogDescription>
+                    </DialogHeader>
                       <Form {...form}>
                         <form onSubmit={form.handleSubmit(async (data) => {
                           try {
                             const response = await fetch('/api/carousel', {
                               method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
+                              headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify(data),
                               credentials: 'include'
                             });
 
-                            if (!response.ok) {
-                              throw new Error('Failed to add carousel item');
-                            }
+                            if (!response.ok) throw new Error('Failed to add carousel item');
 
                             await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                            
-                            toast({
-                              title: "Item agregado exitosamente",
-                              variant: "default"
-                            });
-
-                            // Close dialog
+                            toast({ title: "Item agregado exitosamente" });
                             const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                            if (closeButton) {
-                              closeButton.click();
-                            }
+                            if (closeButton) closeButton.click();
                           } catch (error) {
                             console.error('Error adding carousel item:', error);
                             toast({
@@ -571,19 +562,36 @@ export default function AdminPanel() {
                               variant: "destructive"
                             });
                           }
-                        })} className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name="title"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Título</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
+                        })} className="space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="title"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Título</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="Título del elemento" />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="embed_url"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>URL del Embed</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="https://..." />
+                                  </FormControl>
+                                  <FormDescription>
+                                    Soporta URLs de YouTube, Twitter/X y enlaces directos
+                                  </FormDescription>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                           <FormField
                             control={form.control}
                             name="description"
@@ -591,19 +599,7 @@ export default function AdminPanel() {
                               <FormItem>
                                 <FormLabel>Descripción</FormLabel>
                                 <FormControl>
-                                  <Textarea {...field} />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="embed_url"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>URL del Embed</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
+                                  <Textarea {...field} placeholder="Descripción del elemento..." className="min-h-[100px]" />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -612,7 +608,7 @@ export default function AdminPanel() {
                             control={form.control}
                             name="active"
                             render={({ field }) => (
-                              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                              <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
                                 <FormControl>
                                   <Checkbox
                                     checked={field.value}
@@ -620,55 +616,85 @@ export default function AdminPanel() {
                                   />
                                 </FormControl>
                                 <div className="space-y-1 leading-none">
-                                  <FormLabel>
-                                    Activo
+                                  <FormLabel className="font-normal">
+                                    Mostrar en el carousel
                                   </FormLabel>
+                                  <FormDescription>
+                                    Este elemento será visible en la página principal si está activo
+                                  </FormDescription>
                                 </div>
                               </FormItem>
                             )}
                           />
-                          <Button type="submit">Agregar Item</Button>
+                          <div className="flex justify-end space-x-2">
+                            <Button type="submit" disabled={isPending}>
+                              {isPending ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Guardando...
+                                </>
+                              ) : (
+                                <>Agregar Item</>
+                              )}
+                            </Button>
+                          </div>
                         </form>
                       </Form>
                     </DialogContent>
                   </Dialog>
 
-                  <div className="space-y-4">
+                  <div className="mt-6 space-y-6">
                     {!stats?.carousel ? (
-                      <div className="text-center text-muted-foreground">
-                        No carousel items available
+                      <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                        <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
+                        <p className="mt-2">No hay elementos disponibles</p>
                       </div>
                     ) : stats.carousel.length === 0 ? (
-                      <div className="text-center text-muted-foreground">
-                        No carousel items found
+                      <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                        <FolderOpen className="w-12 h-12 mx-auto text-muted-foreground/50" />
+                        <p className="mt-2">No se encontraron elementos</p>
                       </div>
                     ) : (
-                      stats.carousel.map((item) => (
-                        <div key={item.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium">{item.title}</h3>
-                            {item.description && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {item.description}
-                              </p>
-                            )}
-                            <div className="space-y-1 mt-2">
-                              <p className="text-sm text-muted-foreground">
-                                URL del Embed: {item.embed_url}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Estado: {item.active ? 'Activo' : 'Inactivo'}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Creado: {new Date(item.created_at).toLocaleDateString()}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                Actualizado: {new Date(item.updated_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="space-x-2">
+                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {stats.carousel.map((item) => (
+                          <Card key={item.id} className={cn(
+                            "transition-all duration-200",
+                            !item.active && "opacity-60"
+                          )}>
+                            <CardHeader className="relative pb-0">
+                              <div className="absolute -right-1 -top-1">
+                                <Badge variant={item.active ? "default" : "secondary"} className="rounded-lg">
+                                  {item.active ? 'Activo' : 'Inactivo'}
+                                </Badge>
+                              </div>
+                              <CardTitle className="line-clamp-1">{item.title}</CardTitle>
+                              {item.description && (
+                                <CardDescription className="mt-1.5 line-clamp-2">
+                                  {item.description}
+                                </CardDescription>
+                              )}
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                              <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden mb-4">
+                                <iframe
+                                  src={getEmbedUrl(item.embed_url)}
+                                  className="w-full h-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                              <div className="space-y-2 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Link2 className="w-4 h-4" />
+                                  <span className="truncate">{item.embed_url}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4" />
+                                  <span>Actualizado: {new Date(item.updated_at).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                            <CardFooter className="flex justify-end gap-2">
                             <Dialog onOpenChange={(open) => {
                               if (open) {
                                 setEditingItem(item);
@@ -678,12 +704,16 @@ export default function AdminPanel() {
                             }}>
                               <DialogTrigger asChild>
                                 <Button variant="outline" size="sm">
+                                  <Pencil className="w-4 h-4 mr-2" />
                                   Editar
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent>
+                              <DialogContent className="sm:max-w-[600px]">
                                 <DialogHeader>
                                   <DialogTitle>Editar Item del Carousel</DialogTitle>
+                                  <DialogDescription>
+                                    Modifica los detalles del elemento seleccionado.
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <Form {...form}>
                                   <form onSubmit={form.handleSubmit(async (data) => {
