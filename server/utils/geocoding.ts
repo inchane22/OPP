@@ -1,33 +1,46 @@
-import * as NodeGeocoder from 'node-geocoder';
+import NodeGeocoder from 'node-geocoder';
 
-const options: NodeGeocoder.Options = {
+// Define strict types for our geocoding results
+interface GeocodingResult {
+  latitude: number;
+  longitude: number;
+}
+
+// Create geocoder instance
+const geocoder = NodeGeocoder({
   provider: 'openstreetmap',
-  httpAdapter: 'https',
-  timeout: 5000
-};
+  language: 'es', // Set language to Spanish for better Peru results
+  formatter: null
+});
 
-const geocoder = NodeGeocoder.default(options);
-
-export async function geocodeAddress(address: string, city: string): Promise<{ latitude: number; longitude: number } | null> {
+export async function geocodeAddress(address: string, city: string): Promise<GeocodingResult | null> {
   if (!address || !city) {
     console.warn('Missing address or city for geocoding');
     return null;
   }
 
   try {
-    console.log(`Geocoding address: ${address}, ${city}, Peru`);
-    const results = await geocoder.geocode(`${address}, ${city}, Peru`);
+    const searchAddress = `${address}, ${city}, Peru`;
+    console.log(`Geocoding address: ${searchAddress}`);
     
-    if (results?.[0]?.latitude && results[0]?.longitude) {
-      const coords = {
-        latitude: Number(results[0].latitude),
-        longitude: Number(results[0].longitude)
+    const results = await geocoder.geocode(searchAddress);
+    
+    if (!Array.isArray(results) || results.length === 0) {
+      console.warn('No results found for address:', searchAddress);
+      return null;
+    }
+
+    const firstResult = results[0];
+    if (typeof firstResult?.latitude === 'number' && typeof firstResult?.longitude === 'number') {
+      const coords: GeocodingResult = {
+        latitude: firstResult.latitude,
+        longitude: firstResult.longitude
       };
       console.log('Geocoding successful:', coords);
       return coords;
     }
     
-    console.warn('No coordinates found for address:', address);
+    console.warn('Invalid coordinates in result for address:', searchAddress);
     return null;
   } catch (error) {
     console.error('Geocoding error:', error instanceof Error ? error.message : 'Unknown error');

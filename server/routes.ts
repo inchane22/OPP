@@ -629,23 +629,33 @@ export function registerRoutes(app: Express) {
         updateData[key] === undefined && delete updateData[key]
       );
 
-      // Update coordinates if address or city changed
-      if (updateData.address || updateData.city) {
-        const currentBusiness = await db
-          .select()
-          .from(businesses)
-          .where(eq(businesses.id, businessId))
-          .limit(1);
+      // Fetch current business data
+      const currentBusiness = await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .limit(1);
 
-        if (currentBusiness.length > 0) {
-          const address = updateData.address || currentBusiness[0].address;
-          const city = updateData.city || currentBusiness[0].city;
-          const coordinates = await geocodeAddress(address, city);
-          if (coordinates) {
-            updateData.latitude = coordinates.latitude;
-            updateData.longitude = coordinates.longitude;
-          }
+      if (currentBusiness.length === 0) {
+        return res.status(404).json({ error: "Business not found" });
+      }
+
+      // Get address information for geocoding
+      const address = updateData.address || currentBusiness[0].address;
+      const city = updateData.city || currentBusiness[0].city;
+      
+      try {
+        console.log('Attempting to geocode address:', address, city);
+        const coordinates = await geocodeAddress(address, city);
+        if (coordinates) {
+          console.log('Successfully geocoded coordinates:', coordinates);
+          updateData.latitude = coordinates.latitude;
+          updateData.longitude = coordinates.longitude;
+        } else {
+          console.warn('Could not geocode address:', address, city);
         }
+      } catch (geocodeError) {
+        console.error('Error geocoding address:', geocodeError);
       }
 
       const [updatedBusiness] = await db
