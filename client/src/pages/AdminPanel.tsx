@@ -565,10 +565,14 @@ export default function AdminPanel() {
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PATCH',
                                     headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
                                     body: JSON.stringify(data)
                                   });
                                   
-                                  if (!response.ok) throw new Error('Failed to update business');
+                                  if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.message || 'Failed to update business');
+                                  }
                                   
                                   await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                   toast({ title: "Negocio actualizado exitosamente" });
