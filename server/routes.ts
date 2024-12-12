@@ -992,49 +992,76 @@ export function registerRoutes(app: Express) {
         return;
       }
 
+      console.log('Cache miss or expired, fetching fresh price data...');
+
       const providers = [
         { name: 'Kraken', fn: fetchKrakenPrice },
+        { name: 'Bitso', fn: fetchBitsoPrice },
         { name: 'Blockchain.com', fn: fetchBlockchainPrice },
-        { name: 'CoinGecko', fn: fetchCoingeckoPrice },
-        { name: 'Bitso', fn: fetchBitsoPrice }
+        { name: 'CoinGecko', fn: fetchCoingeckoPrice }
       ];
 
+      // If cache exists but is stale, we'll use it as fallback
+      const staleCacheTimeout = 1800000; // 30 minutes
+      const hasStaleCache = priceCache.data && (now - priceCache.timestamp) < staleCacheTimeout;
+      
       let lastError: Error | null = null;
       
+      // Try each provider until we get a valid price
       for (const provider of providers) {
         try {
           console.log(`Attempting to fetch price from ${provider.name}...`);
-          const penPrice = await provider.fn();
+          const price = await provider.fn();
           
-          const response: PriceData = {
-            bitcoin: {
-              pen: penPrice,
-              provider: provider.name,
-              timestamp: now
-            }
-          };
-
-          // Update cache
-          priceCache = {
-            data: response,
-            timestamp: now,
-            ttl: 30000
-          };
-
-          // Set cache headers
-          res.set('Cache-Control', 'public, max-age=30');
-          console.log(`Successfully fetched price from ${provider.name}`);
-          res.json(response);
-          return;
+          if (price && price > 0) {
+            console.log(`Successfully fetched price from ${provider.name}`);
+            const priceData = {
+              bitcoin: {
+                pen: price,
+                provider: provider.name,
+                timestamp: Date.now()
+              }
+            };
+            
+            // Update cache
+            priceCache = {
+              data: priceData,
+              timestamp: Date.now(),
+              ttl: 300000 // 5 minutes
+            };
+            
+            res.json(priceData);
+            return;
+          }
+          
+          console.warn(`Invalid price (${price}) received from ${provider.name}`);
         } catch (error) {
-          console.error(`${provider.name} error:`, error instanceof Error ? error.message : 'Unknown error');
+          console.error(`Error fetching from ${provider.name}:`, error);
           lastError = error instanceof Error ? error : new Error('Unknown error');
           continue;
         }
       }
 
-      // If we get here, all providers failed
-      throw new Error(`All providers failed. Last error: ${lastError?.message}`);
+      // If we have stale cache, use it as fallback
+      if (hasStaleCache) {
+        console.log('All providers failed, using stale cache as fallback');
+        res.json({
+          ...priceCache.data,
+          stale: true
+        });
+        return;
+      }
+
+      // If all providers failed and no cache available
+      console.error('All providers failed and no cache available');
+      res.status(503).json({
+        error: 'Unable to fetch Bitcoin price',
+        message: 'All providers are currently unavailable',
+        details: lastError?.message || 'Unknown error'
+      });
+      return;
+        // End of provider loop - if we get here, all providers failed
+      return;
     } catch (error) {
       console.error('Bitcoin price fetch failed:', error instanceof Error ? error.message : 'Unknown error');
       res.status(503).json({
