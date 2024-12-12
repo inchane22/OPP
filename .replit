@@ -62,6 +62,10 @@ args = "Dev Server"
 task = "workflow.run"
 args = "Frontend Dev Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Server"
+
 [[workflows.workflow]]
 name = "Frontend Dev Server"
 author = "agent"
@@ -165,3 +169,18 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "vite --port 3000 --host 0.0.0.0"
 waitForPort = 3000
+
+[[workflows.workflow]]
+name = "Production Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production npm start"
+waitForPort = 3001

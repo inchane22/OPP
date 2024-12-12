@@ -176,6 +176,13 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
+  // Verify port configuration
+  const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+  logger('Production server configuration', {
+    port,
+    host: '0.0.0.0'
+  } as LogData);
+
   // Static file serving with proper path resolution for ES modules
   const publicPath = resolveFromRoot('dist/public');
   const indexPath = path.join(publicPath, 'index.html');
