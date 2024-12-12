@@ -195,17 +195,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // In production, use PORT env var or default to 5000 which Replit maps to 80
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
-  if (isNaN(port)) {
-    throw new Error(`Invalid PORT value: ${process.env.PORT}`);
-  }
+  // Use PORT env var (default: 5000)
+  // Replit will handle mapping to port 80 in production
+  // Always use port 5000 internally
+  const port = 5000;
+  const host = '0.0.0.0';
   
   logger('Production server configuration', {
-    port,
-    host: '0.0.0.0',
+    internal_port: port,
+    external_port: 80,
+    host,
     environment: process.env.NODE_ENV,
-    port_source: process.env.PORT ? 'environment' : 'default',
     production: true,
     port_mapping: 'Port 5000 mapped to 80 by Replit in production',
     deployment_target: 'cloudrun'

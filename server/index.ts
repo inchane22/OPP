@@ -85,18 +85,34 @@ app.use((req, res, next) => {
 // Ensure process.env.NODE_ENV is set
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Server configuration - Use port 5000 which Replit maps to 80 in production
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+// Server configuration
+const PORT = 5000; // Always use port 5000 internally
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
 
 // Log detailed server configuration
 log('Server initialization', {
-  port: PORT,
+  internal_port: PORT,
+  external_port: process.env.NODE_ENV === 'production' ? 80 : PORT,
   host: HOST,
   environment: process.env.NODE_ENV,
-  port_source: process.env.PORT ? 'environment' : 'default',
-  note: 'Starting server initialization'
+  note: 'Port 5000 will be mapped to 80 by Replit in production'
+});
+
+if (process.env.NODE_ENV === 'production') {
+  log('Running in production mode', {
+    port_mapping: 'Using port 5000 internally, mapped to 80 by Replit',
+    deployment_target: 'cloudrun'
+  });
+}
+
+// Enhanced error handling for port binding
+process.on('uncaughtException', (error: Error) => {
+  if (error.message.includes('EADDRINUSE')) {
+    log('Port 5000 is already in use. Please ensure no other services are using this port.');
+    process.exit(1);
+  }
+  throw error;
 });
 
 // Validate port number
