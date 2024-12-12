@@ -105,27 +105,38 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // CORS configuration with specific origins for production
   const corsOptions = {
     origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      const allowedOrigins = isProduction
-        ? ['https://orange-pill-peru.com', 'https://www.orange-pill-peru.com']
-        : ['http://localhost:3000', 'http://localhost:5000', 'http://0.0.0.0:3000', 'http://0.0.0.0:5000'];
-      
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
+      // In production, be more strict with CORS
+      if (isProduction) {
+        const allowedOrigins = [
+          'https://orange-pill-peru.com',
+          'https://www.orange-pill-peru.com',
+          'http://localhost:5000',
+          'http://0.0.0.0:5000'
+        ];
+        
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('CORS not allowed'), false);
+        }
       } else {
-        callback(null, false);
+        // In development, allow all origins
+        callback(null, true);
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
-    maxAge: 86400
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   };
 
   app.use(cors(corsOptions));
   app.use(compression());
 
-  // API-specific middleware
-  app.use('/api', (req, res, next) => {
+  // API-specific middleware with JSON parsing
+  app.use('/api', express.json(), (req, res, next) => {
     res.set({
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -142,6 +153,18 @@ export async function setupProduction(app: express.Express): Promise<void> {
     });
     
     next();
+  });
+
+  // JSON parsing error handler
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      logger('JSON Parsing Error', {
+        error: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
+      return res.status(400).json({ error: 'Invalid JSON format' });
+    }
+    next(err);
   });
 
   // Request logging with detailed error tracking
@@ -190,49 +213,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
     });
   });
 
-  // Register API routes before static file handling
-  try {
-    const { registerRoutes } = await import('./routes.js');
-    await registerRoutes(app);
-    logger('API routes registered successfully');
-  } catch (error) {
-    logger('Failed to register API routes', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    throw error;
-  }
-
-  // API Error handler (must be registered after routes but before static files)
-  app.use('/api', (error: Error, req: Request, res: Response, next: NextFunction) => {
-    let statusCode = 500;
-    let errorMessage = 'Internal Server Error';
-
-    // Handle specific types of errors
-    if (error instanceof SyntaxError && 'body' in error) {
-      statusCode = 400;
-      errorMessage = 'Invalid JSON format';
-    } else if (error instanceof Error) {
-      if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
-        statusCode = 503;
-        errorMessage = 'Service temporarily unavailable';
-      }
-    }
-
-    logger('API Error', {
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      path: req.path,
-      method: req.method,
-      statusCode
-    });
-
-    res.status(statusCode).json({
-      error: process.env.NODE_ENV === 'production' ? errorMessage : error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  });
-
   // Register API routes first
   try {
     const { registerRoutes } = await import('./routes.js');
@@ -246,20 +226,13 @@ export async function setupProduction(app: express.Express): Promise<void> {
     throw error;
   }
 
-  // API error handling middleware must come after routes
-  app.use('/api', (err: Error, req: Request, res: Response, next: NextFunction) => {
-    logger('API Error:', {
-      path: req.path,
-      error: err.message,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  // Add explicit catch-all for unhandled API routes
+  app.all('/api/*', (req, res) => {
+    logger('Unhandled API route', {
+      method: req.method,
+      path: req.path
     });
-    
-    res.status(500).json({
-      error: process.env.NODE_ENV === 'production' 
-        ? 'Internal Server Error' 
-        : err.message,
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
-    });
+    res.status(404).json({ error: 'API endpoint not found' });
   });
 
   // Static file serving with proper path resolution for ES modules
@@ -278,33 +251,31 @@ export async function setupProduction(app: express.Express): Promise<void> {
     exists: fs.existsSync(publicPath)
   } as LogData);
 
-  // Serve static files only for non-API routes
-  app.use((req, res, next) => {
+  // Serve static files with proper configuration
+  app.use(express.static(publicPath, {
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+    index: false,
+    dotfiles: 'ignore',
+    etag: true,
+    lastModified: true
+  }));
+
+  // Handle all other routes for SPA
+  app.get('*', (req, res) => {
+    // Skip API routes - they should be handled by the API router
     if (req.path.startsWith('/api/')) {
-      return next();
-    }
-    express.static(publicPath, {
-      maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
-      index: false,
-      dotfiles: 'ignore',
-      etag: true,
-      lastModified: true
-    })(req, res, next);
-  });
-
-  // SPA fallback for client-side routing (excluding API routes)
-  app.use('*', (req, res, next) => {
-    if (req.originalUrl.startsWith('/api/')) {
-      return next();
+      return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    if (!fs.existsSync(indexPath)) {
-      logger('Index file missing', { path: indexPath });
-      return res.status(500).send('Server configuration error');
-    }
-
-    logger('Serving SPA index for path', { path: req.originalUrl });
-    res.sendFile(indexPath);
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        logger('Error serving index file', { 
+          error: err.message,
+          path: indexPath
+        });
+        res.status(500).send('Server configuration error');
+      }
+    });
   });
 
   // Log successful setup completion
