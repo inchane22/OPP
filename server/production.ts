@@ -180,14 +180,16 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // In production, we use port 5000 internally, mapped to 80 by Replit
+  // In production, we always use port 5000 internally which gets mapped to 80 by Replit
   logger('Production server configuration', {
+    internal_port: 5000,
+    external_port: 80,
     port_mapping: 'Using port 5000 internally, mapped to 80 by Replit',
     deployment_target: 'cloudrun'
   } as LogData);
 
-  // Configure express to use the correct port from shared config
-  app.set('port', port);
+  // Configure express to use port 5000 in production
+  app.set('port', 5000);
   app.set('host', host);
 
   // Static file serving with proper path resolution for ES modules
