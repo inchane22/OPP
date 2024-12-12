@@ -1,4 +1,4 @@
-import express, { Response, Request } from 'express';
+import express, { Response, Request, NextFunction } from 'express';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -253,7 +253,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Serve index.html for all remaining routes (client-side routing)
-  app.get('*', (req, res) => {
+  app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) {
       return next();
     }
