@@ -38,10 +38,10 @@ function getServerConfig(): ServerConfig {
   const isDevelopment = env === 'development';
 
   // Handle port configuration
-  // In production, we always use port 80 internally as required by cloud platforms
+  // In production, we use port 5000 internally which gets mapped to port 80 by Replit
   // In development, we use the configured port or default to 3000
   const configuredPort = isProduction 
-    ? 80  // Always use port 80 in production
+    ? 5000  // Use port 5000 in production for Replit mapping
     : (envVars.PORT ? parseInt(envVars.PORT, 10) : 3000);
 
   const configuredHost = envVars.HOST || '0.0.0.0';

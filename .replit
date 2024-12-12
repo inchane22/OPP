@@ -8,7 +8,7 @@ channel = "stable-24_05"
 [deployment]
 deploymentTarget = "cloudrun"
 build = ["npm", "run", "build"]
-run = ["sh", "-c", "vite --port 3000 --host 0.0.0.0"]
+run = ["sh", "-c", "vite --port 5000 --host 0.0.0.0"]
 
 [[ports]]
 localPort = 80
