@@ -78,6 +78,10 @@ args = "Backend Production Build"
 task = "workflow.run"
 args = "TypeScript Check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Server Start"
+
 [[workflows.workflow]]
 name = "Frontend Dev Server"
 author = "agent"
@@ -135,7 +139,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run build"
+args = "npm install && NODE_ENV=production vite build && NODE_ENV=production esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"
 
 [[workflows.workflow]]
 name = "Backend Dev Server"
@@ -238,3 +242,18 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run check"
+
+[[workflows.workflow]]
+name = "Production Server Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production PORT=5000 node dist/index.js"
+waitForPort = 5000
