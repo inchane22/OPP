@@ -999,6 +999,7 @@ export function registerRoutes(app: Express) {
       if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
         throw new Error('Invalid price data structure');
       }
+
       return data.bitcoin.pen;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1010,7 +1011,7 @@ export function registerRoutes(app: Express) {
     }
   }
 
-  // Bitcoin price proxy endpoint with multiple providers and caching
+  // Bitcoin price endpoint with multiple providers and caching
   app.get("/api/bitcoin/price", async (_req, res): Promise<void> => {
     try {
       // Check cache first
@@ -1042,7 +1043,7 @@ export function registerRoutes(app: Express) {
           console.log(`Attempting to fetch price from ${provider.name}...`);
           const price = await provider.fn();
           
-          if (price && price > 0) {
+          if (price && price > 0 && isFinite(price)) {
             console.log(`Successfully fetched price from ${provider.name}`);
             const priceData = {
               bitcoin: {
@@ -1084,20 +1085,15 @@ export function registerRoutes(app: Express) {
       // If all providers failed and no cache available
       console.error('All providers failed and no cache available');
       res.status(503).json({
-        error: 'Unable to fetch Bitcoin price',
-        message: 'All providers are currently unavailable',
+        error: 'Error al obtener el precio de Bitcoin. Por favor, intente más tarde.',
         details: lastError?.message || 'Unknown error'
       });
-      return;
-        // End of provider loop - if we get here, all providers failed
-      return;
     } catch (error) {
       console.error('Bitcoin price fetch failed:', error instanceof Error ? error.message : 'Unknown error');
       res.status(503).json({
-        error: "Failed to fetch Bitcoin price",
+        error: 'Error al obtener el precio de Bitcoin. Por favor, intente más tarde.',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
-      return;
     }
   });
 

@@ -153,10 +153,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // API routes should be registered before static file serving
-  // This ensures API requests are handled correctly and don't get caught by the static middleware
-  app.use('/api/*', (req, res, next) => {
-    // Log API request
+  // Configure API routes first
+  app.use('/api', (req, res, next) => {
     logger('API Request', {
       method: req.method,
       path: req.path,
@@ -166,20 +164,21 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // API routes should be handled before static files
-  app.use('/api/*', (req, res, next) => {
-    // Log API request
-    logger('API Request', {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      headers: req.headers
+  // Import and register API routes
+  try {
+    const { registerRoutes } = await import('./routes.js');
+    await registerRoutes(app);
+    logger('API routes registered successfully');
+  } catch (error) {
+    logger('Failed to register API routes', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
-    next();
-  });
+    throw error;
+  }
 
-  // Error handling for API routes
-  app.use('/api/*', (error: Error, req: Request, res: Response, next: Function) => {
+  // API Error handler (must be registered after routes but before static files)
+  app.use('/api', (error: Error, req: Request, res: Response, next: NextFunction) => {
     logger('API Error', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
@@ -208,21 +207,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
     exists: fs.existsSync(publicPath)
   } as LogData);
 
-  // Serve static files for non-API routes
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-      return next();
-    }
-    express.static(publicPath, {
-      maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
-      etag: true,
-      index: false // We'll handle serving index.html manually
-    })(req, res, next);
-  });
+  // Serve static files (excluding API routes)
+  app.use(express.static(publicPath, {
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+    etag: true,
+    index: false, // We'll handle serving index.html manually
+  }));
 
-  // Serve index.html for all remaining routes (client-side routing)
+  // Serve index.html for client-side routing (excluding API routes)
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api/')) {
+    // Skip API routes
+    if (req.path.startsWith('/api')) {
       return next();
     }
     
@@ -233,7 +228,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
       } as LogData);
       return res.status(500).json({ error: 'Internal Server Error - Missing index file' });
     }
-    return res.sendFile(indexPath);
+    
+    res.sendFile(indexPath);
   });
 
   // Log successful setup completion
