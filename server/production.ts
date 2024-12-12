@@ -183,12 +183,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // In production, we always use port 5000 internally which gets mapped to 80 by Replit
   logger('Production server configuration', {
     internal_port: PORT,
-    external_port: 80,
-    port_source: 'environment',
-    production: isProduction,
-    port_mapping: 'Port 5000 mapped to 80 by Replit in production',
-    deployment_target: 'cloudrun'
-  } as LogData);
+    external_port: PORT,
+      port_source: process.env.NODE_ENV === 'production' ? 'production_default' : 'environment',
+      production: isProduction,
+      port_mapping: process.env.NODE_ENV === 'production' 
+        ? 'Using internal port 80 for production deployment'
+        : 'Using configurable port for development',
+      deployment_target: 'cloudrun'
+    } as LogData);
 
   // Configure express to use PORT in production
   app.set('port', PORT);
