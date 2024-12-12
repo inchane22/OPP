@@ -8,7 +8,7 @@ import cors from 'cors';
 import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { serverConfig, port as PORT, host as HOST, env, isProduction } from './config.js';
+import { serverConfig, PORT, HOST, env, isProduction } from './config.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);

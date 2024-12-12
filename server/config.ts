@@ -51,10 +51,9 @@ function getServerConfig(): ServerConfig {
   });
 }
 
-// Export singleton config instance
+// Export singleton config instance with type-safe configuration
 export const serverConfig = Object.freeze({
   ...getServerConfig(),
-  // Add utility method for debugging
   toString: () => JSON.stringify({
     port: serverConfig.port,
     host: serverConfig.host,
@@ -65,17 +64,15 @@ export const serverConfig = Object.freeze({
       ? 'Using port 5000 internally, mapped to 80 by Replit in production'
       : 'Using direct port mapping'
   }, null, 2)
-});
+}) as ServerConfig & { toString: () => string };
 
-// Export individual config values for convenience
-export const {
-  port,
-  host,
-  env,
-  isProduction,
-  isDevelopment
-} = serverConfig;
+// Export configuration values
+export const port = serverConfig.port;
+export const host = serverConfig.host;
+export const env = serverConfig.env;
+export const isProduction = serverConfig.isProduction;
+export const isDevelopment = serverConfig.isDevelopment;
 
-// Export PORT and HOST constants for compatibility
-export const PORT: number = serverConfig.port;
-export const HOST: string = serverConfig.host;
+// Constants for better compatibility and type safety
+export const PORT = port;
+export const HOST = host;
