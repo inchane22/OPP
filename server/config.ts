@@ -66,13 +66,17 @@ export const serverConfig = Object.freeze({
   }, null, 2)
 }) as ServerConfig & { toString: () => string };
 
-// Export configuration values
-export const port = serverConfig.port;
-export const host = serverConfig.host;
+// Export configuration values as constants
+export const PORT: number = serverConfig.port;
+export const HOST: string = serverConfig.host;
 export const env = serverConfig.env;
 export const isProduction = serverConfig.isProduction;
 export const isDevelopment = serverConfig.isDevelopment;
 
-// Constants for better compatibility and type safety
-export const PORT = port;
-export const HOST = host;
+// Type-safe constants for compatibility
+export type { ServerConfig };
+export { Environment };
+
+// Ensure these values are readonly
+Object.freeze(PORT);
+Object.freeze(HOST);
