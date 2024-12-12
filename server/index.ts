@@ -8,7 +8,7 @@ import cors from 'cors';
 import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { serverConfig, port, host, env, isProduction } from './config.js';
+import { serverConfig, port as PORT, host as HOST, env, isProduction } from './config.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -24,7 +24,7 @@ function log(message: string, data: Record<string, any> = {}) {
     minute: "2-digit",
     second: "2-digit",
   });
-  console.log(`[${formattedTime}] ${message}`, data);
+  console.log(`[${formattedTime}] ${message}`, JSON.stringify(data, null, 2));
 }
 
 const app = express();
@@ -87,24 +87,24 @@ app.use((req, res, next) => {
 let server: ReturnType<typeof createServer> | null = null;
 
 // Set port and host in Express app
-app.set('port', port);
-app.set('host', host);
+app.set('port', PORT);
+app.set('host', HOST);
 
 // Log server configuration
 log('Server initialization', {
-  port,
-  host,
+  port: PORT,
+  host: HOST,
   environment: env,
   production: isProduction,
   config: serverConfig.toString()
 });
 
 // Validate port configuration
-if (!port || isNaN(port) || port <= 0) {
+if (!PORT || isNaN(PORT) || PORT <= 0) {
   log('Invalid port configuration', {
-    port,
-    type: typeof port,
-    is_nan: isNaN(port),
+    port: PORT,
+    type: typeof PORT,
+    is_nan: isNaN(PORT),
     port_env: process.env.PORT
   });
   process.exit(1);
@@ -112,8 +112,8 @@ if (!port || isNaN(port) || port <= 0) {
 
 // Log port validation success
 log('Port configuration validated', {
-  port,
-  host,
+  port: PORT,
+  host: HOST,
   environment: process.env.NODE_ENV
 });
 
@@ -127,21 +127,21 @@ if (process.env.NODE_ENV === 'production') {
 // Enhanced error handling for port binding
 process.on('uncaughtException', (error: Error) => {
   if (error.message.includes('EADDRINUSE')) {
-    log(`Port ${port} is already in use. Please ensure no other services are using this port.`);
+    log(`Port ${PORT} is already in use. Please ensure no other services are using this port.`);
     process.exit(1);
   }
   throw error;
 });
 
-console.log(`Attempting to start server on ${host}:${port}`);
+console.log(`Attempting to start server on ${HOST}:${PORT}`);
 
 // Function to handle port binding errors
 const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
   if (error.code === 'EACCES') {
-    log('Port requires elevated privileges', { port });
+    log('Port requires elevated privileges', { port: PORT });
     process.exit(1);
   } else if (error.code === 'EADDRINUSE') {
-    log('Port is already in use', { port });
+    log('Port is already in use', { port: PORT });
     await cleanup();
     process.exit(1);
   } else {
@@ -289,9 +289,9 @@ async function init() {
         }
 
         const actualPort = typeof addr === 'string' ? addr : addr.port;
-        console.log(`Server is now listening on ${host}:${actualPort}`);
+        console.log(`Server is now listening on ${HOST}:${actualPort}`);
         log('Server started successfully', {
-          host,
+          host: HOST,
           port: actualPort,
           env,
           production: isProduction,
@@ -307,28 +307,28 @@ async function init() {
       server.once('listening', onListening);
       
       // Attempt to start the server
-      console.log(`Starting server on ${host}:${port}`);
+      console.log(`Starting server on ${HOST}:${PORT}`);
       log('Binding server...', { 
-        host,
-        port,
+        host: HOST,
+        port: PORT,
         env,
         production: isProduction,
         port_env: process.env.PORT
       });
       
       try {
-        server.listen(port, host);
+        server.listen(PORT, HOST);
         log('Server binding successful', { 
-          port, 
-          host,
+          port: PORT, 
+          host: HOST,
           environment: env,
           production: isProduction
         });
       } catch (error) {
         log('Server binding failed', { 
           error: error instanceof Error ? error.message : 'Unknown error',
-          port,
-          host,
+          port: PORT,
+          host: HOST,
           environment: env
         });
         reject(error);

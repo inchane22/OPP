@@ -75,3 +75,7 @@ export const {
   isProduction,
   isDevelopment
 } = serverConfig;
+
+// Export PORT and HOST constants for compatibility
+export const PORT: number = serverConfig.port;
+export const HOST: string = serverConfig.host;

@@ -29,6 +29,8 @@
       "db/*": ["./db/*"]
     },
     "forceConsistentCasingInFileNames": true,
-    "useUnknownInCatchVariables": false
+    "useUnknownInCatchVariables": false,
+    "allowSyntheticDefaultImports": true,
+    "strictNullChecks": true
   }
 }
