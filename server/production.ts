@@ -195,16 +195,15 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Use PORT env var (default: 5000)
-  // Replit will handle mapping to port 80 in production
-  // Always use port 5000 internally
-  const port = 5000;
-  const host = '0.0.0.0';
+  // In production, always use port 5000 internally
+  // Replit will handle mapping to port 80 via deployment config
+  const serverPort = 5000;
+  const serverHost = '0.0.0.0';
   
   logger('Production server configuration', {
-    internal_port: port,
+    internal_port: serverPort,
     external_port: 80,
-    host,
+    host: serverHost,
     environment: process.env.NODE_ENV,
     production: true,
     port_mapping: 'Port 5000 mapped to 80 by Replit in production',
@@ -273,9 +272,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Define host constant
-  const HOST = '0.0.0.0';
-
   // Serve index.html for client-side routing
   app.get('*', (req, res) => {
     // Ensure the file exists before sending
@@ -292,8 +288,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Log successful setup completion
   logger('Production server setup completed', {
-    port,
-    host: HOST,
+    port: serverPort,
+    host: serverHost,
     static_path: publicPath,
     environment: process.env.NODE_ENV
   } as LogData);

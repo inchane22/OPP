@@ -85,10 +85,14 @@ app.use((req, res, next) => {
 // Ensure process.env.NODE_ENV is set
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Server configuration
-const PORT = 5000; // Always use port 5000 internally
+// Server configuration - Always use port 5000 internally, with type safety
+const PORT = 5000; // Force port 5000 internally
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
+
+// Set port and host in Express app (used by production setup)
+app.set('port', PORT);
+app.set('host', HOST);
 
 // Log detailed server configuration
 log('Server initialization', {
@@ -96,7 +100,27 @@ log('Server initialization', {
   external_port: process.env.NODE_ENV === 'production' ? 80 : PORT,
   host: HOST,
   environment: process.env.NODE_ENV,
+  node_env: process.env.NODE_ENV,
+  port_env: process.env.PORT,
   note: 'Port 5000 will be mapped to 80 by Replit in production'
+});
+
+// Validate port number
+if (typeof PORT !== 'number' || isNaN(PORT) || PORT <= 0) {
+  log('Invalid port configuration', {
+    port: PORT,
+    type: typeof PORT,
+    is_nan: isNaN(PORT),
+    port_env: process.env.PORT
+  });
+  process.exit(1);
+}
+
+// Log port validation success
+log('Port configuration validated', {
+  port: PORT,
+  host: HOST,
+  environment: process.env.NODE_ENV
 });
 
 if (process.env.NODE_ENV === 'production') {
@@ -316,10 +340,28 @@ async function init() {
       log('Binding server...', { 
         host: HOST, 
         port: PORT,
-        env: process.env.NODE_ENV
+        env: process.env.NODE_ENV,
+        node_env: process.env.NODE_ENV,
+        port_env: process.env.PORT
       });
       
-      server.listen(PORT, HOST);
+      // Use the error-first callback pattern for proper error handling
+      server.listen(PORT, HOST, (error?: Error) => {
+        if (error) {
+          log('Server binding failed', { 
+            error: error.message,
+            port: PORT,
+            host: HOST
+          });
+          reject(error);
+          return;
+        }
+        log('Server binding successful', { 
+          port: PORT, 
+          host: HOST,
+          production: process.env.NODE_ENV === 'production'
+        });
+      });
     });
 
     log('Server started successfully');
