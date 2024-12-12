@@ -86,27 +86,30 @@ app.use((req, res, next) => {
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Server configuration - Use port 5000 which Replit maps to 80 in production
-const PORT = 5000;
-
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 5000;
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
 
-// Log initial port configuration
-log('Initial port configuration', {
-  port: PORT,
-  environment: process.env.NODE_ENV,
-  port_source: 'environment-based',
-  host: HOST,
-  note: 'Using port 80 for production, 3000 for development'
-});
-
-// Log port configuration
-log('Server configuration', {
+// Log detailed server configuration
+log('Server initialization', {
   port: PORT,
   host: HOST,
   environment: process.env.NODE_ENV,
   port_source: process.env.PORT ? 'environment' : 'default',
-  note: `Server will listen on port ${PORT}`
+  note: 'Starting server initialization'
+});
+
+// Validate port number
+if (isNaN(PORT) || PORT <= 0) {
+  console.error('Invalid port configuration');
+  process.exit(1);
+}
+
+console.log(`Attempting to start server on ${HOST}:${PORT}`);
+log('Port configuration validated', {
+  port: PORT,
+  host: HOST,
+  environment: process.env.NODE_ENV
 });
 
 // Function to handle port binding errors
@@ -223,15 +226,26 @@ async function init() {
     // Start server with enhanced error handling
     await new Promise<void>((resolve, reject) => {
       if (!server) {
+        console.error('Server instance is null');
         reject(new Error('Server instance is null'));
         return;
       }
 
       const onError = async (error: NodeJS.ErrnoException) => {
+        console.error('Server error occurred:', error);
+        log('Server error details:', {
+          error: error.message,
+          code: error.code,
+          syscall: error.syscall,
+          address: error.address,
+          port: error.port
+        });
+
         try {
           await handlePortError(error);
         } catch (err) {
-          log('Fatal server error:', {
+          console.error('Fatal server error:', err);
+          log('Fatal server error details:', {
             error: err instanceof Error ? err.message : 'Unknown error',
             code: error.code,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -242,27 +256,47 @@ async function init() {
 
       const onListening = () => {
         const addr = server!.address();
-        const actualPort = typeof addr === 'string' ? addr : addr?.port;
+        if (!addr) {
+          console.error('Failed to get server address');
+          reject(new Error('Failed to get server address'));
+          return;
+        }
+
+        const actualPort = typeof addr === 'string' ? addr : addr.port;
         console.log(`Server is now listening on ${HOST}:${actualPort}`);
-        log(`Server listening on port ${actualPort}`, {
+        log('Server started successfully', {
           host: HOST,
           port: actualPort,
-          env: process.env.NODE_ENV
+          env: process.env.NODE_ENV,
+          address: addr
         });
+        
         server!.removeListener('error', onError);
         resolve();
       };
 
+      // Handle uncaught exceptions
       process.on('uncaughtException', (error) => {
         console.error('Uncaught Exception:', error);
+        log('Uncaught exception details:', {
+          error: error.message,
+          stack: error.stack
+        });
         cleanup().then(() => process.exit(1));
       });
 
+      // Bind error and listening handlers
       server.once('error', onError);
       server.once('listening', onListening);
       
-      log('Attempting to bind server...', { host: HOST, port: PORT });
+      // Attempt to start the server
       console.log(`Starting server on ${HOST}:${PORT}`);
+      log('Binding server...', { 
+        host: HOST, 
+        port: PORT,
+        env: process.env.NODE_ENV
+      });
+      
       server.listen(PORT, HOST);
     });
 

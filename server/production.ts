@@ -177,14 +177,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Use port 5000 which Replit maps to 80 in production
-  const port = 5000;
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
   logger('Production server configuration', {
     port,
     host: '0.0.0.0',
     environment: process.env.NODE_ENV,
-    port_source: 'replit-mapped',
+    port_source: process.env.PORT ? 'environment' : 'default',
     production: true,
-    note: 'Using port 5000 (mapped to 80 by Replit in production)'
+    note: `Using port ${port} (mapped to 80 by Replit in production)`
   } as LogData);
 
   // Static file serving with proper path resolution for ES modules

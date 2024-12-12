@@ -66,6 +66,14 @@ args = "Frontend Dev Server"
 task = "workflow.run"
 args = "Production Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend Production Build"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend Production Build"
+
 [[workflows.workflow]]
 name = "Frontend Dev Server"
 author = "agent"
@@ -182,5 +190,33 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=production npm run build && NODE_ENV=production node dist/index.js"
+args = "npm install && NODE_ENV=production PORT=5000 vite build && NODE_ENV=production PORT=5000 esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && NODE_ENV=production PORT=5000 node dist/index.js"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Frontend Production Build"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production vite build"
+
+[[workflows.workflow]]
+name = "Backend Production Build"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"
