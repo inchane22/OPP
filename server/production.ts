@@ -48,56 +48,24 @@ type CustomResponse = Response & {
 
 export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize database connection
-  const initializeDatabase = async (): Promise<void> => {
-    const retries = 5;
-    const retryDelay = 2000;
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        logger('Attempting database connection', { 
-          attempt,
-          max_retries: retries,
-          delay: retryDelay 
-        } as LogData);
-        
-        const db = DatabasePool.getInstance();
-        await db.getPool();
-        
-        logger('Database connection initialized successfully', { 
-          attempt,
-          status: 'connected' 
-        } as LogData);
-        return;
-      } catch (error) {
-        logger('Database connection attempt failed', {
-          attempt,
-          remaining_attempts: retries - attempt,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
-        } as LogData);
-
-        if (attempt === retries) {
-          logger('All database connection attempts exhausted', {
-            total_attempts: retries,
-            final_error: error instanceof Error ? error.message : 'Unknown error'
-          } as LogData);
-          throw new Error('Failed to initialize database after all retries');
-        }
-
-        logger('Waiting before next connection attempt', {
-          delay_ms: retryDelay,
-          next_attempt: attempt + 1
-        } as LogData);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  };
-
   try {
+    logger('Starting database initialization', {
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    } as LogData);
+    
+    // Import and initialize database
+    const { initializeDatabase } = await import('../db/index.js');
     await initializeDatabase();
+    
+    logger('Database initialized successfully', {
+      timestamp: new Date().toISOString()
+    } as LogData);
   } catch (error) {
-    logger('Failed to initialize database after all retries', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger('Failed to initialize database', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined,
+      timestamp: new Date().toISOString()
     } as LogData);
     process.exit(1);
   }

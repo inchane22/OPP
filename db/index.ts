@@ -1,34 +1,36 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import pg from "pg";
 import * as schema from "./schema";
 import { logger } from "../server/utils/logger";
+import { DatabasePool } from '../server/db/pool';
 
-const { Pool } = pg;
+// Initialize database connection
+export async function initializeDatabase() {
+  try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+    }
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+    // Get database pool instance and initialize it
+    const dbPool = DatabasePool.getInstance();
+    const pool = await dbPool.getPool();
+    
+    // Create drizzle instance
+    const db = drizzle(pool, { schema });
+    
+    logger('Database initialized successfully', {
+      timestamp: new Date().toISOString()
+    });
+
+    // Setup cleanup handlers
+    DatabasePool.setupCleanup();
+    
+    return db;
+  } catch (error) {
+    logger('Failed to initialize database', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+    throw error;
+  }
 }
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
-  keepAlive: true,
-  keepAliveInitialDelayMillis: 10000
-});
-
-pool.on('error', (err) => {
-  logger('Unexpected error on idle client', { error: err.message });
-});
-
-export const db = drizzle(pool, { schema });
-
-// Verify database connection
-pool.connect()
-  .then(() => logger('Database connection verified'))
-  .catch(err => {
-    logger('Failed to connect to database', { error: err.message });
-    process.exit(1);
-  });
