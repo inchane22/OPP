@@ -8,6 +8,7 @@ import cors from 'cors';
 import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { serverConfig, port, host, env, isProduction } from './config.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -23,7 +24,7 @@ function log(message: string, data: Record<string, any> = {}) {
     minute: "2-digit",
     second: "2-digit",
   });
-  console.log(`[${formattedTime}] ${message}`);
+  console.log(`[${formattedTime}] ${message}`, data);
 }
 
 const app = express();
@@ -82,9 +83,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Import server configuration
-import { serverConfig, port, host, env, isProduction } from './config.js';
-
 // Initialize server
 let server: ReturnType<typeof createServer> | null = null;
 
@@ -135,18 +133,7 @@ process.on('uncaughtException', (error: Error) => {
   throw error;
 });
 
-// Validate port number
-if (isNaN(port) || port <= 0) {
-  console.error('Invalid port configuration');
-  process.exit(1);
-}
-
 console.log(`Attempting to start server on ${host}:${port}`);
-log('Port configuration validated', {
-  port,
-  host,
-  environment: process.env.NODE_ENV
-});
 
 // Function to handle port binding errors
 const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
@@ -201,9 +188,7 @@ async function init() {
     const { db } = await import('../db/index.js');
     try {
       log('Attempting to connect to database...');
-      console.log('Database URL format:', process.env.DATABASE_URL ? 'Present' : 'Missing');
       const result = await db.execute(sql`SELECT 1`);
-      console.log('Database test query result:', result);
       log('Database connection established successfully');
     } catch (error) {
       console.error('Detailed database connection error:', error);
@@ -316,16 +301,6 @@ async function init() {
         server!.removeListener('error', onError);
         resolve();
       };
-
-      // Handle uncaught exceptions
-      process.on('uncaughtException', (error) => {
-        console.error('Uncaught Exception:', error);
-        log('Uncaught exception details:', {
-          error: error.message,
-          stack: error.stack
-        });
-        cleanup().then(() => process.exit(1));
-      });
 
       // Bind error and listening handlers
       server.once('error', onError);

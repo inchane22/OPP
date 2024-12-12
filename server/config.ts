@@ -4,6 +4,13 @@ import { z } from 'zod';
 const Environment = z.enum(['development', 'production', 'test']);
 type Environment = z.infer<typeof Environment>;
 
+// Environment variable types
+const EnvVarSchema = z.object({
+  PORT: z.string().optional(),
+  HOST: z.string().optional(),
+  NODE_ENV: z.string().optional(),
+});
+
 // Server configuration schema with validation
 const ServerConfigSchema = z.object({
   port: z.number().default(5000).describe('Internal server port'),
@@ -15,11 +22,15 @@ const ServerConfigSchema = z.object({
 
 // Export the type for use in other files
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
+export type EnvVars = z.infer<typeof EnvVarSchema>;
 
 // Parse and validate configuration
 function getServerConfig(): ServerConfig {
+  // Parse environment variables
+  const envVars = EnvVarSchema.parse(process.env);
+  
   // Ensure NODE_ENV is set
-  process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+  process.env.NODE_ENV = envVars.NODE_ENV || 'development';
   
   const env = Environment.parse(process.env.NODE_ENV);
   const isProduction = env === 'production';
@@ -28,11 +39,12 @@ function getServerConfig(): ServerConfig {
   // Handle port configuration
   // In production, we use port 5000 internally which gets mapped to 80 by Replit
   // In development, we use the configured port (default: 5000)
-  const configuredPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+  const configuredPort = envVars.PORT ? parseInt(envVars.PORT, 10) : 5000;
+  const configuredHost = envVars.HOST || '0.0.0.0';
   
   return ServerConfigSchema.parse({
-    port: configuredPort, // Always use the configured port (5000 in production)
-    host: '0.0.0.0',
+    port: configuredPort,
+    host: configuredHost,
     env,
     isProduction,
     isDevelopment,
