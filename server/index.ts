@@ -82,21 +82,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Server configuration
-const PORT = process.env.NODE_ENV === 'production' 
-  ? Number(process.env.PORT || 3001)
-  : Number(process.env.PORT || 5000);
-const HOST = '0.0.0.0';
-let server: ReturnType<typeof createServer> | null = null;
-
 // Ensure process.env.NODE_ENV is set
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Server configuration - Use port 80 for production, 3000 for development
+const PORT = process.env.NODE_ENV === 'production' ? 80 : 3000;
+const HOST = '0.0.0.0';
+let server: ReturnType<typeof createServer> | null = null;
 
 // Log port configuration
 log('Server configuration', {
   port: PORT,
   host: HOST,
-  environment: process.env.NODE_ENV
+  environment: process.env.NODE_ENV,
+  port_source: 'environment-based'
 });
 
 // Cleanup function

@@ -176,11 +176,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Verify port configuration
-  const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+  // Use port 80 for production as required by Replit
+  const port = 80;
   logger('Production server configuration', {
     port,
-    host: '0.0.0.0'
+    host: '0.0.0.0',
+    environment: process.env.NODE_ENV,
+    port_source: 'production-fixed',
+    production: true
   } as LogData);
 
   // Static file serving with proper path resolution for ES modules
