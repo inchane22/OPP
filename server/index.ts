@@ -124,15 +124,6 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Enhanced error handling for port binding
-process.on('uncaughtException', (error: Error) => {
-  if (error.message.includes('EADDRINUSE')) {
-    log(`Port ${PORT} is already in use. Please ensure no other services are using this port.`);
-    process.exit(1);
-  }
-  throw error;
-});
-
 console.log(`Attempting to start server on ${HOST}:${PORT}`);
 
 // Function to handle port binding errors
@@ -319,7 +310,7 @@ async function init() {
       try {
         server.listen(PORT, HOST);
         log('Server binding successful', { 
-          port: PORT, 
+          port: PORT,
           host: HOST,
           environment: env,
           production: isProduction
