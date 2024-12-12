@@ -102,18 +102,49 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
   app.use(limiter);
 
-  // CORS configuration
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
+  // CORS configuration with specific origins for production
+  const corsOptions = {
+    origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+      const allowedOrigins = isProduction
+        ? ['https://orange-pill-peru.com', 'https://www.orange-pill-peru.com']
+        : ['http://localhost:3000', 'http://localhost:5000', 'http://0.0.0.0:3000', 'http://0.0.0.0:5000'];
+      
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-  }));
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+    maxAge: 86400
+  };
 
-  // Compression
+  app.use(cors(corsOptions));
   app.use(compression());
 
-  // Request logging
+  // API-specific middleware
+  app.use('/api', (req, res, next) => {
+    res.set({
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
+    
+    logger('API Request', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      headers: req.headers
+    });
+    
+    next();
+  });
+
+  // Request logging with detailed error tracking
   app.use((req: CustomRequest, res: CustomResponse, next) => {
     req._startTime = Date.now();
     const cleanup = () => {
@@ -129,7 +160,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
         method: req.method,
         path: req.path,
         statusCode: res.statusCode,
-        responseTime
+        responseTime,
+        isApiRoute: req.path.startsWith('/api/')
       });
     };
 
@@ -138,7 +170,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
       logger('Request error', {
         method: req.method,
         path: req.path,
-        error: error.message
+        error: error.message,
+        stack: isProduction ? undefined : error.stack
       });
     };
 
@@ -150,21 +183,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Health check endpoint
   app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  // Configure API routes first
-  app.use('/api', (req, res, next) => {
-    logger('API Request', {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      headers: req.headers
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV
     });
-    next();
   });
 
-  // Import and register API routes
+  // Register API routes before static file handling
   try {
     const { registerRoutes } = await import('./routes.js');
     await registerRoutes(app);
@@ -179,15 +205,60 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // API Error handler (must be registered after routes but before static files)
   app.use('/api', (error: Error, req: Request, res: Response, next: NextFunction) => {
+    let statusCode = 500;
+    let errorMessage = 'Internal Server Error';
+
+    // Handle specific types of errors
+    if (error instanceof SyntaxError && 'body' in error) {
+      statusCode = 400;
+      errorMessage = 'Invalid JSON format';
+    } else if (error instanceof Error) {
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
+        statusCode = 503;
+        errorMessage = 'Service temporarily unavailable';
+      }
+    }
+
     logger('API Error', {
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       path: req.path,
-      method: req.method
+      method: req.method,
+      statusCode
     });
 
+    res.status(statusCode).json({
+      error: process.env.NODE_ENV === 'production' ? errorMessage : error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  });
+
+  // Register API routes first
+  try {
+    const { registerRoutes } = await import('./routes.js');
+    await registerRoutes(app);
+    logger('API routes registered successfully');
+  } catch (error) {
+    logger('Failed to register API routes', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    throw error;
+  }
+
+  // API error handling middleware must come after routes
+  app.use('/api', (err: Error, req: Request, res: Response, next: NextFunction) => {
+    logger('API Error:', {
+      path: req.path,
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+    
     res.status(500).json({
-      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Internal Server Error' 
+        : err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   });
 
@@ -207,28 +278,32 @@ export async function setupProduction(app: express.Express): Promise<void> {
     exists: fs.existsSync(publicPath)
   } as LogData);
 
-  // Serve static files (excluding API routes)
-  app.use(express.static(publicPath, {
-    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
-    etag: true,
-    index: false, // We'll handle serving index.html manually
-  }));
-
-  // Serve index.html for client-side routing (excluding API routes)
-  app.get('*', (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith('/api')) {
+  // Serve static files only for non-API routes
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
       return next();
     }
-    
-    if (!fs.existsSync(indexPath)) {
-      logger('Index file not found', {
-        path: indexPath,
-        publicPath
-      } as LogData);
-      return res.status(500).json({ error: 'Internal Server Error - Missing index file' });
+    express.static(publicPath, {
+      maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+      index: false,
+      dotfiles: 'ignore',
+      etag: true,
+      lastModified: true
+    })(req, res, next);
+  });
+
+  // SPA fallback for client-side routing (excluding API routes)
+  app.use('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api/')) {
+      return next();
     }
-    
+
+    if (!fs.existsSync(indexPath)) {
+      logger('Index file missing', { path: indexPath });
+      return res.status(500).send('Server configuration error');
+    }
+
+    logger('Serving SPA index for path', { path: req.originalUrl });
     res.sendFile(indexPath);
   });
 

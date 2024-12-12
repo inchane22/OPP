@@ -175,7 +175,9 @@ async function init() {
   try {
     log('Starting server initialization...', {
       timestamp: new Date().toISOString(),
-      env: process.env.NODE_ENV
+      env: process.env.NODE_ENV,
+      port: PORT,
+      host: HOST
     });
     
     // Initialize database
