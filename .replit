@@ -139,7 +139,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm install && NODE_ENV=production vite build && NODE_ENV=production esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"
+args = "NODE_ENV=production npm run build"
 
 [[workflows.workflow]]
 name = "Backend Dev Server"

@@ -180,21 +180,49 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // In production, we always use port 5000 internally which gets mapped to 80 by Replit
-  logger('Production server configuration', {
-    internal_port: PORT,
-    external_port: PORT,
-      port_source: process.env.NODE_ENV === 'production' ? 'production_default' : 'environment',
-      production: isProduction,
-      port_mapping: process.env.NODE_ENV === 'production' 
-        ? 'Using internal port 80 for production deployment'
-        : 'Using configurable port for development',
-      deployment_target: 'cloudrun'
-    } as LogData);
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
 
-  // Configure express to use PORT in production
-  app.set('port', PORT);
-  app.set('host', HOST);
+  // API routes should be registered before static file serving
+  // This ensures API requests are handled correctly and don't get caught by the static middleware
+  app.use('/api/*', (req, res, next) => {
+    // Log API request
+    logger('API Request', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      headers: req.headers
+    });
+    next();
+  });
+
+  // API routes should be handled before static files
+  app.use('/api/*', (req, res, next) => {
+    // Log API request
+    logger('API Request', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      headers: req.headers
+    });
+    next();
+  });
+
+  // Error handling for API routes
+  app.use('/api/*', (error: Error, req: Request, res: Response, next: Function) => {
+    logger('API Error', {
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      path: req.path,
+      method: req.method
+    });
+
+    res.status(500).json({
+      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
+    });
+  });
 
   // Static file serving with proper path resolution for ES modules
   const publicPath = resolveFromRoot('dist/public');
@@ -212,55 +240,24 @@ export async function setupProduction(app: express.Express): Promise<void> {
     exists: fs.existsSync(publicPath)
   } as LogData);
 
-  app.use(express.static(publicPath, {
-    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
-    etag: true,
-    index: false // We'll handle serving index.html manually
-  }));
-
-  // Error handling
-  app.use((error: Error, req: Request, res: Response, next: Function) => {
-    const errorData: Record<string, any> = {
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      path: req.path,
-      method: req.method
-    };
-
-    logger('Error occurred', errorData as LogData);
-
-    res.status(500).json({
-      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
-    });
-  });
-
-  // Cleanup on shutdown
-  const cleanup = async (): Promise<never> => {
-    try {
-      logger('Shutting down gracefully', {
-        environment: process.env.NODE_ENV
-      } as LogData);
-      await DatabasePool.end();
-      process.exit(0);
-    } catch (error) {
-      logger('Error during shutdown', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      } as LogData);
-      process.exit(1);
+  // Serve static files for non-API routes
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      return next();
     }
-  };
-
-  process.on('SIGTERM', cleanup);
-  process.on('SIGINT', cleanup);
-
-  // Health check endpoint
-  app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    express.static(publicPath, {
+      maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+      etag: true,
+      index: false // We'll handle serving index.html manually
+    })(req, res, next);
   });
 
-  // Serve index.html for client-side routing
+  // Serve index.html for all remaining routes (client-side routing)
   app.get('*', (req, res) => {
-    // Ensure the file exists before sending
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+    
     if (!fs.existsSync(indexPath)) {
       logger('Index file not found', {
         path: indexPath,
