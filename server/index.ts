@@ -129,27 +129,30 @@ const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
 // Cleanup function
 async function cleanup(): Promise<void> {
   if (server && server.listening) {
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       server!.close(() => {
         server = null;
         resolve();
       });
     });
   }
+  return Promise.resolve();
 }
 
 // Register error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   const status = err instanceof Error ? 500 : 400;
   const message = process.env.NODE_ENV === 'production'
     ? 'Internal Server Error'
-    : err.message || "Internal Server Error";
+    : err instanceof Error ? err.message : "Internal Server Error";
 
   console.error('Error:', err);
 
   res.status(status).json({ 
     message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+    ...(process.env.NODE_ENV !== 'production' && { 
+      stack: err instanceof Error ? err.stack : undefined 
+    })
   });
 });
 
@@ -231,14 +234,13 @@ async function init() {
         return;
       }
 
-      const onError = async (error: NodeJS.ErrnoException) => {
+      const onError = async (error: NodeJS.ErrnoException): Promise<void> => {
         console.error('Server error occurred:', error);
         log('Server error details:', {
           error: error.message,
           code: error.code,
           syscall: error.syscall,
-          address: error.address,
-          port: error.port
+          details: error.toString()
         });
 
         try {
@@ -248,26 +250,30 @@ async function init() {
           log('Fatal server error details:', {
             error: err instanceof Error ? err.message : 'Unknown error',
             code: error.code,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            stack: process.env.NODE_ENV === 'development' ? 
+              error instanceof Error ? error.stack : undefined : 
+              undefined
           });
           reject(err);
         }
       };
 
-      const onListening = () => {
+      const onListening = (): void => {
         const addr = server!.address();
         if (!addr) {
-          console.error('Failed to get server address');
-          reject(new Error('Failed to get server address'));
+          const error = new Error('Failed to get server address');
+          console.error(error.message);
+          reject(error);
           return;
         }
 
         const actualPort = typeof addr === 'string' ? addr : addr.port;
-        console.log(`Server is now listening on ${HOST}:${actualPort}`);
+        const host = HOST || '0.0.0.0';
+        console.log(`Server is now listening on ${host}:${actualPort}`);
         log('Server started successfully', {
-          host: HOST,
+          host,
           port: actualPort,
-          env: process.env.NODE_ENV,
+          env: process.env.NODE_ENV || 'development',
           address: addr
         });
         
@@ -316,10 +322,11 @@ process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
 // Start server with error handling
-init().catch((error) => {
-  log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  if (error instanceof Error && error.stack) {
-    log('Error stack trace:', { stack: error.stack });
-  }
+init().catch((error: unknown) => {
+  log('Fatal error during initialization:', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    stack: error instanceof Error ? error.stack : undefined,
+    timestamp: new Date().toISOString()
+  });
   process.exit(1);
 });

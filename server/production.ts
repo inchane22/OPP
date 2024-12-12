@@ -64,26 +64,45 @@ import { logger, type LogData } from "./utils/logger.js";
 export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize database connection
   const initializeDatabase = async (): Promise<void> => {
-    const retries = 3;
+    const retries = 5;
     const retryDelay = 2000;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
+        logger('Attempting database connection', { 
+          attempt,
+          max_retries: retries,
+          delay: retryDelay 
+        } as LogData);
+        
         const db = DatabasePool.getInstance();
         await db.getPool();
-        logger('Database connection initialized successfully', { attempt } as LogData);
+        
+        logger('Database connection initialized successfully', { 
+          attempt,
+          status: 'connected' 
+        } as LogData);
         return;
       } catch (error) {
         logger('Database connection attempt failed', {
           attempt,
+          remaining_attempts: retries - attempt,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
         } as LogData);
 
         if (attempt === retries) {
+          logger('All database connection attempts exhausted', {
+            total_attempts: retries,
+            final_error: error instanceof Error ? error.message : 'Unknown error'
+          } as LogData);
           throw new Error('Failed to initialize database after all retries');
         }
 
+        logger('Waiting before next connection attempt', {
+          delay_ms: retryDelay,
+          next_attempt: attempt + 1
+        } as LogData);
         await new Promise(resolve => setTimeout(resolve, retryDelay));
       }
     }
@@ -244,8 +263,33 @@ export async function setupProduction(app: express.Express): Promise<void> {
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
 
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Define host constant
+  const HOST = '0.0.0.0';
+
   // Serve index.html for client-side routing
   app.get('*', (req, res) => {
-    res.sendFile(path.join(publicPath, 'index.html'));
+    // Ensure the file exists before sending
+    const indexFile = path.join(publicPath, 'index.html');
+    if (!fs.existsSync(indexFile)) {
+      logger('Index file not found', {
+        path: indexFile,
+        publicPath
+      } as LogData);
+      return res.status(500).json({ error: 'Internal Server Error - Missing index file' });
+    }
+    return res.sendFile(indexFile);
   });
+
+  // Log successful setup completion
+  logger('Production server setup completed', {
+    port,
+    host: HOST,
+    static_path: publicPath,
+    environment: process.env.NODE_ENV
+  } as LogData);
 }

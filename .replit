@@ -74,6 +74,10 @@ args = "Frontend Production Build"
 task = "workflow.run"
 args = "Backend Production Build"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TypeScript Check"
+
 [[workflows.workflow]]
 name = "Frontend Dev Server"
 author = "agent"
@@ -220,3 +224,17 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_ENV=production esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist"
+
+[[workflows.workflow]]
+name = "TypeScript Check"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run check"
