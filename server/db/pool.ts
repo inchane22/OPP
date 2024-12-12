@@ -433,7 +433,8 @@ export class DatabasePool {
   static async end(): Promise<void> {
     if (DatabasePool.instance) {
       await DatabasePool.instance.cleanup();
-      DatabasePool.instance = undefined;
+      // @ts-ignore - Intentionally clearing singleton instance
+      DatabasePool.instance = null;
     }
   }
 
