@@ -85,18 +85,43 @@ app.use((req, res, next) => {
 // Ensure process.env.NODE_ENV is set
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Server configuration - Use port 80 for production, 3000 for development
-const PORT = process.env.NODE_ENV === 'production' ? 80 : 3000;
+// Server configuration - Use port 5000 which Replit maps to 80 in production
+const PORT = 5000;
+
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
+
+// Log initial port configuration
+log('Initial port configuration', {
+  port: PORT,
+  environment: process.env.NODE_ENV,
+  port_source: 'environment-based',
+  host: HOST,
+  note: 'Using port 80 for production, 3000 for development'
+});
 
 // Log port configuration
 log('Server configuration', {
   port: PORT,
   host: HOST,
   environment: process.env.NODE_ENV,
-  port_source: 'environment-based'
+  port_source: process.env.PORT ? 'environment' : 'default',
+  note: `Server will listen on port ${PORT}`
 });
+
+// Function to handle port binding errors
+const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
+  if (error.code === 'EACCES') {
+    log('Port requires elevated privileges', { port: PORT });
+    process.exit(1);
+  } else if (error.code === 'EADDRINUSE') {
+    log('Port is already in use', { port: PORT });
+    await cleanup();
+    process.exit(1);
+  } else {
+    throw error;
+  }
+};
 
 // Cleanup function
 async function cleanup(): Promise<void> {
@@ -202,28 +227,16 @@ async function init() {
         return;
       }
 
-      const onError = (error: NodeJS.ErrnoException) => {
-        console.error('Detailed server error:', error);
-        log('Server encountered an error:', {
-          code: error.code,
-          message: error.message,
-          stack: error.stack
-        });
-
-        if (error.code === 'EADDRINUSE') {
-          log('Port already in use:', { port: PORT, host: HOST });
-          cleanup().then(() => {
-            setTimeout(() => {
-              server?.listen(PORT, HOST);
-            }, 1000);
-          }).catch(reject);
-        } else {
-          log('Server startup error:', { 
+      const onError = async (error: NodeJS.ErrnoException) => {
+        try {
+          await handlePortError(error);
+        } catch (err) {
+          log('Fatal server error:', {
+            error: err instanceof Error ? err.message : 'Unknown error',
             code: error.code,
-            message: error.message,
-            stack: error.stack
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
           });
-          reject(error);
+          reject(err);
         }
       };
 
