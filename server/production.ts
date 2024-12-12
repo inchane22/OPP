@@ -7,42 +7,18 @@ import cors from 'cors';
 import type { ParamsDictionary } from 'express-serve-static-core';
 import type { ParsedQs } from 'qs';
 import helmet from 'helmet';
-import crypto from 'crypto';
-import rateLimit from 'express-rate-limit';
 import * as fs from 'fs';
+import rateLimit from 'express-rate-limit';
 import { setupAuth } from "./auth.js";
+import { logger, type LogData } from "./utils/logger.js";
+import { DatabasePool } from './db/pool';
+import { serverConfig, port, host, isProduction } from './config.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
-
-// Ensure all paths are resolved relative to the current module
 const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
-// Import database configuration
-import { DatabasePool } from './db/pool';
-import type { Pool } from 'pg';
-
-interface DatabaseError extends Error {
-  code?: string;
-  column?: string;
-  constraint?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-}
-
-type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
-  _startTime?: number;
-};
-
-type CustomResponse = Response & {
-  end: {
-    (cb?: (() => void)): Response;
-    (chunk: any, cb?: (() => void)): Response;
-    (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
-  };
-};
 
 // Constants
 const DB_CONFIG = {
@@ -58,8 +34,17 @@ const RATE_LIMIT = {
   MAX_REQUESTS: 100
 } as const;
 
-// Import necessary database configuration from connection module
-import { logger, type LogData } from "./utils/logger.js";
+type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
+  _startTime?: number;
+};
+
+type CustomResponse = Response & {
+  end: {
+    (cb?: (() => void)): Response;
+    (chunk: any, cb?: (() => void)): Response;
+    (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
+  };
+};
 
 export async function setupProduction(app: express.Express): Promise<void> {
   // Initialize database connection
@@ -195,20 +180,18 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // In production, always use port 5000 internally
-  // Replit will handle mapping to port 80 via deployment config
-  const serverPort = 5000;
-  const serverHost = '0.0.0.0';
-  
+  // In production, we use port 5000 internally which gets mapped to port 80 by Replit
   logger('Production server configuration', {
-    internal_port: serverPort,
+    internal_port: port,
     external_port: 80,
-    host: serverHost,
+    host,
     environment: process.env.NODE_ENV,
-    production: true,
-    port_mapping: 'Port 5000 mapped to 80 by Replit in production',
-    deployment_target: 'cloudrun'
+    production: isProduction
   } as LogData);
+
+  // Configure express to use the correct port from shared config
+  app.set('port', port);
+  app.set('host', host);
 
   // Static file serving with proper path resolution for ES modules
   const publicPath = resolveFromRoot('dist/public');
@@ -275,21 +258,19 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // Serve index.html for client-side routing
   app.get('*', (req, res) => {
     // Ensure the file exists before sending
-    const indexFile = path.join(publicPath, 'index.html');
-    if (!fs.existsSync(indexFile)) {
+    if (!fs.existsSync(indexPath)) {
       logger('Index file not found', {
-        path: indexFile,
+        path: indexPath,
         publicPath
       } as LogData);
       return res.status(500).json({ error: 'Internal Server Error - Missing index file' });
     }
-    return res.sendFile(indexFile);
+    return res.sendFile(indexPath);
   });
 
   // Log successful setup completion
   logger('Production server setup completed', {
-    port: serverPort,
-    host: serverHost,
+    port,
     static_path: publicPath,
     environment: process.env.NODE_ENV
   } as LogData);

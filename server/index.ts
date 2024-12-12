@@ -82,35 +82,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Ensure process.env.NODE_ENV is set
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+// Import server configuration
+import { serverConfig, port, host, env, isProduction } from './config.js';
 
-// Server configuration - Always use port 5000 internally, with type safety
-const PORT = 5000; // Force port 5000 internally
-const HOST = '0.0.0.0';
+// Initialize server
 let server: ReturnType<typeof createServer> | null = null;
 
-// Set port and host in Express app (used by production setup)
-app.set('port', PORT);
-app.set('host', HOST);
+// Set port and host in Express app
+app.set('port', port);
+app.set('host', host);
 
-// Log detailed server configuration
+// Log server configuration
 log('Server initialization', {
-  internal_port: PORT,
-  external_port: process.env.NODE_ENV === 'production' ? 80 : PORT,
-  host: HOST,
-  environment: process.env.NODE_ENV,
-  node_env: process.env.NODE_ENV,
-  port_env: process.env.PORT,
-  note: 'Port 5000 will be mapped to 80 by Replit in production'
+  port,
+  host,
+  environment: env,
+  production: isProduction,
+  config: serverConfig.toString()
 });
 
-// Validate port number
-if (typeof PORT !== 'number' || isNaN(PORT) || PORT <= 0) {
+// Validate port configuration
+if (!port || isNaN(port) || port <= 0) {
   log('Invalid port configuration', {
-    port: PORT,
-    type: typeof PORT,
-    is_nan: isNaN(PORT),
+    port,
+    type: typeof port,
+    is_nan: isNaN(port),
     port_env: process.env.PORT
   });
   process.exit(1);
@@ -118,8 +114,8 @@ if (typeof PORT !== 'number' || isNaN(PORT) || PORT <= 0) {
 
 // Log port validation success
 log('Port configuration validated', {
-  port: PORT,
-  host: HOST,
+  port,
+  host,
   environment: process.env.NODE_ENV
 });
 
@@ -133,19 +129,19 @@ if (process.env.NODE_ENV === 'production') {
 // Enhanced error handling for port binding
 process.on('uncaughtException', (error: Error) => {
   if (error.message.includes('EADDRINUSE')) {
-    log('Port 5000 is already in use. Please ensure no other services are using this port.');
+    log(`Port ${port} is already in use. Please ensure no other services are using this port.`);
     process.exit(1);
   }
   throw error;
 });
 
 // Validate port number
-if (isNaN(PORT) || PORT <= 0) {
+if (isNaN(port) || port <= 0) {
   console.error('Invalid port configuration');
   process.exit(1);
 }
 
-console.log(`Attempting to start server on ${HOST}:${PORT}`);
+console.log(`Attempting to start server on ${host}:${port}`);
 log('Port configuration validated', {
   port: PORT,
   host: HOST,
@@ -155,10 +151,10 @@ log('Port configuration validated', {
 // Function to handle port binding errors
 const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
   if (error.code === 'EACCES') {
-    log('Port requires elevated privileges', { port: PORT });
+    log('Port requires elevated privileges', { port });
     process.exit(1);
   } else if (error.code === 'EADDRINUSE') {
-    log('Port is already in use', { port: PORT });
+    log('Port is already in use', { port });
     await cleanup();
     process.exit(1);
   } else {
@@ -308,12 +304,12 @@ async function init() {
         }
 
         const actualPort = typeof addr === 'string' ? addr : addr.port;
-        const host = HOST || '0.0.0.0';
         console.log(`Server is now listening on ${host}:${actualPort}`);
         log('Server started successfully', {
           host,
           port: actualPort,
-          env: process.env.NODE_ENV || 'development',
+          env,
+          production: isProduction,
           address: addr
         });
         
@@ -336,32 +332,33 @@ async function init() {
       server.once('listening', onListening);
       
       // Attempt to start the server
-      console.log(`Starting server on ${HOST}:${PORT}`);
+      console.log(`Starting server on ${host}:${port}`);
       log('Binding server...', { 
-        host: HOST, 
-        port: PORT,
-        env: process.env.NODE_ENV,
-        node_env: process.env.NODE_ENV,
+        host,
+        port,
+        env,
+        production: isProduction,
         port_env: process.env.PORT
       });
       
-      // Use the error-first callback pattern for proper error handling
-      server.listen(PORT, HOST, (error?: Error) => {
-        if (error) {
-          log('Server binding failed', { 
-            error: error.message,
-            port: PORT,
-            host: HOST
-          });
-          reject(error);
-          return;
-        }
+      try {
+        server.listen(port, host);
         log('Server binding successful', { 
-          port: PORT, 
-          host: HOST,
-          production: process.env.NODE_ENV === 'production'
+          port, 
+          host,
+          environment: env,
+          production: isProduction
         });
-      });
+        resolve();
+      } catch (error) {
+        log('Server binding failed', { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          port,
+          host,
+          environment: env
+        });
+        reject(error);
+      }
     });
 
     log('Server started successfully');
