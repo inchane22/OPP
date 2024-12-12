@@ -13,7 +13,7 @@ const EnvVarSchema = z.object({
 
 // Server configuration schema with validation
 const ServerConfigSchema = z.object({
-  port: z.number().default(5000).describe('Internal server port'),
+  port: z.number().default(80).describe('Internal server port'),  // Changed default to 80
   host: z.string().default('0.0.0.0').describe('Server host address'),
   env: EnvironmentEnum.default('development'),
   isProduction: z.boolean(),
@@ -29,20 +29,23 @@ export { ServerConfigSchema, EnvVarSchema };
 function getServerConfig(): ServerConfig {
   // Parse environment variables
   const envVars = EnvVarSchema.parse(process.env);
-  
+
   // Ensure NODE_ENV is set
   process.env.NODE_ENV = envVars.NODE_ENV || 'development';
-  
+
   const env = EnvironmentEnum.parse(process.env.NODE_ENV);
   const isProduction = env === 'production';
   const isDevelopment = env === 'development';
-  
+
   // Handle port configuration
-  // In production, we always use port 5000 internally which gets mapped to 80 by Replit
-  // In development, we use the configured port or default to 5000
-  const configuredPort = isProduction ? 5000 : (envVars.PORT ? parseInt(envVars.PORT, 10) : 5000);
+  // In production, we always use port 80 internally as required by cloud platforms
+  // In development, we use the configured port or default to 3000
+  const configuredPort = isProduction 
+    ? 80  // Always use port 80 in production
+    : (envVars.PORT ? parseInt(envVars.PORT, 10) : 3000);
+
   const configuredHost = envVars.HOST || '0.0.0.0';
-  
+
   return ServerConfigSchema.parse({
     port: configuredPort,
     host: configuredHost,
@@ -62,8 +65,8 @@ export const serverConfig = Object.freeze({
     isProduction: serverConfig.isProduction,
     isDevelopment: serverConfig.isDevelopment,
     note: serverConfig.isProduction 
-      ? 'Using port 5000 internally, mapped to 80 by Replit in production'
-      : 'Using direct port mapping'
+      ? 'Using port 80 internally for cloud platform compatibility'
+      : 'Using configurable port for development'
   }, null, 2)
 }) as ServerConfig & { toString: () => string };
 
