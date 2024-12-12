@@ -1,7 +1,36 @@
 import { type Express } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
+// Types for Bitcoin price endpoint
+interface BitcoinPrice {
+  pen: number;
+  provider: string;
+  timestamp: number;
+}
+
+interface PriceData {
+  bitcoin: BitcoinPrice;
+  stale?: boolean;
+}
+
+interface PriceCache {
+  data: PriceData | null;
+  timestamp: number;
+  ttl: number;
+}
+
+interface PriceProvider {
+  name: string;
+  fn: () => Promise<number>;
+}
+
+let priceCache: PriceCache = {
+  data: null,
+  timestamp: 0,
+  ttl: 300000 // 5 minutes default TTL
+};
 import { eq, desc, sql } from "drizzle-orm";
+
 import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
