@@ -135,7 +135,9 @@ export class DatabasePool {
           client = null;
         }
         if (healthCheckInterval) {
-          clearInterval(healthCheckInterval);
+          if (healthCheckInterval) {
+                  clearInterval(healthCheckInterval);
+                }
           healthCheckInterval = null;
         }
       } catch (error) {
@@ -193,7 +195,9 @@ export class DatabasePool {
                 logger('Client missing during health check', {
                   timestamp: new Date().toISOString()
                 });
-                clearInterval(healthCheckInterval);
+                if (healthCheckInterval) {
+                  clearInterval(healthCheckInterval);
+                }
                 return;
               }
               await healthCheck(client);
@@ -202,7 +206,9 @@ export class DatabasePool {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 timestamp: new Date().toISOString()
               });
-              clearInterval(healthCheckInterval);
+              if (healthCheckInterval) {
+                  clearInterval(healthCheckInterval);
+                }
               await cleanup();
               this.handlePoolError(error instanceof Error ? error : new Error('Health check failed'));
             }
@@ -427,7 +433,7 @@ export class DatabasePool {
   static async end(): Promise<void> {
     if (DatabasePool.instance) {
       await DatabasePool.instance.cleanup();
-      DatabasePool.instance = null;
+      DatabasePool.instance = undefined;
     }
   }
 

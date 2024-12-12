@@ -55,8 +55,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
     } as LogData);
     
     // Import and initialize database
-    const { initializeDatabase } = await import('../db/index.js');
-    await initializeDatabase();
+    const { db } = await import('../db/index.js');
+    // Database is automatically initialized on import
     
     logger('Database initialized successfully', {
       timestamp: new Date().toISOString()
