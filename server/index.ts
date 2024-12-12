@@ -130,13 +130,13 @@ async function init() {
       const result = await db.execute(sql`SELECT 1`);
       console.log('Database test query result:', result);
       log('Database connection established successfully');
-    } catch (dbError) {
-      console.error('Detailed database connection error:', dbError);
-      log('Database connection error:', {
-        error: dbError instanceof Error ? dbError.message : 'Unknown database error',
-        stack: dbError instanceof Error ? dbError.stack : undefined
+    } catch (error) {
+      console.error('Detailed database connection error:', error);
+      log('Database connection error', {
+        error: error instanceof Error ? error.message : 'Unknown database error',
+        stack: error instanceof Error ? error.stack : undefined
       });
-      throw dbError;
+      throw error;
     }
 
     // Register API routes
