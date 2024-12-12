@@ -13,7 +13,7 @@ const EnvVarSchema = z.object({
 
 // Server configuration schema with validation
 const ServerConfigSchema = z.object({
-  port: z.number().default(80).describe('Internal server port'),  // Changed default to 80
+  port: z.number().default(5000).describe('Internal server port'),
   host: z.string().default('0.0.0.0').describe('Server host address'),
   env: EnvironmentEnum.default('development'),
   isProduction: z.boolean(),

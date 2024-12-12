@@ -4,7 +4,7 @@ import { logger } from "../server/utils/logger";
 import { DatabasePool } from '../server/db/pool';
 
 // Initialize database connection
-export async function initializeDatabase() {
+const initDb = async () => {
   try {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
@@ -33,4 +33,9 @@ export async function initializeDatabase() {
     });
     throw error;
   }
-}
+};
+
+// Initialize and export the database instance
+const db = await initDb();
+export { db };
+export default db;

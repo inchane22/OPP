@@ -173,21 +173,35 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
 // Initialize database and start server
 async function init() {
   try {
-    log('Starting server initialization...');
+    log('Starting server initialization...', {
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV
+    });
     
     // Initialize database
-    const { db } = await import('../db/index.js');
     try {
-      log('Attempting to connect to database...');
-      const result = await db.execute(sql`SELECT 1`);
-      log('Database connection established successfully');
+      log('Attempting to connect to database...', {
+        timestamp: new Date().toISOString()
+      });
+      
+      // Import database instance (already initialized in db/index.ts)
+      const { db } = await import('../db/index.js');
+      
+      // Verify database connection
+      await db.execute(sql`SELECT 1`);
+      
+      log('Database connection established successfully', {
+        timestamp: new Date().toISOString(),
+        status: 'connected'
+      });
     } catch (error) {
-      console.error('Detailed database connection error:', error);
       log('Database connection error', {
         error: error instanceof Error ? error.message : 'Unknown database error',
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
       });
-      throw error;
+      // Rethrow to prevent server start with failed database connection
+      throw new Error('Failed to initialize database: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
 
     // Register API routes
