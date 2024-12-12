@@ -241,7 +241,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run check"
+args = "tsc --noEmit"
 
 [[workflows.workflow]]
 name = "Production Server Start"

@@ -12,7 +12,7 @@ import rateLimit from 'express-rate-limit';
 import { setupAuth } from "./auth.js";
 import { logger, type LogData } from "./utils/logger.js";
 import { DatabasePool } from './db/pool';
-import { serverConfig, port, host, isProduction } from './config.js';
+import { serverConfig, PORT, HOST, isProduction } from './config.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -182,15 +182,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // In production, we always use port 5000 internally which gets mapped to 80 by Replit
   logger('Production server configuration', {
-    internal_port: 5000,
+    internal_port: PORT,
     external_port: 80,
-    port_mapping: 'Using port 5000 internally, mapped to 80 by Replit',
+    port_source: 'environment',
+    production: isProduction,
+    port_mapping: 'Port 5000 mapped to 80 by Replit in production',
     deployment_target: 'cloudrun'
   } as LogData);
 
-  // Configure express to use port 5000 in production
-  app.set('port', 5000);
-  app.set('host', host);
+  // Configure express to use PORT in production
+  app.set('port', PORT);
+  app.set('host', HOST);
 
   // Static file serving with proper path resolution for ES modules
   const publicPath = resolveFromRoot('dist/public');
@@ -269,7 +271,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Log successful setup completion
   logger('Production server setup completed', {
-    port,
+    port: PORT,
+    host: HOST,
     static_path: publicPath,
     environment: process.env.NODE_ENV
   } as LogData);

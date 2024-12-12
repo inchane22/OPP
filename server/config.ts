@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 // Environment type definition
-const Environment = z.enum(['development', 'production', 'test']);
-type Environment = z.infer<typeof Environment>;
+const EnvironmentEnum = z.enum(['development', 'production', 'test']);
+export type Environment = z.infer<typeof EnvironmentEnum>;
 
 // Environment variable types
 const EnvVarSchema = z.object({
@@ -15,14 +15,15 @@ const EnvVarSchema = z.object({
 const ServerConfigSchema = z.object({
   port: z.number().default(5000).describe('Internal server port'),
   host: z.string().default('0.0.0.0').describe('Server host address'),
-  env: Environment.default('development'),
+  env: EnvironmentEnum.default('development'),
   isProduction: z.boolean(),
   isDevelopment: z.boolean(),
 });
 
-// Export the type for use in other files
+// Export types and schemas for use in other files
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
 export type EnvVars = z.infer<typeof EnvVarSchema>;
+export { ServerConfigSchema, EnvVarSchema };
 
 // Parse and validate configuration
 function getServerConfig(): ServerConfig {
@@ -32,7 +33,7 @@ function getServerConfig(): ServerConfig {
   // Ensure NODE_ENV is set
   process.env.NODE_ENV = envVars.NODE_ENV || 'development';
   
-  const env = Environment.parse(process.env.NODE_ENV);
+  const env = EnvironmentEnum.parse(process.env.NODE_ENV);
   const isProduction = env === 'production';
   const isDevelopment = env === 'development';
   
@@ -72,10 +73,6 @@ export const HOST: string = serverConfig.host;
 export const env = serverConfig.env;
 export const isProduction = serverConfig.isProduction;
 export const isDevelopment = serverConfig.isDevelopment;
-
-// Type-safe constants for compatibility
-export type { ServerConfig };
-export { Environment };
 
 // Ensure these values are readonly
 Object.freeze(PORT);
