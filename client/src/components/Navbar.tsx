@@ -13,7 +13,7 @@ import { useUser } from "../hooks/use-user";
 import LanguageToggle from "./LanguageToggle";
 import { User } from "@db/schema";
 import { useLanguage } from "../hooks/use-language";
-import { Menu } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 
 export default function Navbar({ user }: { user: User | null | undefined }) {
   const { logout } = useUser();
@@ -78,7 +78,7 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-4 w-4" />
+                <MenuIcon className="h-4 w-4" />
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>

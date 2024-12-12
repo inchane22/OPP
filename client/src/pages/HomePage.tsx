@@ -5,12 +5,12 @@ import { useLanguage } from "../hooks/use-language";
 import PriceDisplay from "../components/PriceDisplay";
 import BitcoinQRGenerator from "../components/BitcoinQRGenerator";
 import HomeCarousel from "../components/HomeCarousel";
-import Loader2Icon from "lucide-react/dist/esm/icons/loader-2";
+import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const LoadingFallback = () => (
   <div className="flex justify-center items-center min-h-[200px]">
-    <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
 

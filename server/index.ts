@@ -87,16 +87,20 @@ app.use((req, res, next) => {
 let server: ReturnType<typeof createServer> | null = null;
 
 // Set port and host in Express app
-app.set('port', PORT);
-app.set('host', HOST);
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : PORT;
+const host = process.env.HOST || HOST;
+app.set('port', port);
+app.set('host', host);
 
 // Log server configuration
 log('Server initialization', {
-  port: PORT,
-  host: HOST,
+  port,
+  host,
   environment: env,
   production: isProduction,
-  config: serverConfig.toString()
+  config: serverConfig.toString(),
+  env_port: process.env.PORT,
+  env_host: process.env.HOST
 });
 
 // Validate port configuration

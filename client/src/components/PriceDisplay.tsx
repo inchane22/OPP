@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useTransition, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import Loader2Icon from "lucide-react/dist/esm/icons/loader-2";
+import { Loader2 } from "lucide-react";
 
 interface BitcoinPriceResponse {
   bitcoin: {
@@ -195,7 +195,7 @@ export default function PriceDisplay() {
       {isLoading ? (
         <Card>
           <CardContent className="flex justify-center items-center h-24">
-            <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </CardContent>
         </Card>
       ) : data ? (
