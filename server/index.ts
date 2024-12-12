@@ -143,8 +143,8 @@ if (isNaN(port) || port <= 0) {
 
 console.log(`Attempting to start server on ${host}:${port}`);
 log('Port configuration validated', {
-  port: PORT,
-  host: HOST,
+  port,
+  host,
   environment: process.env.NODE_ENV
 });
 
@@ -349,7 +349,6 @@ async function init() {
           environment: env,
           production: isProduction
         });
-        resolve();
       } catch (error) {
         log('Server binding failed', { 
           error: error instanceof Error ? error.message : 'Unknown error',

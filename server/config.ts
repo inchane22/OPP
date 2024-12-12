@@ -25,11 +25,13 @@ function getServerConfig(): ServerConfig {
   const isProduction = env === 'production';
   const isDevelopment = env === 'development';
   
-  // In production, we'll use PORT env var or default to 5000
+  // Handle port configuration
+  // In production, we use port 5000 internally which gets mapped to 80 by Replit
+  // In development, we use the configured port (default: 5000)
   const configuredPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   
   return ServerConfigSchema.parse({
-    port: isProduction ? 80 : configuredPort, // Use port 80 in production
+    port: configuredPort, // Always use the configured port (5000 in production)
     host: '0.0.0.0',
     env,
     isProduction,
