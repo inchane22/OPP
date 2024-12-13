@@ -815,10 +815,14 @@ export function registerRoutes(app: Express) {
     }
   }
 
+  // Remove duplicate interface declaration
   interface PriceData {
-    bitcoin: {
-  // Bitcoin price endpoint
-  app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
+  bitcoin: BitcoinPrice;
+  stale?: boolean;
+}
+
+// Bitcoin price endpoint
+app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
     try {
       // Check cache first
       const now = Date.now();
