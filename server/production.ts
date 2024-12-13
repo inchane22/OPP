@@ -14,11 +14,21 @@ import { logger, type LogData } from "./utils/logger.js";
 import { DatabasePool } from './db/pool';
 import { serverConfig, PORT, HOST, isProduction } from './config.js';
 
-// ES Module path resolution utility
+// ES Module path resolution utilities
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
-const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
+const resolveFromRoot = (relativePath: string) => {
+  const rootPath = path.resolve(__dirname, '..');
+  const resolvedPath = path.resolve(rootPath, relativePath);
+  logger('Resolving path', {
+    relativePath,
+    rootPath,
+    resolvedPath,
+    exists: fs.existsSync(resolvedPath)
+  } as LogData);
+  return resolvedPath;
+};
 
 // Constants
 const DB_CONFIG = {
@@ -260,24 +270,55 @@ export async function setupProduction(app: express.Express): Promise<void> {
   const indexPath = path.join(publicPath, 'index.html');
   
   if (!fs.existsSync(publicPath)) {
-    logger('Building client application...', {
-      directory: publicPath
+    logger('Static files directory not found', {
+      directory: publicPath,
+      error: 'Directory missing',
+      action: 'Please run npm run build first'
     } as LogData);
     throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
 
-  logger('Static files will be served from:', { 
+  logger('Configuring static file serving', { 
     path: publicPath,
-    exists: fs.existsSync(publicPath)
+    exists: fs.existsSync(publicPath),
+    indexExists: fs.existsSync(indexPath)
   } as LogData);
 
-  // Serve static files with proper configuration
-  app.use(express.static(publicPath, {
-    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
-    index: false,
-    dotfiles: 'ignore',
+  // Enhanced static file serving configuration with improved error handling
+  app.use('/assets', express.static(path.join(publicPath, 'assets'), {
+    maxAge: '1y',
+    immutable: true,
     etag: true,
-    lastModified: true
+    lastModified: true,
+    index: false,
+    setHeaders: (res, filePath) => {
+      // Set correct MIME types
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      } else if (filePath.endsWith('.woff2')) {
+        res.setHeader('Content-Type', 'font/woff2');
+      } else if (filePath.endsWith('.woff')) {
+        res.setHeader('Content-Type', 'font/woff');
+      } else if (filePath.endsWith('.ttf')) {
+        res.setHeader('Content-Type', 'font/ttf');
+      }
+      // Security headers
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
+  }));
+
+  // Serve other static files from public directory
+  app.use(express.static(publicPath, {
+    maxAge: '1d',
+    index: false,
+    etag: true,
+    lastModified: true,
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
   }));
 
   // Handle all other routes for SPA
