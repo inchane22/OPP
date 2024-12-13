@@ -266,60 +266,106 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Static file serving with proper path resolution for ES modules
-  const publicPath = resolveFromRoot('dist/public');
+  const rootDir = path.resolve(__dirname, '..');
+  const publicPath = path.resolve(rootDir, 'dist', 'public');
+  const assetsPath = path.join(publicPath, 'assets');
   const indexPath = path.join(publicPath, 'index.html');
   
-  if (!fs.existsSync(publicPath)) {
-    logger('Static files directory not found', {
-      directory: publicPath,
-      error: 'Directory missing',
-      action: 'Please run npm run build first'
-    } as LogData);
-    throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
-  }
-
-  logger('Configuring static file serving', { 
-    path: publicPath,
-    exists: fs.existsSync(publicPath),
-    indexExists: fs.existsSync(indexPath)
+  // Log paths for debugging
+  logger('Static file paths', {
+    rootDir,
+    publicPath,
+    assetsPath,
+    indexPath,
+    exists: {
+      public: fs.existsSync(publicPath),
+      assets: fs.existsSync(assetsPath),
+      index: fs.existsSync(indexPath)
+    }
   } as LogData);
 
-  // Enhanced static file serving configuration with improved error handling
-  app.use('/assets', express.static(path.join(publicPath, 'assets'), {
+  // Check if build exists
+  if (!fs.existsSync(publicPath) || !fs.existsSync(indexPath)) {
+    throw new Error(`Build files missing at ${publicPath}. Please run build command first.`);
+  }
+
+  // Configure static file serving for assets with proper MIME types and caching
+  const staticOptions: express.static.ServeStaticOptions = {
     maxAge: '1y',
-    immutable: true,
     etag: true,
-    lastModified: true,
+    immutable: true,
     index: false,
     setHeaders: (res, filePath) => {
-      // Set correct MIME types
-      if (filePath.endsWith('.js')) {
-        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      } else if (filePath.endsWith('.css')) {
-        res.setHeader('Content-Type', 'text/css; charset=utf-8');
-      } else if (filePath.endsWith('.woff2')) {
-        res.setHeader('Content-Type', 'font/woff2');
-      } else if (filePath.endsWith('.woff')) {
-        res.setHeader('Content-Type', 'font/woff');
-      } else if (filePath.endsWith('.ttf')) {
-        res.setHeader('Content-Type', 'font/ttf');
+      // Set strict Cache-Control for assets
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      
+      // Set correct content type based on file extension
+      const ext = path.extname(filePath);
+      switch (ext) {
+        case '.js':
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+          break;
+        case '.css':
+          res.setHeader('Content-Type', 'text/css; charset=utf-8');
+          break;
+        case '.woff2':
+          res.setHeader('Content-Type', 'font/woff2');
+          break;
+        case '.woff':
+          res.setHeader('Content-Type', 'font/woff');
+          break;
+        case '.ttf':
+          res.setHeader('Content-Type', 'font/ttf');
+          break;
       }
-      // Security headers
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
-  }));
+  };
 
-  // Serve other static files from public directory
-  app.use(express.static(publicPath, {
-    maxAge: '1d',
-    index: false,
-    etag: true,
-    lastModified: true,
-    setHeaders: (res) => {
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Serve the entire public directory including assets
+  app.use(express.static(publicPath, staticOptions));
+
+  // Add explicit route for assets as fallback
+  app.use('/assets', (req, res, next) => {
+    const assetPath = path.join(assetsPath, req.path);
+    
+    // Security: Prevent path traversal
+    if (!assetPath.startsWith(assetsPath)) {
+      logger('Path traversal attempt blocked', { 
+        requestPath: req.path,
+        resolvedPath: assetPath
+      });
+      return res.status(403).send('Forbidden');
     }
-  }));
+
+    // Check if file exists
+    if (!fs.existsSync(assetPath)) {
+      logger('Asset not found', { 
+        requestPath: req.path,
+        resolvedPath: assetPath
+      });
+      return next();
+    }
+
+    // Log successful asset requests in development
+    if (process.env.NODE_ENV === 'development') {
+      logger('Serving asset', { 
+        path: req.path,
+        resolvedPath: assetPath
+      });
+    }
+
+    res.sendFile(assetPath, (err) => {
+      if (err) {
+        logger('Error serving asset', {
+          error: err.message,
+          path: req.path,
+          resolvedPath: assetPath
+        });
+        next(err);
+      }
+    });
+  });
 
   // Handle all other routes for SPA
   app.get('*', (req, res): void => {

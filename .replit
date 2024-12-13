@@ -58,3 +58,22 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Dev Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Server"
+
+[[workflows.workflow]]
+name = "Production Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production tsx server/index.ts"
+waitForPort = 5000
