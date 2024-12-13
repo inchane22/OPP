@@ -71,7 +71,7 @@ export const serverConfig = Object.freeze({
 }) as ServerConfig & { toString: () => string };
 
 // Export configuration values as constants
-export const PORT: number = serverConfig.port;
+export const PORT: number = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 export const HOST: string = serverConfig.host;
 export const env = serverConfig.env;
 export const isProduction = serverConfig.isProduction;

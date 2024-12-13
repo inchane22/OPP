@@ -112,6 +112,13 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
   app.use(limiter);
 app.set('host', '0.0.0.0');
+app.listen(PORT, '0.0.0.0', () => {
+  logger('Server started', {
+    port: PORT,
+    host: '0.0.0.0',
+    environment: process.env.NODE_ENV
+  } as LogData);
+});
 
   // CORS configuration with specific origins for production
   const corsOptions = {
