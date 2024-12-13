@@ -262,7 +262,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
       method: req.method,
       path: req.path
     });
-    res.status(404).json({ error: 'API endpoint not found' });
+    return res.status(404).json({ error: 'API endpoint not found' });
   });
 
   // Static file serving configuration
@@ -313,38 +313,21 @@ export async function setupProduction(app: express.Express): Promise<void> {
     }
   }));
 
-  // Fallback route handler
+  // Single unified catch-all route handler for SPA
   app.get('*', (req, res) => {
+    // Handle API routes first
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    res.sendFile(indexPath, (err) => {
+    // Handle all other routes by serving the SPA index
+    return res.sendFile(indexPath, (err) => {
       if (err) {
         logger('Error serving index file', { 
           error: err.message,
           path: indexPath
         });
-        res.status(500).send('Server error');
-      }
-    });
-  });
-
-  // Handle all other routes for SPA
-  app.get('*', (req, res): void => {
-    // Skip API routes - they should be handled by the API router
-    if (req.path.startsWith('/api/')) {
-      res.status(404).json({ error: 'API endpoint not found' });
-      return;
-    }
-
-    res.sendFile(indexPath, (err) => {
-      if (err) {
-        logger('Error serving index file', { 
-          error: err.message,
-          path: indexPath
-        });
-        res.status(500).send('Server configuration error');
+        return res.status(500).send('Server error');
       }
     });
   });
