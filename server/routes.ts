@@ -1,6 +1,7 @@
-import { type Express } from "express";
+import { type Express, type Request, type Response, type NextFunction } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
+
 // Types for Bitcoin price endpoint
 interface BitcoinPrice {
   pen: number;
@@ -24,11 +25,24 @@ interface PriceProvider {
   fn: () => Promise<number>;
 }
 
+// Initialize price cache
 let priceCache: PriceCache = {
   data: null,
   timestamp: 0,
   ttl: 300000 // 5 minutes default TTL
 };
+
+// Custom error class for API errors
+class APIError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number = 500,
+    public details?: string
+  ) {
+    super(message);
+    this.name = 'APIError';
+  }
+}
 import { eq, desc, sql } from "drizzle-orm";
 
 import { carousel_items } from "@db/schema";
@@ -802,27 +816,55 @@ export function registerRoutes(app: Express) {
     }
   });
   // Bitcoin price routes and cache
-  
-  // Error types for better error handling
-  class APIError extends Error {
-    constructor(
-      message: string,
-      public statusCode: number = 500,
-      public details?: string
-    ) {
-      super(message);
-      this.name = 'APIError';
-    }
-  }
 
-  // Remove duplicate interface declaration
-  interface PriceData {
-  bitcoin: BitcoinPrice;
-  stale?: boolean;
+// Error types for better error handling
+class APIError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number = 500,
+    public details?: string
+  ) {
+    super(message);
+    this.name = 'APIError';
+  }
 }
 
+// Bitcoin price endpoint middleware
+const handleBitcoinPriceErrors = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    await next();
+  } catch (error) {
+    console.error('Bitcoin price error:', error);
+    
+    if (error instanceof APIError) {
+      res.status(error.statusCode).json({
+        error: error.message,
+        details: error.details
+      });
+      return;
+    }
+    
+    if (error instanceof Error) {
+      res.status(500).json({
+        error: 'Failed to fetch Bitcoin price',
+        details: error.message
+      });
+      return;
+    }
+    
+    res.status(500).json({
+      error: 'An unexpected error occurred',
+      details: 'Please try again later'
+    });
+  }
+};
+
 // Bitcoin price endpoint
-app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
+app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res: Response) => {
     try {
       // Check cache first
       const now = Date.now();
@@ -880,51 +922,18 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
       throw error; // Will be handled by middleware
     }
   });
-      pen: number;
-      provider: string;
-      timestamp: number;
-    }
-  }
 
-  interface PriceCache {
-    data: PriceData | null;
-    timestamp: number;
-    ttl: number;
-  }
+  // Remove duplicate declarations as these are already defined at the top of the file
+  // interface BitcoinPrice and PriceCache are already defined
 
-  let priceCache: PriceCache = {
+  // Update the priceCache initialization only
+  priceCache = {
     data: null,
     timestamp: 0,
     ttl: 300000 // 5 minutes cache for better rate limit protection
   };
 
-  // Bitcoin price endpoint middleware
-  const handleBitcoinPriceErrors = async (req: any, res: any, next: any) => {
-    try {
-      await next();
-    } catch (error) {
-      console.error('Bitcoin price error:', error);
-      
-      if (error instanceof APIError) {
-        return res.status(error.statusCode).json({
-          error: error.message,
-          details: error.details
-        });
-      }
-      
-      if (error instanceof Error) {
-        return res.status(500).json({
-          error: 'Failed to fetch Bitcoin price',
-          details: error.message
-        });
-      }
-      
-      res.status(500).json({
-        error: 'An unexpected error occurred',
-        details: 'Please try again later'
-      });
-    }
-  };
+  // Price endpoints use the error handler defined above
 
   async function fetchKrakenPrice() {
     const controller = new AbortController();
@@ -1174,7 +1183,7 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
   }
 
   // Bitcoin price endpoint with multiple providers and caching
-  app.get("/api/bitcoin/price", async (_req, res): Promise<void> => {
+  app.get("/api/bitcoin/price", async (_req: Request, res: Response): Promise<void> => {
     try {
       // Check cache first
       const now = Date.now();
@@ -1259,7 +1268,7 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
     }
   });
 
-  app.get("/api/carousel", async (_req, res) => {
+  app.get("/api/carousel", async (_req: Request, res: Response) => {
     try {
       const items = await db
         .select({
@@ -1278,23 +1287,25 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
 
       if (!items || items.length === 0) {
         console.log('No active carousel items found');
-        return res.json([]);  // Return empty array instead of 404 for better client handling
+        res.json([]);  // Return empty array instead of 404 for better client handling
+        return;
       }
 
       console.log(`Successfully fetched ${items.length} carousel items`);
-      return res.json(items);
+      res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({ 
+      res.status(500).json({ 
         error: "Failed to fetch carousel items",
         details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
       });
     }
   });
 
-  app.post("/api/carousel", async (req, res) => {
+  app.post("/api/carousel", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
+      res.status(403).send("Access denied");
+      return;
     }
 
     try {
@@ -1305,16 +1316,17 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
           createdById: req.user.id,
         })
         .returning();
-      return res.json(item);
+      res.json(item);
     } catch (error) {
       console.error("Failed to create carousel item:", error);
-      return res.status(500).json({ error: "Failed to create carousel item" });
+      res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
 
-  app.patch("/api/carousel/:id", async (req, res) => {
+  app.patch("/api/carousel/:id", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
+      res.status(403).send("Access denied");
+      return;
     }
 
     try {
@@ -1326,26 +1338,27 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req, res) => {
         })
         .where(eq(carousel_items.id, parseInt(req.params.id)))
         .returning();
-      return res.json(item);
+      res.json(item);
     } catch (error) {
       console.error("Failed to update carousel item:", error);
-      return res.status(500).json({ error: "Failed to update carousel item" });
+      res.status(500).json({ error: "Failed to update carousel item" });
     }
   });
 
-  app.delete("/api/carousel/:id", async (req, res) => {
+  app.delete("/api/carousel/:id", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
+      res.status(403).send("Access denied");
+      return;
     }
 
     try {
       await db
         .delete(carousel_items)
         .where(eq(carousel_items.id, parseInt(req.params.id)));
-      return res.json({ success: true });
+      res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete carousel item:", error);
-      return res.status(500).json({ error: "Failed to delete carousel item" });
+      res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
 }
