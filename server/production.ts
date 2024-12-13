@@ -156,13 +156,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // JSON parsing error handler
-  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction): void => {
     if (err instanceof SyntaxError && 'body' in err) {
       logger('JSON Parsing Error', {
         error: err.message,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
-      return res.status(400).json({ error: 'Invalid JSON format' });
+      res.status(400).json({ error: 'Invalid JSON format' });
+      return;
     }
     next(err);
   });
@@ -261,10 +262,11 @@ export async function setupProduction(app: express.Express): Promise<void> {
   }));
 
   // Handle all other routes for SPA
-  app.get('*', (req, res) => {
+  app.get('*', (req, res): void => {
     // Skip API routes - they should be handled by the API router
     if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'API endpoint not found' });
+      res.status(404).json({ error: 'API endpoint not found' });
+      return;
     }
 
     res.sendFile(indexPath, (err) => {

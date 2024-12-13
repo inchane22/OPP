@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { SendIcon, XIcon, InstagramIcon } from "lucide-react";
+import { Send, X, Instagram } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 
 export default function Footer() {
