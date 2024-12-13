@@ -111,6 +111,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
     legacyHeaders: false
   });
   app.use(limiter);
+app.set('host', '0.0.0.0');
 
   // CORS configuration with specific origins for production
   const corsOptions = {
