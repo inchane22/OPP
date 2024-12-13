@@ -49,7 +49,7 @@ import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
 
-export function registerRoutes(app: Express) {
+export async function registerRoutes(app: Express): Promise<void> {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 
@@ -817,17 +817,7 @@ export function registerRoutes(app: Express) {
   });
   // Bitcoin price routes and cache
 
-// Error types for better error handling
-class APIError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 500,
-    public details?: string
-  ) {
-    super(message);
-    this.name = 'APIError';
-  }
-}
+// Reusing the existing APIError class declared above
 
 // Bitcoin price endpoint middleware
 const handleBitcoinPriceErrors = async (
@@ -903,7 +893,8 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
           };
 
           console.log(`Successfully fetched price from ${provider.name}`);
-          return res.json(priceData);
+          res.json(priceData);
+          return;
         } catch (error) {
           console.error(`${provider.name} provider failed:`, error);
           lastError = error;
@@ -926,12 +917,17 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
   // Remove duplicate declarations as these are already defined at the top of the file
   // interface BitcoinPrice and PriceCache are already defined
 
-  // Update the priceCache initialization only
-  priceCache = {
-    data: null,
-    timestamp: 0,
-    ttl: 300000 // 5 minutes cache for better rate limit protection
+  // Price cache initialization
+  const initializePriceCache = (): void => {
+    priceCache = {
+      data: null,
+      timestamp: 0,
+      ttl: 300000 // 5 minutes cache for better rate limit protection
+    };
   };
+
+  // Initialize price cache
+  initializePriceCache();
 
   // Price endpoints use the error handler defined above
 
@@ -1347,7 +1343,7 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
 
   app.delete("/api/carousel/:id", async (req: Request, res: Response) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      res.status(403).send("Access denied");
+      res.status(403).json({ error: "Access denied" });
       return;
     }
 
