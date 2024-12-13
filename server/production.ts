@@ -112,13 +112,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
   app.use(limiter);
 app.set('host', '0.0.0.0');
-app.listen(PORT, '0.0.0.0', () => {
-  logger('Server started', {
-    port: PORT,
-    host: '0.0.0.0',
-    environment: process.env.NODE_ENV
-  } as LogData);
-});
 
   // CORS configuration with specific origins for production
   const corsOptions = {
@@ -322,20 +315,21 @@ app.listen(PORT, '0.0.0.0', () => {
   }));
 
   // Single unified catch-all route handler for SPA
-  app.get('*', (req, res) => {
+  app.get('*', (req: Request, res: Response): void => {
     // Handle API routes first
     if (req.path.startsWith('/api/')) {
-      return res.status(404).json({ error: 'API endpoint not found' });
+      res.status(404).json({ error: 'API endpoint not found' });
+      return;
     }
 
     // Handle all other routes by serving the SPA index
-    return res.sendFile(indexPath, (err) => {
+    res.sendFile(indexPath, (err) => {
       if (err) {
         logger('Error serving index file', { 
           error: err.message,
           path: indexPath
         });
-        return res.status(500).send('Server error');
+        res.status(500).send('Server error');
       }
     });
   });
@@ -347,4 +341,7 @@ app.listen(PORT, '0.0.0.0', () => {
     static_path: publicPath,
     environment: process.env.NODE_ENV
   } as LogData);
+
+  // Explicit return to satisfy TypeScript
+  return Promise.resolve();
 }
