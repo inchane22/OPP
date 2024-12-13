@@ -32,15 +32,41 @@ const app = express();
 // Configure CORS
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-      ? ['https://orange-pill-peru.com', 'http://localhost:3000', 'http://0.0.0.0:3000']
-      : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000', 'http://0.0.0.0:3000'];
+    const allowedOrigins = [
+    'https://orange-pill-peru.com',
+    'https://www.orange-pill-peru.com',
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://0.0.0.0:5000',
+    'http://0.0.0.0:3000',
+    'https://*.repl.co',
+    'https://*.repl.dev',
+    'https://*.replit.app',
+    'https://*.replit.dev',
+    'https://*.picard.replit.dev'
+  ];
     
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all origins in development
+  // Allow requests with no origin (like mobile apps, curl, postman)
+  if (!origin) {
+    callback(null, true);
+    return;
+  }
+
+  // Check if the origin matches any of our allowed patterns
+  const isAllowed = allowedOrigins.some(allowedOrigin => {
+    if (allowedOrigin.includes('*')) {
+      const pattern = new RegExp('^' + allowedOrigin.replace('*', '.*') + '$');
+      return pattern.test(origin);
     }
+    return allowedOrigin === origin;
+  });
+
+  if (isAllowed) {
+    callback(null, true);
+  } else {
+    console.warn(`CORS blocked request from origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

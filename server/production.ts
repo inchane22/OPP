@@ -115,7 +115,9 @@ export async function setupProduction(app: express.Express): Promise<void> {
         // Add Replit domains
         'https://*.repl.co',
         'https://*.repl.dev',
-        'https://*.replit.app'
+        'https://*.replit.app',
+        'https://*.replit.dev',
+        'https://*.picard.replit.dev'
       ];
       
       // Allow requests with no origin (like mobile apps, curl, postman)
