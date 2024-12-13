@@ -105,27 +105,44 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // CORS configuration with specific origins for production
   const corsOptions = {
     origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      // In production, be more strict with CORS
-      if (isProduction) {
-        const allowedOrigins = [
-          'https://orange-pill-peru.com',
-          'https://www.orange-pill-peru.com',
-          'http://localhost:5000',
-          'http://0.0.0.0:5000'
-        ];
-        
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('CORS not allowed'), false);
-        }
-      } else {
-        // In development, allow all origins
+      const allowedOrigins = [
+        'https://orange-pill-peru.com',
+        'https://www.orange-pill-peru.com',
+        'http://localhost:5000',
+        'http://0.0.0.0:5000',
+        'http://localhost:3000',
+        'http://0.0.0.0:3000',
+        // Add Replit domains
+        'https://*.repl.co',
+        'https://*.repl.dev',
+        'https://*.replit.app'
+      ];
+      
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) {
         callback(null, true);
+        return;
+      }
+
+      // Check if the origin matches any of our allowed patterns
+      const isAllowed = allowedOrigins.some(allowedOrigin => {
+        if (allowedOrigin.includes('*')) {
+          const pattern = new RegExp('^' + allowedOrigin.replace('*', '.*') + '$');
+          return pattern.test(origin);
+        }
+        return allowedOrigin === origin;
+      });
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked request from origin: ${origin}`);
+        callback(null, false);
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Content-Length', 'X-Content-Type-Options'],
     credentials: true,
     maxAge: 86400,
     preflightContinue: false,
