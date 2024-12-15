@@ -33,10 +33,16 @@ const crypto = {
   },
 };
 
-// Extend express user object with our schema
+// Extend express types for authentication
 declare global {
   namespace Express {
     interface User extends SelectUser {}
+    interface Request {
+      user?: User;
+      isAuthenticated(): boolean;
+      login(user: User, callback: (err: any) => void): void;
+      logout(callback: (err: any) => void): void;
+    }
   }
 }
 
@@ -72,7 +78,7 @@ export function setupAuth(app: Express) {
 
   // Configure local strategy for username/password auth
   passport.use(
-    new LocalStrategy(async (username, password, done) => {
+    new LocalStrategy(async (username: string, password: string, done: (error: any, user?: Express.User | false, options?: IVerifyOptions) => void) => {
       try {
         console.log(`Attempting login for user: ${username}`);
         
@@ -106,11 +112,11 @@ export function setupAuth(app: Express) {
   );
 
   // Session serialization
-  passport.serializeUser((user, done) => {
+  passport.serializeUser((user: Express.User, done: (err: any, id?: number) => void) => {
     done(null, user.id);
   });
 
-  passport.deserializeUser(async (id: number, done) => {
+  passport.deserializeUser(async (id: number, done: (err: any, user?: Express.User | false) => void) => {
     try {
       const [user] = await db
         .select()
@@ -247,7 +253,7 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
+    if (req.isAuthenticated() && req.user) {
       const user = req.user;
       return res.json({
         id: user.id,

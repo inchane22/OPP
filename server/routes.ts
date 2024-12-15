@@ -161,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.post("/api/posts", async (req, res) => {
-    if (!req.isAuthenticated()) {
+    if (!req.isAuthenticated() || !req.user) {
       return res.status(401).send("Not authenticated");
     }
 
@@ -223,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.post("/api/events", async (req, res) => {
-    if (!req.isAuthenticated()) {
+    if (!req.isAuthenticated() || !req.user) {
       return res.status(401).send("Not authenticated");
     }
     
