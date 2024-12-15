@@ -2,6 +2,23 @@ import { type Express, type Request, type Response, type NextFunction } from "ex
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
 
+// Authentication middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  next();
+}
+
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  next();
+}
 // Types for Bitcoin price endpoint
 interface BitcoinPrice {
   pen: number;
@@ -160,10 +177,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.post("/api/posts", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).send("Not authenticated");
-    }
+  app.post("/api/posts", requireAuth, async (req, res) => {
 
     try {
       const [post] = await db

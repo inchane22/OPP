@@ -387,12 +387,44 @@ async function init() {
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
-// Start server with error handling
+// Start server with enhanced error handling
 init().catch((error: unknown) => {
   log('Fatal error during initialization:', {
     error: error instanceof Error ? error.message : 'Unknown error',
     stack: error instanceof Error ? error.stack : undefined,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    port: PORT,
+    host: HOST,
+    node_env: process.env.NODE_ENV,
+    database_url: process.env.DATABASE_URL ? '[REDACTED]' : 'undefined'
   });
-  process.exit(1);
+
+  // Give time for logs to be written before exit
+  setTimeout(() => {
+    console.error('Server initialization failed, exiting...');
+    process.exit(1);
+  }, 1000);
+});
+
+// Log unhandled rejections
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('Unhandled Rejection:', reason);
+  log('Unhandled Promise Rejection:', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined
+  });
+});
+
+// Log uncaught exceptions
+process.on('uncaughtException', (error: Error) => {
+  console.error('Uncaught Exception:', error);
+  log('Uncaught Exception:', {
+    error: error.message,
+    stack: error.stack
+  });
+  
+  // Exit on uncaught exception after logging
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
 });
