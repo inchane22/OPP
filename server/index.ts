@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
-import { setupVite } from "./vite.js";
+import { registerRoutes } from "./routes";
+import { setupVite } from "./vite";
 import { sql } from "drizzle-orm";
 import { createServer } from "http";
 import compression from 'compression';
@@ -8,7 +8,8 @@ import cors from 'cors';
 import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { serverConfig, PORT, HOST, env, isProduction } from './config.js';
+import { serverConfig, PORT, HOST, env, isProduction } from './config';
+import { setupAuth } from './auth';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,15 @@ function log(message: string, data: Record<string, any> = {}) {
 }
 
 const app = express();
+
+// Basic middleware setup
+app.use(cors());
+app.use(compression());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Initialize authentication
+setupAuth(app);
 
 // Configure CORS
 const corsOptions = {
@@ -110,13 +120,13 @@ app.use((req, res, next) => {
 });
 
 // Initialize server
-let server: ReturnType<typeof createServer> | null = null;
-
-// Set port and host in Express app
 const port = parseInt(process.env.PORT || '5000', 10);
 const host = process.env.HOST || '0.0.0.0';
 app.set('port', port);
 app.set('host', host);
+
+// Create HTTP server
+const server = createServer(app);
 
 // Log environment configuration
 log('Environment configuration:', {
@@ -214,37 +224,19 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
 async function init() {
   try {
     log('Starting server initialization...', {
-      timestamp: new Date().toISOString(),
       env: process.env.NODE_ENV,
       port: PORT,
       host: HOST
     });
     
     // Initialize database
-    try {
-      log('Attempting to connect to database...', {
-        timestamp: new Date().toISOString()
-      });
-      
-      // Import database instance (already initialized in db/index.ts)
-      const { db } = await import('../db/index.js');
-      
-      // Verify database connection
-      await db.execute(sql`SELECT 1`);
-      
-      log('Database connection established successfully', {
-        timestamp: new Date().toISOString(),
-        status: 'connected'
-      });
-    } catch (error) {
-      log('Database connection error', {
-        error: error instanceof Error ? error.message : 'Unknown database error',
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
-      // Rethrow to prevent server start with failed database connection
-      throw new Error('Failed to initialize database: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
+    const { db } = await import('../db/index');
+    await db.execute(sql`SELECT 1`);
+    log('Database connected successfully');
+    
+    // Register routes
+    await registerRoutes(app);
+    log('Routes registered successfully');
 
     // Register API routes
     try {
@@ -262,45 +254,18 @@ async function init() {
     await cleanup();
     log('Previous server instance cleaned up');
 
-    // Create new server instance
-    server = createServer(app);
-    log('Created new server instance');
-
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
-      log('Setting up development server...');
-      try {
-        await setupVite(app, server);
-        log('Vite development server setup completed');
-      } catch (viteError) {
-        log('Vite setup failed:', {
-          error: viteError instanceof Error ? viteError.message : 'Unknown Vite error',
-          stack: viteError instanceof Error ? viteError.stack : undefined
-        });
-        throw viteError;
-      }
+      await setupVite(app, server);
+      log('Development server setup completed');
     } else {
-      log('Setting up production server...');
-      try {
-        const { setupProduction } = await import('./production.js');
-        await setupProduction(app);
-        log('Production server setup completed');
-      } catch (prodError) {
-        log('Production setup failed:', {
-          error: prodError instanceof Error ? prodError.message : 'Unknown production error',
-          stack: prodError instanceof Error ? prodError.stack : undefined
-        });
-        throw prodError;
-      }
+      const { setupProduction } = await import('./production.js');
+      await setupProduction(app);
+      log('Production server setup completed');
     }
 
-    // Start server with enhanced error handling
+    // Start server
     await new Promise<void>((resolve, reject) => {
-      if (!server) {
-        console.error('Server instance is null');
-        reject(new Error('Server instance is null'));
-        return;
-      }
 
       const onError = async (error: NodeJS.ErrnoException): Promise<void> => {
         console.error('Server error occurred:', error);
