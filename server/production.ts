@@ -131,11 +131,42 @@ export async function setupProduction(app: express.Express): Promise<void> {
   app.use(limiter);
 
   // CORS configuration
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
+  const corsOptions = {
+    origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+      const allowedOrigins = ['https://www.orangepillperu.com', 'https://orangepillperu.com', 'https://api.orangepillperu.com'];
+      
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`CORS blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie', 'Authorization'],
+    optionsSuccessStatus: 204,
+    maxAge: 86400, // 24 hours
+    preflightContinue: false
+  };
+  
+  // Apply CORS middleware first, before any other middleware
+  app.use(cors(corsOptions));
+  
+  // Handle preflight requests explicitly
+  app.options('*', cors(corsOptions));
+
+  // Security middleware after CORS
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
   }));
 
   // Compression

@@ -32,20 +32,29 @@ const app = express();
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowedOrigins = process.env.NODE_ENV === 'production'
-      ? ['https://orange-pill-peru.com', 'http://localhost:3000', 'http://0.0.0.0:3000']
+      ? ['https://www.orangepillperu.com', 'https://orangepillperu.com', 'https://api.orangepillperu.com']
       : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000', 'http://0.0.0.0:3000'];
     
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all origins in development
+      console.log(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  optionsSuccessStatus: 200,
-  maxAge: 86400 // 24 hours
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie', 'Authorization'],
+  optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 hours
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
