@@ -30,43 +30,55 @@ const app = express();
 
 // Configure CORS based on environment
 const corsOptions = {
-  origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
+  origin: function(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+    // Log the origin for debugging
+    log('Incoming request origin:', { origin });
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
+      log('No origin header, allowing request');
       return callback(null, true);
     }
-
-    // List of allowed origins
-    const allowedOrigins = process.env.NODE_ENV === 'production' 
-      ? ['https://www.orangepillperu.com', 'https://orangepillperu.com']
-      : [
-          'http://localhost:3000',
-          'http://127.0.0.1:3000',
-          'http://0.0.0.0:3000',
-          'https://www.orangepillperu.com',
-          'https://orangepillperu.com'
-        ];
-
-    // Check if the origin is in our list of allowed origins
-    if (allowedOrigins.includes(origin)) {
+    
+    // Define allowed origins based on environment
+    const allowedOrigins = [
+      'https://www.orangepillperu.com',
+      'https://orangepillperu.com'
+    ];
+    
+    // Add development origins when not in production
+    if (process.env.NODE_ENV !== 'production') {
+      allowedOrigins.push(
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://0.0.0.0:3000'
+      );
+    }
+    
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.includes(origin) || 
+      (process.env.NODE_ENV !== 'production' && (
+        origin.startsWith('http://localhost:') || 
+        origin.startsWith('http://127.0.0.1:') || 
+        origin.startsWith('http://0.0.0.0:')
+      ));
+    
+    if (isAllowed) {
+      log('CORS request allowed for origin:', { origin });
       callback(null, true);
-    } else if (process.env.NODE_ENV !== 'production') {
-      // In development, also allow any localhost URL
-      const localhostPatterns = [
-        /^https?:\/\/localhost:\d+$/,
-        /^https?:\/\/127\.0\.0\.1:\d+$/,
-        /^https?:\/\/0\.0\.0\.0:\d+$/
-      ];
-      const isLocalhost = localhostPatterns.some(pattern => pattern.test(origin));
-      callback(null, isLocalhost);
     } else {
-      callback(new Error('CORS not allowed'), false);
+      log('CORS request blocked:', { 
+        origin,
+        allowedOrigins,
+        environment: process.env.NODE_ENV
+      });
+      callback(new Error(`CORS not allowed for origin: ${origin}`), false);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'Content-Type', 'Access-Control-Allow-Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
@@ -74,6 +86,28 @@ const corsOptions = {
 
 // Apply CORS middleware first, before any other middleware
 app.use(cors(corsOptions));
+
+// Add CORS test endpoint before any auth middleware
+app.get('/api/cors-test', (req, res) => {
+  log('CORS test endpoint accessed', {
+    origin: req.headers.origin,
+    method: req.method,
+    path: req.path,
+    headers: {
+      ...req.headers,
+      // Exclude potentially sensitive headers
+      cookie: undefined,
+      authorization: undefined
+    }
+  });
+  
+  res.json({
+    status: 'success',
+    message: 'CORS test successful',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -103,6 +137,9 @@ app.use((req, res, next) => {
       log(logLine);
     }
   });
+
+
+
 
   next();
 });

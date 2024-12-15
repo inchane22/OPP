@@ -113,24 +113,24 @@ export async function setupProduction(app: express.Express): Promise<void> {
           "https://orangepillperu.com",
           "wss://www.orangepillperu.com",
           "wss://orangepillperu.com",
-          ...(process.env.NODE_ENV === 'development' 
-            ? ["http://localhost:*", "ws://localhost:*", "http://127.0.0.1:*", "http://0.0.0.0:*"] 
+          ...(process.env.NODE_ENV === 'development'
+            ? ["http://localhost:*", "ws://localhost:*", "http://127.0.0.1:*", "http://0.0.0.0:*"]
             : [])
-        ] as string[],
+        ],
         fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],
         frameSrc: ["'self'", "https://www.youtube.com"],
-        frameAncestors: ["'none'"],
+        frameAncestors: ["'self'", "https://www.orangepillperu.com", "https://orangepillperu.com"],
         workerSrc: ["'self'", "blob:"],
         childSrc: ["'self'", "blob:"],
         baseUri: ["'self'"],
         formAction: ["'self'"]
       }
     },
+    crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-    crossOriginEmbedderPolicy: false
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
   }));
 
   // Rate limiting
