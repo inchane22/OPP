@@ -1,5 +1,4 @@
-
-modules = ["nodejs-20", "web", "postgresql-16", "typescript", "python-3.11"]
+modules = ["nodejs-20", "web", "postgresql-16", "typescript"]
 run = "npm run dev"
 hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
@@ -9,28 +8,23 @@ channel = "stable-24_05"
 [deployment]
 deploymentTarget = "cloudrun"
 build = ["npm", "run", "build"]
-run = ["sh", "-c", "NODE_ENV=development PORT=5000 HOST=0.0.0.0 npx tsx watch --clear-screen=false server/index.ts"]
+run = ["npm", "run", "start"]
+
+[[ports]]
+localPort = 80
+externalPort = 3000
 
 [[ports]]
 localPort = 3000
-externalPort = 3000
+externalPort = 3001
+
+[[ports]]
+localPort = 3001
+externalPort = 3002
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5173
-externalPort = 5173
-
-[[ports]]
-localPort = 5174
-externalPort = 3001
-
-[env]
-PORT = "5000"
-HOST = "0.0.0.0"
-NODE_ENV = "development"
 
 [workflows]
 runButton = "Project"
@@ -42,14 +36,34 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Backend Server"
+args = "Create Admin"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Frontend Server"
+args = "Build and Start"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Build and Start"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Production Build"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend Dev Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Dev Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend Dev Server"
 
 [[workflows.workflow]]
-name = "Backend Server"
+name = "Create Admin"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -60,11 +74,25 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development PORT=5000 HOST=0.0.0.0 npx tsx watch --clear-screen=false server/index.ts"
+args = "npx tsx create-admin.ts"
+
+[[workflows.workflow]]
+name = "Build and Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production npm run build && npm start"
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "Frontend Server"
+name = "Production Build and Start"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -75,5 +103,64 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev:client"
-waitForPort = 5174
+args = "NODE_ENV=production npm run build && NODE_ENV=production npm start"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Production Build"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build"
+
+[[workflows.workflow]]
+name = "Backend Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "tsx watch server/index.ts"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development tsx watch --clear-screen=false server/index.ts"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Frontend Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "vite --port 3000 --host 0.0.0.0"
+waitForPort = 3000

@@ -24,13 +24,11 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["/client/src/*"],
+      "@/*": ["./client/src/*"],
       "@db/*": ["./db/*"],
       "db/*": ["./db/*"]
     },
     "forceConsistentCasingInFileNames": true,
-    "useUnknownInCatchVariables": false,
-    "allowSyntheticDefaultImports": true,
-    "strictNullChecks": true
+    "useUnknownInCatchVariables": false
   }
 }

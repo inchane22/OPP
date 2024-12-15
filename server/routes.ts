@@ -1,85 +1,12 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import express from 'express';
-import path from 'path';
-import { type Express, type Request, type Response, type NextFunction } from "express";
+import { type Express } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Authentication middleware
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-  next();
-}
-
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: "Access denied" });
-  }
-  next();
-}
-// Types for Bitcoin price endpoint
-interface BitcoinPrice {
-  pen: number;
-  provider: string;
-  timestamp: number;
-}
-
-interface PriceData {
-  bitcoin: BitcoinPrice;
-  stale?: boolean;
-}
-
-interface PriceCache {
-  data: PriceData | null;
-  timestamp: number;
-  ttl: number;
-}
-
-interface PriceProvider {
-  name: string;
-  fn: () => Promise<number>;
-}
-
-// Initialize price cache
-let priceCache: PriceCache = {
-  data: null,
-  timestamp: 0,
-  ttl: 300000 // 5 minutes default TTL
-};
-
-// Custom error class for API errors
-class APIError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number = 500,
-    public details?: string
-  ) {
-    super(message);
-    this.name = 'APIError';
-  }
-}
 import { eq, desc, sql } from "drizzle-orm";
-
 import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
 
-export async function registerRoutes(app: Express): Promise<void> {
-  // Root path handler (add these two lines first)
-  app.get('/', (_req, res) => {
-    res.sendFile(path.resolve(__dirname, '../client/index.html'));
-  });
-  app.use(express.static(path.resolve(__dirname, '../client')));
-
+export function registerRoutes(app: Express) {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 
@@ -190,7 +117,10 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.post("/api/posts", requireAuth, async (req, res) => {
+  app.post("/api/posts", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).send("Not authenticated");
+    }
 
     try {
       const [post] = await db
@@ -250,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   app.post("/api/events", async (req, res) => {
-    if (!req.isAuthenticated() || !req.user) {
+    if (!req.isAuthenticated()) {
       return res.status(401).send("Not authenticated");
     }
     
@@ -842,232 +772,79 @@ export async function registerRoutes(app: Express): Promise<void> {
       return res.status(500).json({ error: "Failed to create business" });
     }
   });
-  // Bitcoin price routes and cache
-
-// Reusing the existing APIError class declared above
-
-// Bitcoin price endpoint middleware
-const handleBitcoinPriceErrors = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    await next();
-  } catch (error) {
-    console.error('Bitcoin price error:', error);
-    
-    if (error instanceof APIError) {
-      res.status(error.statusCode).json({
-        error: error.message,
-        details: error.details
-      });
-      return;
+  // Carousel routes
+  // In-memory cache for Bitcoin price
+  interface PriceData {
+    bitcoin: {
+      pen: number;
+      provider: string;
+      timestamp: number;
     }
-    
-    if (error instanceof Error) {
-      res.status(500).json({
-        error: 'Failed to fetch Bitcoin price',
-        details: error.message
-      });
-      return;
-    }
-    
-    res.status(500).json({
-      error: 'An unexpected error occurred',
-      details: 'Please try again later'
-    });
   }
-};
 
-// Bitcoin price endpoint
-app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res: Response) => {
-    try {
-      // Check cache first
-      const now = Date.now();
-      if (priceCache.data && (now - priceCache.timestamp) < priceCache.ttl) {
-        return res.json(priceCache.data);
-      }
+  interface PriceCache {
+    data: PriceData | null;
+    timestamp: number;
+    ttl: number;
+  }
 
-      console.log('Cache miss or expired, fetching fresh price data...');
-      
-      // Try different providers in sequence
-      const providers = [
-        { name: 'Kraken', fn: fetchKrakenPrice },
-        { name: 'Bitso', fn: fetchBitsoPrice },
-        { name: 'Blockchain.com', fn: fetchBlockchainPrice }
-      ];
-
-      let lastError = null;
-      for (const provider of providers) {
-        try {
-          console.log(`Attempting to fetch price from ${provider.name}...`);
-          const price = await provider.fn();
-          
-          const priceData: PriceData = {
-            bitcoin: {
-              pen: price,
-              provider: provider.name,
-              timestamp: Date.now()
-            }
-          };
-
-          // Update cache
-          priceCache = {
-            data: priceData,
-            timestamp: Date.now(),
-            ttl: 300000
-          };
-
-          console.log(`Successfully fetched price from ${provider.name}`);
-          res.json(priceData);
-          return;
-        } catch (error) {
-          console.error(`${provider.name} provider failed:`, error);
-          lastError = error;
-          continue;
-        }
-      }
-
-      // If we get here, all providers failed
-      throw new APIError(
-        'All price providers failed',
-        503,
-        lastError instanceof Error ? lastError.message : 'Unknown error'
-      );
-    } catch (error) {
-      console.error('Final error in price endpoint:', error);
-      throw error; // Will be handled by middleware
-    }
-  });
-
-  // Remove duplicate declarations as these are already defined at the top of the file
-  // interface BitcoinPrice and PriceCache are already defined
-
-  // Price cache initialization
-  const initializePriceCache = (): void => {
-    priceCache = {
-      data: null,
-      timestamp: 0,
-      ttl: 300000 // 5 minutes cache for better rate limit protection
-    };
+  let priceCache: PriceCache = {
+    data: null,
+    timestamp: 0,
+    ttl: 300000 // 5 minutes cache for better rate limit protection
   };
-
-  // Initialize price cache
-  initializePriceCache();
-
-  // Price endpoints use the error handler defined above
 
   async function fetchKrakenPrice() {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
-      console.log('Attempting to fetch Kraken price data...');
-      
-      // Add retries for both requests
-      const fetchWithRetry = async (url: string, retries = 3) => {
-        for (let i = 0; i < retries; i++) {
-          try {
-            const response = await fetch(url, {
-              headers: { 
-                'User-Agent': 'BitcoinPENTracker/1.0',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-              },
-              signal: controller.signal
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`API error response (attempt ${i + 1}):`, errorText);
-              if (i === retries - 1) {
-                throw new Error(`API error: ${response.status}`);
-              }
-              continue;
-            }
-            
-            const contentType = response.headers.get('content-type');
-            if (!contentType?.includes('application/json')) {
-              console.error(`Invalid content type: ${contentType}`);
-              if (i === retries - 1) {
-                throw new Error('Invalid response format');
-              }
-              continue;
-            }
-
-            return response;
-          } catch (error) {
-            if (i === retries - 1) throw error;
-            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-          }
-        }
-        throw new Error('All retry attempts failed');
-      };
-
       const [priceResponse, rateResponse] = await Promise.all([
-        fetchWithRetry('https://api.kraken.com/0/public/Ticker?pair=XBTUSDT'),
-        fetchWithRetry('https://api.exchangerate-api.com/v4/latest/USD')
+        fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSDT', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        }),
+        fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        })
       ]);
 
-      // Parse JSON responses with validation
-      let priceData, rateData;
-      try {
-        const priceText = await priceResponse.text();
-        const rateText = await rateResponse.text();
-        
-        console.log('Raw Kraken response:', priceText);
-        console.log('Raw Exchange rate response:', rateText);
-        
-        try {
-          priceData = JSON.parse(priceText);
-          rateData = JSON.parse(rateText);
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          throw new Error('Failed to parse API response');
-        }
-      } catch (error) {
-        console.error('Response reading error:', error);
-        throw new Error('Failed to read API response');
+      clearTimeout(timeoutId);
+
+      if (!priceResponse.ok) {
+        throw new Error(`Kraken API error: ${priceResponse.status}`);
+      }
+      if (!rateResponse.ok) {
+        throw new Error(`Exchange rate API error: ${rateResponse.status}`);
       }
 
-      // Validate price data structure with detailed logging
-      console.log('Parsed price data:', JSON.stringify(priceData, null, 2));
-      if (!priceData?.result?.XBTUSDT?.c?.[0]) {
-        console.error('Invalid price data structure:', priceData);
-        throw new Error('Invalid price data structure');
-      }
+      const [priceData, rateData] = await Promise.all([
+        priceResponse.json(),
+        rateResponse.json()
+      ]);
 
-      const btcUsdPrice = parseFloat(priceData.result.XBTUSDT.c[0]);
-      console.log('Parsed BTC/USD price:', btcUsdPrice);
-      if (isNaN(btcUsdPrice)) {
-        throw new Error('Invalid price value');
+      if (!priceData?.result?.XBTUSDT?.c?.[0] || isNaN(parseFloat(priceData.result.XBTUSDT.c[0]))) {
+        throw new Error('Invalid price data from Kraken');
       }
-
-      // Validate exchange rate data with detailed logging
-      console.log('Parsed rate data:', JSON.stringify(rateData, null, 2));
-      if (!rateData?.rates?.PEN) {
+      if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
         throw new Error('Invalid exchange rate data');
       }
 
-      const usdPenRate = parseFloat(rateData.rates.PEN);
-      console.log('Parsed USD/PEN rate:', usdPenRate);
-      if (isNaN(usdPenRate)) {
-        throw new Error('Invalid exchange rate value');
-      }
-
+      const btcUsdPrice = parseFloat(priceData.result.XBTUSDT.c[0]);
+      const usdPenRate = rateData.rates.PEN;
       const finalPrice = btcUsdPrice * usdPenRate;
-      console.log('Final calculated price:', finalPrice);
 
       if (finalPrice <= 0 || !isFinite(finalPrice)) {
-        throw new Error('Invalid price calculation');
+        throw new Error('Invalid price calculation result');
       }
 
-      return Math.round(finalPrice); // Round to avoid floating point issues
+      return finalPrice;
     } catch (error) {
-      console.error('Kraken price fetch error:', error);
-      throw error instanceof Error ? error : new Error('Unknown error during price fetch');
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Kraken price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -1193,7 +970,6 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
       if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
         throw new Error('Invalid price data structure');
       }
-
       return data.bitcoin.pen;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1205,8 +981,8 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
     }
   }
 
-  // Bitcoin price endpoint with multiple providers and caching
-  app.get("/api/bitcoin/price", async (_req: Request, res: Response): Promise<void> => {
+  // Bitcoin price proxy endpoint with multiple providers and caching
+  app.get("/api/bitcoin/price", async (_req, res): Promise<void> => {
     try {
       // Check cache first
       const now = Date.now();
@@ -1216,82 +992,60 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
         return;
       }
 
-      console.log('Cache miss or expired, fetching fresh price data...');
-
       const providers = [
         { name: 'Kraken', fn: fetchKrakenPrice },
-        { name: 'Bitso', fn: fetchBitsoPrice },
         { name: 'Blockchain.com', fn: fetchBlockchainPrice },
-        { name: 'CoinGecko', fn: fetchCoingeckoPrice }
+        { name: 'CoinGecko', fn: fetchCoingeckoPrice },
+        { name: 'Bitso', fn: fetchBitsoPrice }
       ];
 
-      // If cache exists but is stale, we'll use it as fallback
-      const staleCacheTimeout = 1800000; // 30 minutes
-      const hasStaleCache = priceCache.data && (now - priceCache.timestamp) < staleCacheTimeout;
-      
       let lastError: Error | null = null;
       
-      // Try each provider until we get a valid price
       for (const provider of providers) {
         try {
           console.log(`Attempting to fetch price from ${provider.name}...`);
-          const price = await provider.fn();
+          const penPrice = await provider.fn();
           
-          if (price && price > 0 && isFinite(price)) {
-            console.log(`Successfully fetched price from ${provider.name}`);
-            const priceData = {
-              bitcoin: {
-                pen: price,
-                provider: provider.name,
-                timestamp: Date.now()
-              }
-            };
-            
-            // Update cache
-            priceCache = {
-              data: priceData,
-              timestamp: Date.now(),
-              ttl: 300000 // 5 minutes
-            };
-            
-            res.json(priceData);
-            return;
-          }
-          
-          console.warn(`Invalid price (${price}) received from ${provider.name}`);
+          const response: PriceData = {
+            bitcoin: {
+              pen: penPrice,
+              provider: provider.name,
+              timestamp: now
+            }
+          };
+
+          // Update cache
+          priceCache = {
+            data: response,
+            timestamp: now,
+            ttl: 30000
+          };
+
+          // Set cache headers
+          res.set('Cache-Control', 'public, max-age=30');
+          console.log(`Successfully fetched price from ${provider.name}`);
+          res.json(response);
+          return;
         } catch (error) {
-          console.error(`Error fetching from ${provider.name}:`, error);
+          console.error(`${provider.name} error:`, error instanceof Error ? error.message : 'Unknown error');
           lastError = error instanceof Error ? error : new Error('Unknown error');
           continue;
         }
       }
 
-      // If we have stale cache, use it as fallback
-      if (hasStaleCache) {
-        console.log('All providers failed, using stale cache as fallback');
-        res.json({
-          ...priceCache.data,
-          stale: true
-        });
-        return;
-      }
-
-      // If all providers failed and no cache available
-      console.error('All providers failed and no cache available');
-      res.status(503).json({
-        error: 'Error al obtener el precio de Bitcoin. Por favor, intente más tarde.',
-        details: lastError?.message || 'Unknown error'
-      });
+      // If we get here, all providers failed
+      throw new Error(`All providers failed. Last error: ${lastError?.message}`);
     } catch (error) {
       console.error('Bitcoin price fetch failed:', error instanceof Error ? error.message : 'Unknown error');
       res.status(503).json({
-        error: 'Error al obtener el precio de Bitcoin. Por favor, intente más tarde.',
+        error: "Failed to fetch Bitcoin price",
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+      return;
     }
   });
 
-  app.get("/api/carousel", async (_req: Request, res: Response) => {
+  app.get("/api/carousel", async (_req, res) => {
     try {
       const items = await db
         .select({
@@ -1310,25 +1064,23 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
 
       if (!items || items.length === 0) {
         console.log('No active carousel items found');
-        res.json([]);  // Return empty array instead of 404 for better client handling
-        return;
+        return res.json([]);  // Return empty array instead of 404 for better client handling
       }
 
       console.log(`Successfully fetched ${items.length} carousel items`);
-      res.json(items);
+      return res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');
-      res.status(500).json({ 
+      return res.status(500).json({ 
         error: "Failed to fetch carousel items",
         details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
       });
     }
   });
 
-  app.post("/api/carousel", async (req: Request, res: Response) => {
+  app.post("/api/carousel", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      res.status(403).send("Access denied");
-      return;
+      return res.status(403).send("Access denied");
     }
 
     try {
@@ -1339,17 +1091,16 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
           createdById: req.user.id,
         })
         .returning();
-      res.json(item);
+      return res.json(item);
     } catch (error) {
       console.error("Failed to create carousel item:", error);
-      res.status(500).json({ error: "Failed to create carousel item" });
+      return res.status(500).json({ error: "Failed to create carousel item" });
     }
   });
 
-  app.patch("/api/carousel/:id", async (req: Request, res: Response) => {
+  app.patch("/api/carousel/:id", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      res.status(403).send("Access denied");
-      return;
+      return res.status(403).send("Access denied");
     }
 
     try {
@@ -1361,27 +1112,26 @@ app.get("/api/bitcoin/price", handleBitcoinPriceErrors, async (req: Request, res
         })
         .where(eq(carousel_items.id, parseInt(req.params.id)))
         .returning();
-      res.json(item);
+      return res.json(item);
     } catch (error) {
       console.error("Failed to update carousel item:", error);
-      res.status(500).json({ error: "Failed to update carousel item" });
+      return res.status(500).json({ error: "Failed to update carousel item" });
     }
   });
 
-  app.delete("/api/carousel/:id", async (req: Request, res: Response) => {
+  app.delete("/api/carousel/:id", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      res.status(403).json({ error: "Access denied" });
-      return;
+      return res.status(403).send("Access denied");
     }
 
     try {
       await db
         .delete(carousel_items)
         .where(eq(carousel_items.id, parseInt(req.params.id)));
-      res.json({ success: true });
+      return res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete carousel item:", error);
-      res.status(500).json({ error: "Failed to delete carousel item" });
+      return res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
 }

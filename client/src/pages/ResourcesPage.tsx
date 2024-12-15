@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import type { Resource, CreateResourceInput } from "../types/resources";
+// Removed unused import
 import { Book, Link as LinkIcon, Video, Loader2 } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 

@@ -29,8 +29,6 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
     const response = await fetch('/api/bitcoin/price', {
       headers: {
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
       },
       signal: controller.signal,
       cache: 'no-cache' // Ensure fresh data
@@ -39,51 +37,14 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // Try to get error details from response
-      let errorMessage = 'Error al obtener el precio de Bitcoin. Por favor, intente más tarde.';
-      try {
-        const errorText = await response.text();
-        console.error('Error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        
-        // Try to parse as JSON if possible
-        try {
-          const errorData = JSON.parse(errorText);
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch (parseError) {
-          console.error('Error response was not JSON:', parseError);
-        }
-      } catch (responseError) {
-        console.error('Could not read error response:', responseError);
-      }
-
       if (response.status === 503) {
+        const errorData = await response.json();
         throw new Error('Servicio temporalmente no disponible. Por favor, intente más tarde.');
       }
-      throw new Error(errorMessage);
+      throw new Error('Error al obtener el precio de Bitcoin. Por favor, intente más tarde.');
     }
 
-    let data: FetchBitcoinPriceResult;
-    try {
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
-      
-      try {
-        data = JSON.parse(responseText) as FetchBitcoinPriceResult;
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError, 'Raw response:', responseText);
-        throw new Error('Error al procesar la respuesta del servidor. Por favor, intente más tarde.');
-      }
-    } catch (textError) {
-      console.error('Error reading response:', textError);
-      throw new Error('Error al leer la respuesta del servidor. Por favor, intente más tarde.');
-    }
-
+    const data = await response.json() as FetchBitcoinPriceResult;
     console.log('Bitcoin price data:', data);
     
     if ('error' in data) {
