@@ -48,7 +48,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx vite --port 3000 --host 0.0.0.0"
+args = "npm run dev"
 waitForPort = 3000
 
 [[workflows.workflow]]
@@ -63,4 +63,5 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development DEBUG=* npx tsx watch --clear-screen=false server/index.ts"
+args = "npx tsx watch --clear-screen=false server/index.ts"
+waitForPort = 5000
