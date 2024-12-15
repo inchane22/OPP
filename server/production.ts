@@ -98,27 +98,28 @@ export async function setupProduction(app: express.Express): Promise<void> {
     process.exit(1);
   }
 
-  // Security middleware
+  // Security middleware with CORS-friendly configuration
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://platform.twitter.com", "https://*.twitter.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://platform.twitter.com"],
-        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com", "https://*.twitter.com", "https://platform.twitter.com"],
-        connectSrc: ["'self'", "https://api.codidact.com", "https://*.twitter.com", "https://api.coingecko.com"],
-        fontSrc: ["'self'", "https://platform.twitter.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.orangepillperu.com", "https://www.youtube.com", "https://s.ytimg.com"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:", "https://www.orangepillperu.com", "https://i.ytimg.com", "https://img.youtube.com"],
+        connectSrc: ["'self'", "https://www.orangepillperu.com", "https://api.coingecko.com"],
+        fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],
-        frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://youtu.be", "https://platform.twitter.com", "https://*.twitter.com"],
-        frameAncestors: ["'self'"],
+        frameSrc: ["'self'", "https://www.youtube.com"],
+        frameAncestors: ["'none'"],
         workerSrc: ["'self'", "blob:"],
-        childSrc: ["'self'", "blob:", "https://platform.twitter.com"],
+        childSrc: ["'self'", "blob:"],
         baseUri: ["'self'"]
       }
     },
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginEmbedderPolicy: true
   }));
 
   // Rate limiting
@@ -130,47 +131,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
   app.use(limiter);
 
-  // CORS configuration
-  const corsOptions = {
-    origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-      const allowedOrigins = ['https://www.orangepillperu.com', 'https://orangepillperu.com', 'https://api.orangepillperu.com'];
-      
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log(`CORS blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-    exposedHeaders: ['Set-Cookie', 'Authorization'],
-    optionsSuccessStatus: 204,
-    maxAge: 86400, // 24 hours
-    preflightContinue: false
-  };
-  
-  // Apply CORS middleware first, before any other middleware
-  app.use(cors(corsOptions));
-  
-  // Handle preflight requests explicitly
-  app.options('*', cors(corsOptions));
-
-  // Security middleware after CORS
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
-  }));
-
-  // Compression
-  app.use(compression());
 
   // Request logging
   app.use((req: CustomRequest, res: CustomResponse, next) => {
