@@ -1,6 +1,13 @@
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import path from 'path';
 import { type Express, type Request, type Response, type NextFunction } from "express";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Authentication middleware
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -67,6 +74,12 @@ import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
 
 export async function registerRoutes(app: Express): Promise<void> {
+  // Root path handler (add these two lines first)
+  app.get('/', (_req, res) => {
+    res.sendFile(path.resolve(__dirname, '../client/index.html'));
+  });
+  app.use(express.static(path.resolve(__dirname, '../client')));
+
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
   setupAuth(app);
 

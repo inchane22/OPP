@@ -11,12 +11,8 @@ import { dirname } from 'path';
 import { serverConfig, PORT, HOST, env, isProduction } from './config';
 import { setupAuth } from './auth';
 
-// ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Helper for consistent path resolution
-const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 
 function log(message: string, data: Record<string, any> = {}) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -30,59 +26,56 @@ function log(message: string, data: Record<string, any> = {}) {
 
 const app = express();
 
-// Basic middleware setup
+// Basic middleware
 app.use(cors());
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize authentication
+// Auth setup
 setupAuth(app);
 
-// Configure CORS
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowedOrigins = [
-    'https://orange-pill-peru.com',
-    'https://www.orange-pill-peru.com',
-    'http://localhost:5000',
-    'http://localhost:3000',
-    'http://0.0.0.0:5000',
-    'http://0.0.0.0:3000',
-    'https://*.repl.co',
-    'https://*.repl.dev',
-    'https://*.replit.app',
-    'https://*.replit.dev',
-    'https://*.picard.replit.dev'
-  ];
-    
-  // Allow requests with no origin (like mobile apps, curl, postman)
-  if (!origin) {
-    callback(null, true);
-    return;
-  }
+      'https://orange-pill-peru.com',
+      'https://www.orange-pill-peru.com',
+      'http://localhost:5000',
+      'http://localhost:3000',
+      'http://0.0.0.0:5000',
+      'http://0.0.0.0:3000',
+      'https://*.repl.co',
+      'https://*.repl.dev',
+      'https://*.replit.app',
+      'https://*.replit.dev',
+      'https://*.picard.replit.dev'
+    ];
 
-  // Check if the origin matches any of our allowed patterns
-  const isAllowed = allowedOrigins.some(allowedOrigin => {
-    if (allowedOrigin.includes('*')) {
-      const pattern = new RegExp('^' + allowedOrigin.replace('*', '.*') + '$');
-      return pattern.test(origin);
+    if (!origin) {
+      callback(null, true);
+      return;
     }
-    return allowedOrigin === origin;
-  });
 
-  if (isAllowed) {
-    callback(null, true);
-  } else {
-    console.warn(`CORS blocked request from origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
-  }
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin.includes('*')) {
+        const pattern = new RegExp('^' + allowedOrigin.replace('*', '.*') + '$');
+        return pattern.test(origin);
+      }
+      return allowedOrigin === origin;
+    });
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   optionsSuccessStatus: 200,
-  maxAge: 86400 // 24 hours
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
@@ -90,11 +83,11 @@ app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
+// Request logging
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const reqPath = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -104,8 +97,8 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (reqPath.startsWith("/api")) {
+      let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -119,16 +112,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Initialize server
+// Init server
 const port = parseInt(process.env.PORT || '5000', 10);
 const host = process.env.HOST || '0.0.0.0';
 app.set('port', port);
 app.set('host', host);
 
-// Create HTTP server
-const server = createServer(app);
+// Use let for server so cleanup can reassign
+let server = createServer(app);
 
-// Log environment configuration
 log('Environment configuration:', {
   port,
   host,
@@ -138,7 +130,6 @@ log('Environment configuration:', {
   pg_host: process.env.PGHOST ? '[REDACTED]' : undefined,
 });
 
-// Log server configuration
 log('Server initialization', {
   port,
   host,
@@ -149,7 +140,7 @@ log('Server initialization', {
   env_host: process.env.HOST
 });
 
-// Validate port configuration
+// Validate port
 if (!PORT || isNaN(PORT) || PORT <= 0) {
   log('Invalid port configuration', {
     port: PORT,
@@ -160,7 +151,6 @@ if (!PORT || isNaN(PORT) || PORT <= 0) {
   process.exit(1);
 }
 
-// Log port validation success
 log('Port configuration validated', {
   port: PORT,
   host: HOST,
@@ -176,7 +166,6 @@ if (process.env.NODE_ENV === 'production') {
 
 console.log(`Attempting to start server on ${HOST}:${PORT}`);
 
-// Function to handle port binding errors
 const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
   if (error.code === 'EACCES') {
     log('Port requires elevated privileges', { port: PORT });
@@ -190,7 +179,6 @@ const handlePortError = async (error: NodeJS.ErrnoException): Promise<void> => {
   }
 };
 
-// Cleanup function
 async function cleanup(): Promise<void> {
   if (server && server.listening) {
     return new Promise<void>((resolve) => {
@@ -203,7 +191,7 @@ async function cleanup(): Promise<void> {
   return Promise.resolve();
 }
 
-// Register error handling middleware
+// Error handling middleware
 app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   const status = err instanceof Error ? 500 : 400;
   const message = process.env.NODE_ENV === 'production'
@@ -220,7 +208,6 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Initialize database and start server
 async function init() {
   try {
     log('Starting server initialization...', {
@@ -228,17 +215,14 @@ async function init() {
       port: PORT,
       host: HOST
     });
-    
-    // Initialize database
+
     const { db } = await import('../db/index');
     await db.execute(sql`SELECT 1`);
     log('Database connected successfully');
-    
-    // Register routes
+
     await registerRoutes(app);
     log('Routes registered successfully');
 
-    // Register API routes
     try {
       await registerRoutes(app);
       log('API routes registered successfully');
@@ -250,23 +234,24 @@ async function init() {
       throw routesError;
     }
 
-    // Ensure cleanup of any existing server
     await cleanup();
     log('Previous server instance cleaned up');
 
-    // Setup environment-specific configuration
+    // In development, use Vite middleware (no static file serving)
     if (process.env.NODE_ENV !== 'production') {
       await setupVite(app, server);
       log('Development server setup completed');
+      // NOTE: No serving index.html here in dev mode. Use Vite dev server at http://localhost:5173
     } else {
-      const { setupProduction } = await import('./production.js');
-      await setupProduction(app);
-      log('Production server setup completed');
+      // In production mode, you would serve the built files:
+      // app.use(express.static(path.resolve(__dirname, '../dist')));
+      // app.get('*', (req, res) => {
+      //   res.sendFile(path.resolve(__dirname, '../dist/index.html'));
+      // });
+      // log('Production server setup completed');
     }
 
-    // Start server
     await new Promise<void>((resolve, reject) => {
-
       const onError = async (error: NodeJS.ErrnoException): Promise<void> => {
         console.error('Server error occurred:', error);
         log('Server error details:', {
@@ -284,7 +269,7 @@ async function init() {
             error: err instanceof Error ? err.message : 'Unknown error',
             code: error.code,
             stack: process.env.NODE_ENV === 'development' ? 
-              error instanceof Error ? error.stack : undefined : 
+              (error instanceof Error ? error.stack : undefined) : 
               undefined
           });
           reject(err);
@@ -309,16 +294,14 @@ async function init() {
           production: isProduction,
           address: addr
         });
-        
+
         server!.removeListener('error', onError);
         resolve();
       };
 
-      // Bind error and listening handlers
       server.once('error', onError);
       server.once('listening', onListening);
-      
-      // Attempt to start the server
+
       console.log(`Starting server on ${HOST}:${PORT}`);
       log('Binding server...', { 
         host: HOST,
@@ -327,7 +310,7 @@ async function init() {
         production: isProduction,
         port_env: process.env.PORT
       });
-      
+
       try {
         server.listen(PORT, HOST);
         log('Server binding successful', { 
@@ -358,11 +341,9 @@ async function init() {
   }
 }
 
-// Graceful shutdown handlers
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
-// Start server with enhanced error handling
 init().catch((error: unknown) => {
   log('Fatal error during initialization:', {
     error: error instanceof Error ? error.message : 'Unknown error',
@@ -374,14 +355,12 @@ init().catch((error: unknown) => {
     database_url: process.env.DATABASE_URL ? '[REDACTED]' : 'undefined'
   });
 
-  // Give time for logs to be written before exit
   setTimeout(() => {
     console.error('Server initialization failed, exiting...');
     process.exit(1);
   }, 1000);
 });
 
-// Log unhandled rejections
 process.on('unhandledRejection', (reason: unknown) => {
   console.error('Unhandled Rejection:', reason);
   log('Unhandled Promise Rejection:', {
@@ -390,15 +369,13 @@ process.on('unhandledRejection', (reason: unknown) => {
   });
 });
 
-// Log uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught Exception:', error);
   log('Uncaught Exception:', {
     error: error.message,
     stack: error.stack
   });
-  
-  // Exit on uncaught exception after logging
+
   setTimeout(() => {
     process.exit(1);
   }, 1000);
