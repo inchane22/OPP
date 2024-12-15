@@ -250,14 +250,20 @@ export function setupAuth(app: Express) {
     if (req.isAuthenticated()) {
       const user = req.user;
       return res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        language: user.language,
-        role: user.role,
-        avatar: user.avatar
+        authenticated: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          language: user.language,
+          role: user.role,
+          avatar: user.avatar
+        }
       });
     }
-    return res.status(401).json({ error: "No has iniciado sesión" });
+    return res.json({
+      authenticated: false,
+      user: null
+    });
   });
 }
