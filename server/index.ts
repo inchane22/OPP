@@ -34,7 +34,7 @@ const corsOptions = {
     // Log the origin for debugging
     log('Incoming request origin:', { origin });
     
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
     if (!origin) {
       log('No origin header, allowing request');
       return callback(null, true);
@@ -43,7 +43,9 @@ const corsOptions = {
     // Define allowed origins based on environment
     const allowedOrigins = [
       'https://www.orangepillperu.com',
-      'https://orangepillperu.com'
+      'https://orangepillperu.com',
+      'wss://www.orangepillperu.com',
+      'wss://orangepillperu.com'
     ];
     
     // Add development origins when not in production
@@ -51,17 +53,26 @@ const corsOptions = {
       allowedOrigins.push(
         'http://localhost:3000',
         'http://127.0.0.1:3000',
-        'http://0.0.0.0:3000'
+        'http://0.0.0.0:3000',
+        'ws://localhost:3000',
+        'ws://127.0.0.1:3000',
+        'ws://0.0.0.0:3000'
       );
     }
     
     // Check if origin is allowed
-    const isAllowed = allowedOrigins.includes(origin) || 
-      (process.env.NODE_ENV !== 'production' && (
-        origin.startsWith('http://localhost:') || 
-        origin.startsWith('http://127.0.0.1:') || 
-        origin.startsWith('http://0.0.0.0:')
-      ));
+    const originWithoutProtocol = origin.replace(/^(https?:|wss?:)\/\//, '');
+    const isAllowed = allowedOrigins.some(allowed => {
+      const allowedWithoutProtocol = allowed.replace(/^(https?:|wss?:)\/\//, '');
+      return allowedWithoutProtocol === originWithoutProtocol;
+    }) || (process.env.NODE_ENV !== 'production' && (
+      origin.startsWith('http://localhost:') || 
+      origin.startsWith('ws://localhost:') ||
+      origin.startsWith('http://127.0.0.1:') || 
+      origin.startsWith('ws://127.0.0.1:') ||
+      origin.startsWith('http://0.0.0.0:') ||
+      origin.startsWith('ws://0.0.0.0:')
+    ));
     
     if (isAllowed) {
       log('CORS request allowed for origin:', { origin });
@@ -77,8 +88,26 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials',
+    'Sec-WebSocket-Protocol',
+    'Sec-WebSocket-Version',
+    'Sec-WebSocket-Key'
+  ],
+  exposedHeaders: [
+    'Content-Length',
+    'Content-Type',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
+  ],
   maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
