@@ -121,39 +121,7 @@ app.use(express.urlencoded({ extended: true }));
 // Apply CORS middleware after basic middleware
 app.use(cors(corsOptions));
 
-// Add CORS test endpoint after all middleware initialization
-app.get('/api/cors-test', (req, res) => {
-  const origin = req.headers.origin || 'No origin';
-  log('CORS test endpoint accessed', {
-    origin,
-    method: req.method,
-    path: req.path,
-    headers: req.headers
-  });
-  
-  // Set CORS headers explicitly for this endpoint
-  if (origin !== 'No origin') {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  }
-  
-  res.json({
-    status: 'success',
-    message: 'CORS test successful',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    origin: origin,
-    cors_enabled: true,
-    headers: {
-      ...req.headers,
-      // Exclude sensitive headers
-      cookie: undefined,
-      authorization: undefined
-    }
-  });
-});
+// CORS test endpoint moved to routes.ts
 
 // Request logging middleware
 app.use((req, res, next) => {

@@ -11,6 +11,32 @@ export function registerRoutes(app: Express) {
   setupAuth(app);
 
   // Posts routes
+  // CORS test endpoint
+  app.get("/api/cors-test", (req, res) => {
+    const origin = req.headers.origin || 'No origin';
+    console.log('CORS test endpoint accessed:', {
+      origin,
+      method: req.method,
+      path: req.path,
+      headers: req.headers
+    });
+    
+    res.json({
+      status: 'success',
+      message: 'CORS test successful',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      origin: origin,
+      cors_enabled: true,
+      headers: {
+        ...req.headers,
+        // Exclude sensitive headers
+        cookie: undefined,
+        authorization: undefined
+      }
+    });
+  });
+
   app.get("/api/posts", async (_req, res): Promise<void> => {
     try {
       let allPosts = await db.select({
