@@ -65,10 +65,34 @@ export function setupAuth(app: Express) {
   // Set trust proxy for both environments
   app.set("trust proxy", 1);
 
-  // Initialize passport and session middleware
+  // Initialize Express session first
   app.use(session(sessionSettings));
+  
+  // Initialize Passport and restore authentication state from session
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // User data endpoint - returns authentication status without requiring auth
+  app.get("/api/user", (req: Request, res: Response) => {
+    const isAuthenticated = req.isAuthenticated?.() || false;
+    if (isAuthenticated && req.user) {
+      return res.json({
+        authenticated: true,
+        user: {
+          id: req.user.id,
+          username: req.user.username,
+          email: req.user.email,
+          language: req.user.language,
+          role: req.user.role,
+          avatar: req.user.avatar
+        }
+      });
+    }
+    return res.json({
+      authenticated: false,
+      user: null
+    });
+  });
 
   // Configure local strategy for username/password auth
   passport.use(
@@ -121,6 +145,28 @@ export function setupAuth(app: Express) {
     } catch (err) {
       done(err);
     }
+  });
+
+  // User data endpoint - after passport initialization but before any auth middleware
+  app.get("/api/user", (req: Request, res: Response) => {
+    if (req.isAuthenticated && req.isAuthenticated()) {
+      const user = req.user;
+      return res.json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          language: user.language,
+          role: user.role,
+          avatar: user.avatar
+        }
+      });
+    }
+    return res.json({
+      authenticated: false,
+      user: null
+    });
   });
 
   // Authentication routes
@@ -243,27 +289,6 @@ export function setupAuth(app: Express) {
         }
         resolve();
       });
-    });
-  });
-
-  app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
-      const user = req.user;
-      return res.json({
-        authenticated: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          language: user.language,
-          role: user.role,
-          avatar: user.avatar
-        }
-      });
-    }
-    return res.json({
-      authenticated: false,
-      user: null
     });
   });
 }
