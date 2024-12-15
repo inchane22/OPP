@@ -26,15 +26,12 @@ function log(message: string, data: Record<string, any> = {}) {
 
 const app = express();
 
+// Health check endpoint
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ status: 'healthy', environment: process.env.NODE_ENV });
+});
+
 // Basic middleware
-app.use(cors());
-app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Auth setup
-setupAuth(app);
-
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowedOrigins = [
@@ -82,6 +79,17 @@ app.use(cors(corsOptions));
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Configure middleware
+app.use(cors(corsOptions));
+app.use(compression());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Auth setup
+setupAuth(app);
+
+// Auth setup
+setupAuth(app);
 
 // Request logging
 app.use((req, res, next) => {
@@ -220,9 +228,7 @@ async function init() {
     await db.execute(sql`SELECT 1`);
     log('Database connected successfully');
 
-    await registerRoutes(app);
-    log('Routes registered successfully');
-
+    // Register routes once
     try {
       await registerRoutes(app);
       log('API routes registered successfully');
@@ -234,21 +240,16 @@ async function init() {
       throw routesError;
     }
 
-    await cleanup();
-    log('Previous server instance cleaned up');
-
-    // In development, use Vite middleware (no static file serving)
-    if (process.env.NODE_ENV !== 'production') {
-      await setupVite(app, server);
-      log('Development server setup completed');
-      // NOTE: No serving index.html here in dev mode. Use Vite dev server at http://localhost:5173
+    // In development mode, we only want API routes, no static file serving
+    if (process.env.NODE_ENV === 'development') {
+      log('Development server setup completed - API only mode');
     } else {
-      // In production mode, you would serve the built files:
+      // Production mode configuration (commented out for now)
       // app.use(express.static(path.resolve(__dirname, '../dist')));
       // app.get('*', (req, res) => {
       //   res.sendFile(path.resolve(__dirname, '../dist/index.html'));
       // });
-      // log('Production server setup completed');
+      log('Production server setup completed');
     }
 
     await new Promise<void>((resolve, reject) => {
