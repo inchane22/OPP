@@ -113,10 +113,20 @@ app.use((req, res, next) => {
 let server: ReturnType<typeof createServer> | null = null;
 
 // Set port and host in Express app
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : PORT;
-const host = process.env.HOST || HOST;
+const port = parseInt(process.env.PORT || '5000', 10);
+const host = process.env.HOST || '0.0.0.0';
 app.set('port', port);
 app.set('host', host);
+
+// Log environment configuration
+log('Environment configuration:', {
+  port,
+  host,
+  node_env: process.env.NODE_ENV,
+  database_url: process.env.DATABASE_URL ? '[REDACTED]' : undefined,
+  pg_database: process.env.PGDATABASE ? '[REDACTED]' : undefined,
+  pg_host: process.env.PGHOST ? '[REDACTED]' : undefined,
+});
 
 // Log server configuration
 log('Server initialization', {
