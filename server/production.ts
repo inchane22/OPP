@@ -98,28 +98,39 @@ export async function setupProduction(app: express.Express): Promise<void> {
     process.exit(1);
   }
 
-  // Security middleware with CORS-friendly configuration
+  // Security middleware configuration
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.orangepillperu.com", "https://www.youtube.com", "https://s.ytimg.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:", "https://www.orangepillperu.com", "https://i.ytimg.com", "https://img.youtube.com"],
-        connectSrc: ["'self'", "https://www.orangepillperu.com", "https://api.coingecko.com"],
-        fontSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com"],
+        connectSrc: [
+          "'self'",
+          "https://api.coingecko.com",
+          "https://www.orangepillperu.com",
+          "https://orangepillperu.com",
+          "wss://www.orangepillperu.com",
+          "wss://orangepillperu.com",
+          ...(process.env.NODE_ENV === 'development' 
+            ? ["http://localhost:*", "ws://localhost:*", "http://127.0.0.1:*", "http://0.0.0.0:*"] 
+            : [])
+        ] as string[],
+        fontSrc: ["'self'", "data:"],
         objectSrc: ["'none'"],
         mediaSrc: ["'self'", "https:", "blob:"],
         frameSrc: ["'self'", "https://www.youtube.com"],
         frameAncestors: ["'none'"],
         workerSrc: ["'self'", "blob:"],
         childSrc: ["'self'", "blob:"],
-        baseUri: ["'self'"]
+        baseUri: ["'self'"],
+        formAction: ["'self'"]
       }
     },
-    crossOriginResourcePolicy: { policy: "same-origin" },
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginEmbedderPolicy: true
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginEmbedderPolicy: false
   }));
 
   // Rate limiting
@@ -130,7 +141,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
     legacyHeaders: false
   });
   app.use(limiter);
-
 
   // Request logging
   app.use((req: CustomRequest, res: CustomResponse, next) => {
@@ -167,10 +177,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Static file serving with proper path resolution for ES modules
+  // Static file serving
   const publicPath = resolveFromRoot('dist/public');
-  const indexPath = path.join(publicPath, 'index.html');
-  
   if (!fs.existsSync(publicPath)) {
     logger('Building client application...', {
       directory: publicPath
@@ -178,7 +186,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
     throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
   }
 
-  logger('Static files will be served from:', { 
+  logger('Static files will be served from:', {
     path: publicPath,
     exists: fs.existsSync(publicPath)
   } as LogData);
@@ -186,7 +194,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   app.use(express.static(publicPath, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
     etag: true,
-    index: false // We'll handle serving index.html manually
+    index: false
   }));
 
   // Error handling

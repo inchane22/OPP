@@ -30,14 +30,46 @@ const app = express();
 
 // Configure CORS based on environment
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? 'https://www.orangepillperu.com'
-    : ['http://localhost:3000', 'http://localhost:5000', 'http://0.0.0.0:3000', 'http://0.0.0.0:5000'],
+  origin: function (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // List of allowed origins
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? ['https://www.orangepillperu.com', 'https://orangepillperu.com']
+      : [
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+          'http://0.0.0.0:3000',
+          'https://www.orangepillperu.com',
+          'https://orangepillperu.com'
+        ];
+
+    // Check if the origin is in our list of allowed origins
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else if (process.env.NODE_ENV !== 'production') {
+      // In development, also allow any localhost URL
+      const localhostPatterns = [
+        /^https?:\/\/localhost:\d+$/,
+        /^https?:\/\/127\.0\.0\.1:\d+$/,
+        /^https?:\/\/0\.0\.0\.0:\d+$/
+      ];
+      const isLocalhost = localhostPatterns.some(pattern => pattern.test(origin));
+      callback(null, isLocalhost);
+    } else {
+      callback(new Error('CORS not allowed'), false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400 // 24 hours
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'Access-Control-Allow-Origin'],
+  maxAge: 86400, // 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 // Apply CORS middleware first, before any other middleware
