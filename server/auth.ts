@@ -74,8 +74,7 @@ export function setupAuth(app: Express) {
 
   // User data endpoint - returns authentication status without requiring auth
   app.get("/api/user", (req: Request, res: Response) => {
-    const isAuthenticated = req.isAuthenticated?.() || false;
-    if (isAuthenticated && req.user) {
+    if (req.isAuthenticated && req.isAuthenticated() && req.user) {
       return res.json({
         authenticated: true,
         user: {
@@ -145,28 +144,6 @@ export function setupAuth(app: Express) {
     } catch (err) {
       done(err);
     }
-  });
-
-  // User data endpoint - after passport initialization but before any auth middleware
-  app.get("/api/user", (req: Request, res: Response) => {
-    if (req.isAuthenticated && req.isAuthenticated()) {
-      const user = req.user;
-      return res.json({
-        authenticated: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          language: user.language,
-          role: user.role,
-          avatar: user.avatar
-        }
-      });
-    }
-    return res.json({
-      authenticated: false,
-      user: null
-    });
   });
 
   // Authentication routes
