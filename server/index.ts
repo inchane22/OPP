@@ -113,34 +113,31 @@ const corsOptions = {
   optionsSuccessStatus: 204
 };
 
-// Apply CORS middleware first, before any other middleware
-app.use(cors(corsOptions));
-
 // Initialize express middleware
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Add CORS test endpoint after middleware initialization
+// Apply CORS middleware after basic middleware
+app.use(cors(corsOptions));
+
+// Add CORS test endpoint after all middleware initialization
 app.get('/api/cors-test', (req, res) => {
   const origin = req.headers.origin || 'No origin';
   log('CORS test endpoint accessed', {
     origin,
     method: req.method,
     path: req.path,
-    headers: {
-      ...req.headers,
-      // Exclude potentially sensitive headers
-      cookie: undefined,
-      authorization: undefined
-    }
+    headers: req.headers
   });
   
   // Set CORS headers explicitly for this endpoint
-  res.header('Access-Control-Allow-Origin', origin === 'No origin' ? '*' : origin);
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (origin !== 'No origin') {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  }
   
   res.json({
     status: 'success',
@@ -148,12 +145,15 @@ app.get('/api/cors-test', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     origin: origin,
-    cors_enabled: true
+    cors_enabled: true,
+    headers: {
+      ...req.headers,
+      // Exclude sensitive headers
+      cookie: undefined,
+      authorization: undefined
+    }
   });
 });
-app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req, res, next) => {
