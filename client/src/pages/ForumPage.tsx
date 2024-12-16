@@ -16,13 +16,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
-import { insertEventSchema, type InsertEvent, type Event } from "@db/schema";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { Calendar, MapPin, Loader2, Heart, Instagram, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
 import { Link } from "wouter";
+import { Loader2 } from "lucide-react";
 
 interface User {
   id: number;
@@ -197,7 +193,7 @@ export default function ForumPage() {
       );
     }
 
-    if (posts.length === 0) {
+    if (!Array.isArray(posts) || posts.length === 0) {
       return (
         <div className="text-center p-8 text-muted-foreground">
           No posts yet. Be the first to create one!
@@ -206,15 +202,15 @@ export default function ForumPage() {
     }
 
     // Ensure posts is an array and each post has required properties
-    const safePosts = Array.isArray(posts) ? posts.filter(post => 
+    const safePosts = posts.filter(post => 
       post && 
       typeof post === 'object' && 
       'id' in post &&
       'title' in post
-    ) : [];
+    );
 
     return safePosts.map((post) => (
-      <Card key={post.id}>
+      <Card key={post.id} className="mb-6">
         <CardHeader>
           <CardTitle>{post.title || 'Untitled Post'}</CardTitle>
           <div className="text-sm text-muted-foreground">
@@ -292,29 +288,38 @@ export default function ForumPage() {
               </DialogHeader>
               <form onSubmit={handleCreatePost} className="space-y-4">
                 <FormItem>
-                  <Label htmlFor="title">Title</Label>
+                  <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input id="title" name="title" required disabled={isPending} />
+                    <Input
+                      id="title"
+                      name="title"
+                      required
+                      disabled={isPending}
+                    />
                   </FormControl>
                 </FormItem>
                 <FormItem>
-                  <Label htmlFor="content">Content</Label>
+                  <FormLabel>Content</FormLabel>
                   <FormControl>
-                    <Textarea id="content" name="content" required rows={5} disabled={isPending} />
+                    <Textarea
+                      id="content"
+                      name="content"
+                      required
+                      rows={5}
+                      disabled={isPending}
+                    />
                   </FormControl>
                 </FormItem>
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isPending}>
-                    {isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      'Create Post'
-                    )}
-                  </Button>
-                </div>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Post'
+                  )}
+                </Button>
               </form>
             </DialogContent>
           </Dialog>

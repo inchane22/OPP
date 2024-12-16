@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -21,6 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Calendar, MapPin, Loader2, Heart, Instagram, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
+import { Link } from "wouter";
 
 export default function EventsPage() {
   const { user } = useUser();
@@ -39,13 +41,11 @@ export default function EventsPage() {
         }
         const data = await response.json();
         
-        // Enhanced type checking and validation
         if (!Array.isArray(data)) {
           console.warn('Events data is not an array:', data);
           return [];
         }
         
-        // Filter out invalid events and ensure required properties exist
         return data.filter(event => 
           event && 
           typeof event === 'object' &&
@@ -65,7 +65,6 @@ export default function EventsPage() {
     retry: 3
   });
 
-  // Enhanced safety check for events array
   const safeEvents = React.useMemo(() => {
     if (!Array.isArray(events)) {
       console.warn('Events is not an array:', events);
@@ -74,14 +73,12 @@ export default function EventsPage() {
     return events.filter(event => event && typeof event === 'object');
   }, [events]);
 
-  // Function to get the next 21st date
   const getNext21stDate = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const next21st = new Date(currentYear, currentMonth, 21);
     
-    // If we're past the 21st of this month, get next month's 21st
     if (now.getDate() > 21) {
       next21st.setMonth(currentMonth + 1);
     }
@@ -173,7 +170,6 @@ export default function EventsPage() {
                 <form onSubmit={form.handleSubmit(data => {
                   startTransition(() => {
                     createEvent.mutate(data);
-                    queryClient.invalidateQueries({ queryKey: ['events'] });
                   });
                 })} className="space-y-4">
                   <FormField
@@ -221,7 +217,7 @@ export default function EventsPage() {
                         <FormControl>
                           <Input 
                             type="datetime-local" 
-                            value={field.value.toISOString().slice(0, 16)}
+                            value={field.value instanceof Date ? field.value.toISOString().slice(0, 16) : ''}
                             onChange={(e) => field.onChange(new Date(e.target.value))}
                           />
                         </FormControl>
@@ -243,20 +239,17 @@ export default function EventsPage() {
 
       <ErrorBoundary>
         <div className={`grid md:grid-cols-2 gap-6 ${isPending || isFetching ? 'opacity-50 pointer-events-none' : ''}`}>
-          {safeEvents.map((event: Event) => {
-            // Early return for invalid events
+          {safeEvents.map((event) => {
             if (!event || typeof event !== 'object' || !('id' in event)) {
               console.warn('Invalid event object:', event);
               return null;
             }
             
-            // Safely handle date formatting
             const eventDate = event.date ? new Date(event.date) : null;
             const formattedDate = eventDate && !isNaN(eventDate.getTime()) 
               ? format(eventDate, "PPP 'at' p")
               : 'Date not available';
 
-            // Generate a safe unique key
             const eventKey = `event-${event.id || Math.random()}`;
 
             return (
