@@ -101,8 +101,32 @@ interface CarouselItem {
 
 // Memoized carousel item display component
 const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => {
-  if (!item || !item.title || !item.embed_url) {
-    console.error('Invalid carousel item:', item);
+  // Enhanced null checks for the item and its properties
+  if (!item || typeof item !== 'object') {
+    console.error('Carousel item is null or not an object:', item);
+    return null;
+  }
+
+  // Ensure all required properties exist and are of correct type
+  if (!item.title || typeof item.title !== 'string' || !item.embed_url || typeof item.embed_url !== 'string') {
+    console.error('Invalid carousel item properties:', {
+      title: item.title,
+      embed_url: item.embed_url
+    });
+    return null;
+  }
+
+  // Safely create embed URL
+  const embedUrl = React.useMemo(() => {
+    try {
+      return getEmbedUrl(item.embed_url);
+    } catch (error) {
+      console.error('Error creating embed URL:', error);
+      return null;
+    }
+  }, [item.embed_url]);
+
+  if (!embedUrl) {
     return null;
   }
 
@@ -113,7 +137,7 @@ const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => {
           <div className="w-full h-full">
             <iframe
               title={item.title}
-              src={getEmbedUrl(item.embed_url)}
+              src={embedUrl}
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
@@ -140,11 +164,38 @@ const CarouselDisplay = React.memo(({ items = [] }: CarouselDisplayProps) => {
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
   
-  // Safety check for items prop
+  // Enhanced safety checks for items prop
   if (!Array.isArray(items)) {
-    console.error('Invalid items prop provided to CarouselDisplay:', items);
-    return null;
+    const errorMsg = 'Invalid items prop provided to CarouselDisplay: expected array';
+    console.error(errorMsg, items);
+    setError(new Error(errorMsg));
+    return (
+      <div className="text-center text-red-500 p-4">
+        Error loading carousel items
+      </div>
+    );
+  }
+
+  // Validate each item in the array
+  const validItems = items.filter(item => 
+    item && 
+    typeof item === 'object' && 
+    'id' in item &&
+    'title' in item && 
+    typeof item.title === 'string' &&
+    'embed_url' in item && 
+    typeof item.embed_url === 'string'
+  );
+
+  if (validItems.length === 0 && items.length > 0) {
+    console.warn('No valid items found in carousel data');
+    return (
+      <div className="text-center text-muted-foreground p-4">
+        No valid content available
+      </div>
+    );
   }
 
   const carouselOptions: EmblaOptionsType = React.useMemo(() => ({
@@ -253,18 +304,50 @@ export default function HomeCarousel() {
     retryDelay: 1000,
   });
 
-  // Ensure items is always an array and filter out invalid items
+  // Enhanced data validation and filtering
   const items = React.useMemo(() => {
-    if (!Array.isArray(rawItems)) return [];
-    return rawItems.filter(item => 
-      item && 
-      typeof item === 'object' && 
-      'id' in item &&
-      'title' in item &&
-      'embed_url' in item &&
-      item.active === true
-    );
+    // Check if rawItems exists and is an array
+    if (!rawItems || !Array.isArray(rawItems)) {
+      console.warn('Invalid rawItems:', rawItems);
+      return [];
+    }
+
+    // Filter and validate each item
+    return rawItems.filter(item => {
+      try {
+        return (
+          item &&
+          typeof item === 'object' &&
+          'id' in item &&
+          typeof item.id === 'number' &&
+          'title' in item &&
+          typeof item.title === 'string' &&
+          'embed_url' in item &&
+          typeof item.embed_url === 'string' &&
+          item.active === true
+        );
+      } catch (error) {
+        console.error('Error validating carousel item:', error);
+        return false;
+      }
+    });
   }, [rawItems]);
+
+  // Early return if no valid items
+  if (items.length === 0) {
+    return (
+      <section className="py-12 bg-muted/50">
+        <div className="container">
+          <h2 className="text-3xl font-bold text-center mb-8">
+            {t('carousel.title')}
+          </h2>
+          <div className="text-center text-muted-foreground">
+            {isLoading ? <LoadingSpinner /> : t('carousel.empty')}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   // Prefetch data with transition
   React.useEffect(() => {
