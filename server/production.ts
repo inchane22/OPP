@@ -102,35 +102,55 @@ export async function setupProduction(app: express.Express): Promise<void> {
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com"],
+        defaultSrc: ["'self'", "https://*.orangepillperu.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://*.orangepillperu.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://*.orangepillperu.com"],
+        imgSrc: ["'self'", "data:", "https:", "https://i.ytimg.com", "https://img.youtube.com", "https://*.orangepillperu.com"],
         connectSrc: [
           "'self'",
           "https://api.coingecko.com",
-          "https://www.orangepillperu.com",
-          "https://orangepillperu.com",
-          "wss://www.orangepillperu.com",
-          "wss://orangepillperu.com",
+          "https://*.orangepillperu.com",
+          "wss://*.orangepillperu.com",
           ...(process.env.NODE_ENV === 'development'
             ? ["http://localhost:*", "ws://localhost:*", "http://127.0.0.1:*", "http://0.0.0.0:*"]
             : [])
         ],
-        fontSrc: ["'self'", "data:"],
+        fontSrc: ["'self'", "data:", "https://*.orangepillperu.com"],
         objectSrc: ["'none'"],
-        mediaSrc: ["'self'", "https:", "blob:"],
-        frameSrc: ["'self'", "https://www.youtube.com"],
-        frameAncestors: ["'self'", "https://www.orangepillperu.com", "https://orangepillperu.com"],
+        mediaSrc: ["'self'", "https:", "blob:", "https://*.orangepillperu.com"],
+        frameSrc: ["'self'", "https://www.youtube.com", "https://*.orangepillperu.com"],
+        frameAncestors: ["'self'", "https://*.orangepillperu.com"],
         workerSrc: ["'self'", "blob:"],
         childSrc: ["'self'", "blob:"],
         baseUri: ["'self'"],
-        formAction: ["'self'"]
+        formAction: ["'self'", "https://*.orangepillperu.com"]
       }
     },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+  }));
+
+  // Apply CORS before any routes
+  app.use(cors({
+    origin: function(origin, callback) {
+      const allowedOrigins = [
+        'https://orangepillperu.com',
+        'https://www.orangepillperu.com'
+      ];
+      
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   }));
 
   // Rate limiting
