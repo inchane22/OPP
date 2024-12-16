@@ -33,13 +33,13 @@ const corsOptions = {
   origin: function(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
     // Log the origin for debugging
     log('Incoming request origin:', { origin });
-    
+
     // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
     if (!origin) {
       log('No origin header, allowing request');
       return callback(null, true);
     }
-    
+
     // Define allowed origins based on environment
     const allowedOrigins = [
       'https://www.orangepillperu.com',
@@ -47,7 +47,7 @@ const corsOptions = {
       'wss://www.orangepillperu.com',
       'wss://orangepillperu.com'
     ];
-    
+
     // Add development origins when not in production
     if (process.env.NODE_ENV !== 'production') {
       allowedOrigins.push(
@@ -59,7 +59,7 @@ const corsOptions = {
         'ws://0.0.0.0:3000'
       );
     }
-    
+
     // Check if origin is allowed
     const originWithoutProtocol = origin.replace(/^(https?:|wss?:)\/\//, '');
     const isAllowed = allowedOrigins.some(allowed => {
@@ -73,7 +73,7 @@ const corsOptions = {
       origin.startsWith('http://0.0.0.0:') ||
       origin.startsWith('ws://0.0.0.0:')
     ));
-    
+
     if (isAllowed) {
       log('CORS request allowed for origin:', { origin });
       callback(null, true);
@@ -149,14 +149,11 @@ app.use((req, res, next) => {
     }
   });
 
-
-
-
   next();
 });
 
-// Server configuration
-const PORT = Number(process.env.PORT || 5000);
+// Use process.env.PORT directly, defaulting to 3000 instead of 5000
+const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 let server: ReturnType<typeof createServer> | null = null;
 
@@ -194,7 +191,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 async function init() {
   try {
     log('Starting server initialization...');
-    
+
     // Initialize database
     const { db } = await import('../db/index.js');
     try {
@@ -312,7 +309,7 @@ async function init() {
 
       server.once('error', onError);
       server.once('listening', onListening);
-      
+
       log('Attempting to bind server...', { host: HOST, port: PORT });
       console.log(`Starting server on ${HOST}:${PORT}`);
       server.listen(PORT, HOST);
