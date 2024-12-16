@@ -120,15 +120,39 @@ export async function setupProduction(app: express.Express): Promise<void> {
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      // Allow Replit domains in development
+      if (process.env.NODE_ENV !== 'production') {
+        if (origin.match(/https?:\/\/.*\.replit\.(dev|app)|https?:\/\/.*\.preview\.app\.github\.dev/)) {
+          return callback(null, true);
+        }
+      }
+      
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        logger('CORS request blocked', {
+          origin,
+          allowedOrigins,
+          environment: process.env.NODE_ENV
+        });
         callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers'
+    ],
+    exposedHeaders: [
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Credentials'
+    ]
   }));
 
   // Rate limiting

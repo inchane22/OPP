@@ -100,27 +100,34 @@ interface CarouselItem {
 }
 
 // Memoized carousel item display component
-const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
-  <div className="p-1">
-    <Card>
-      <CardContent className="flex aspect-square items-center justify-center p-6">
-        <div className="w-full h-full">
-          <iframe
-            title={item.title}
-            src={getEmbedUrl(item.embed_url)}
-            className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            style={{ minHeight: '400px' }}
-            loading="lazy"
-            referrerPolicy="strict-origin-when-cross-origin"
-            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"
-          />
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-));
+const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => {
+  if (!item || !item.title || !item.embed_url) {
+    console.error('Invalid carousel item:', item);
+    return null;
+  }
+
+  return (
+    <div className="p-1">
+      <Card>
+        <CardContent className="flex aspect-square items-center justify-center p-6">
+          <div className="w-full h-full">
+            <iframe
+              title={item.title}
+              src={getEmbedUrl(item.embed_url)}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              style={{ minHeight: '400px' }}
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+});
 
 CarouselItemDisplay.displayName = "CarouselItemDisplay";
 
@@ -128,11 +135,17 @@ interface CarouselDisplayProps {
   items: CarouselItem[];
 }
 
-const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
+const CarouselDisplay = React.memo(({ items = [] }: CarouselDisplayProps) => {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  
+  // Safety check for items prop
+  if (!Array.isArray(items)) {
+    console.error('Invalid items prop provided to CarouselDisplay:', items);
+    return null;
+  }
 
   const carouselOptions: EmblaOptionsType = React.useMemo(() => ({
     align: "center",
@@ -231,7 +244,7 @@ export default function HomeCarousel() {
   const [isPending, startTransition] = React.useTransition();
 
   // Use suspense: false to prevent unwanted suspense behavior
-  const { data: items = [], error, isLoading } = useQuery({
+  const { data: rawItems, error, isLoading } = useQuery({
     queryKey: ['carousel-items'],
     queryFn: fetchCarouselItems,
     staleTime: 30000,
@@ -239,6 +252,19 @@ export default function HomeCarousel() {
     retry: 2,
     retryDelay: 1000,
   });
+
+  // Ensure items is always an array and filter out invalid items
+  const items = React.useMemo(() => {
+    if (!Array.isArray(rawItems)) return [];
+    return rawItems.filter(item => 
+      item && 
+      typeof item === 'object' && 
+      'id' in item &&
+      'title' in item &&
+      'embed_url' in item &&
+      item.active === true
+    );
+  }, [rawItems]);
 
   // Prefetch data with transition
   React.useEffect(() => {
@@ -263,6 +289,7 @@ export default function HomeCarousel() {
     }
 
     if (error) {
+      console.error('Carousel error:', error);
       return (
         <div className="text-center text-red-500">
           {t('carousel.error')}
@@ -270,8 +297,17 @@ export default function HomeCarousel() {
       );
     }
 
-    const carouselItems = items as CarouselItem[];
-    if (!carouselItems || carouselItems.length === 0) {
+    // Ensure items is an array and has valid structure
+    const carouselItems = Array.isArray(items) ? items.filter(item => 
+      item && 
+      typeof item === 'object' && 
+      'id' in item &&
+      'title' in item &&
+      'embed_url' in item
+    ) : [];
+
+    if (carouselItems.length === 0) {
+      console.warn('No valid carousel items found');
       return (
         <div className="text-center text-muted-foreground">
           {t('carousel.empty')}

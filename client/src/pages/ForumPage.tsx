@@ -45,13 +45,22 @@ export default function ForumPage() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   
-  const { data: posts = [], isLoading, isFetching, error } = useQuery({
+  const { data: posts = [], isLoading, isFetching, error } = useQuery<PostWithAuthor[]>({
     queryKey: ['posts'] as const,
     queryFn: fetchPosts,
     staleTime: 5000,
     refetchOnWindowFocus: false,
     refetchInterval: false,
-    retry: 3
+    retry: 3,
+    select: (data) => {
+      // Ensure we always return an array, even if the data is undefined
+      if (!Array.isArray(data)) {
+        console.warn('Posts data is not an array:', data);
+        return [];
+      }
+      // Filter out any malformed post data
+      return data.filter(post => post && typeof post === 'object');
+    }
   });
 
   if (error instanceof Error) {
@@ -182,54 +191,64 @@ export default function ForumPage() {
       );
     }
 
-    return posts.map((post) => (
-      <Card key={post.id}>
-        <CardHeader>
-          <CardTitle>{post.title}</CardTitle>
-          <CardDescription>
-            Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p>{post.content}</p>
-          <div className="mt-4 border-t pt-4">
-            <h4 className="text-sm font-semibold mb-2">Comments</h4>
-            <div className="space-y-2">
-              {post.comments?.map((comment) => (
-                <div key={comment.id} className="bg-muted p-2 rounded-md">
-                  <p className="text-sm">{comment.content}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <form
-              className="mt-4 space-y-2"
-              onSubmit={(e) => handleCreateComment(e, post.id)}
-            >
-              <Textarea
-                name="content"
-                placeholder="Add a comment..."
-                required
-                rows={2}
-                disabled={isPending}
-              />
-              <Button type="submit" size="sm" disabled={isPending}>
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  'Post Comment'
+    const safePosts = Array.isArray(posts) ? posts : [];
+    return safePosts.map((post) => {
+      if (!post || typeof post !== 'object') return null;
+      
+      return (
+        <Card key={post.id}>
+          <CardHeader>
+            <CardTitle>{post.title || 'Untitled Post'}</CardTitle>
+            <CardDescription>
+              Posted by {post.author?.username || 'Anonymous'} • {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'Unknown date'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p>{post.content}</p>
+            <div className="mt-4 border-t pt-4">
+              <h4 className="text-sm font-semibold mb-2">Comments</h4>
+              <div className="space-y-2">
+                {Array.isArray(post.comments) ? post.comments.map((comment) => {
+                  if (!comment || typeof comment !== 'object') return null;
+                  return (
+                    <div key={comment.id} className="bg-muted p-2 rounded-md">
+                      <p className="text-sm">{comment.content || 'No content'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {comment.authorName || 'Anonymous'} • {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Unknown date'}
+                      </p>
+                    </div>
+                  );
+                }) : (
+                  <p className="text-sm text-muted-foreground">No comments yet</p>
                 )}
-              </Button>
-            </form>
-          </div>
-        </CardContent>
-      </Card>
-    ));
+              </div>
+              <form
+                className="mt-4 space-y-2"
+                onSubmit={(e) => handleCreateComment(e, post.id)}
+              >
+                <Textarea
+                  name="content"
+                  placeholder="Add a comment..."
+                  required
+                  rows={2}
+                  disabled={isPending}
+                />
+                <Button type="submit" size="sm" disabled={isPending}>
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Posting...
+                    </>
+                  ) : (
+                    'Post Comment'
+                  )}
+                </Button>
+              </form>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    });
   };
 
   return (

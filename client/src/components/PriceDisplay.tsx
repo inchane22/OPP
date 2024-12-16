@@ -77,7 +77,7 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
 function PriceContent({ data }: { data: BitcoinPriceResponse }) {
   console.log('PriceContent data:', JSON.stringify(data, null, 2));
   
-  const btcInPen = Number(data?.bitcoin?.pen);
+  const btcInPen = Number(data?.bitcoin?.pen || 0);
   if (isNaN(btcInPen) || btcInPen <= 0) {
     console.error('Invalid BTC price in PEN:', btcInPen);
     return (

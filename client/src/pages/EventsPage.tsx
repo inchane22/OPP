@@ -29,19 +29,28 @@ export default function EventsPage() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
-  const { data: events = [], isLoading, isFetching } = useQuery<Event[]>({
+  const { data: events, isLoading, isFetching, error } = useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: async () => {
-      const response = await fetch("/api/events");
-      if (!response.ok) {
-        throw new Error('Failed to fetch events');
+      try {
+        const response = await fetch("/api/events");
+        if (!response.ok) {
+          throw new Error('Failed to fetch events');
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        return [];
       }
-      return response.json();
     },
     staleTime: 5000,
     refetchOnWindowFocus: false,
     retry: 3
   });
+
+  // Ensure events is always an array
+  const safeEvents = Array.isArray(events) ? events : [];
 
   // Function to get the next 21st date
   const getNext21stDate = () => {
@@ -212,7 +221,7 @@ export default function EventsPage() {
 
       <ErrorBoundary>
         <div className={`grid md:grid-cols-2 gap-6 ${isPending || isFetching ? 'opacity-50 pointer-events-none' : ''}`}>
-          {events.map((event: Event) => (
+          {safeEvents.map((event: Event) => (
             <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
               <CardHeader>
                 <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">

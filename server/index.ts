@@ -30,87 +30,90 @@ const app = express();
 
 // Configure CORS based on environment
 const corsOptions = {
-  origin: function(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
-    // Log the origin for debugging
-    log('Incoming request origin:', { origin });
+    origin: function(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+      // Log the origin for debugging
+      log('Incoming request origin:', { origin });
 
-    // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
-    if (!origin) {
-      log('No origin header, allowing request');
-      return callback(null, true);
-    }
+      // Allow requests with no origin (like mobile apps, curl requests, or same-origin)
+      if (!origin) {
+        log('No origin header, allowing request');
+        return callback(null, true);
+      }
 
-    // Define allowed origins based on environment
-    const allowedOrigins = [
-      'https://www.orangepillperu.com',
-      'https://orangepillperu.com',
-      'wss://www.orangepillperu.com',
-      'wss://orangepillperu.com'
-    ];
+      // Define allowed origins based on environment
+      const allowedOrigins = [
+        'https://www.orangepillperu.com',
+        'https://orangepillperu.com',
+        'wss://www.orangepillperu.com',
+        'wss://orangepillperu.com'
+      ];
 
-    // Add development origins when not in production
-    if (process.env.NODE_ENV !== 'production') {
-      allowedOrigins.push(
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-        'http://0.0.0.0:3000',
-        'ws://localhost:3000',
-        'ws://127.0.0.1:3000',
-        'ws://0.0.0.0:3000'
-      );
-    }
+      // Add development origins when not in production
+      if (process.env.NODE_ENV !== 'production') {
+        allowedOrigins.push(
+          'http://localhost:3000',
+          'http://127.0.0.1:3000',
+          'http://0.0.0.0:3000',
+          'ws://localhost:3000',
+          'ws://127.0.0.1:3000',
+          'ws://0.0.0.0:3000'
+        );
+      }
 
-    // Check if origin is allowed
-    const originWithoutProtocol = origin.replace(/^(https?:|wss?:)\/\//, '');
-    const isAllowed = allowedOrigins.some(allowed => {
-      const allowedWithoutProtocol = allowed.replace(/^(https?:|wss?:)\/\//, '');
-      return allowedWithoutProtocol === originWithoutProtocol;
-    }) || (process.env.NODE_ENV !== 'production' && (
-      origin.startsWith('http://localhost:') || 
-      origin.startsWith('ws://localhost:') ||
-      origin.startsWith('http://127.0.0.1:') || 
-      origin.startsWith('ws://127.0.0.1:') ||
-      origin.startsWith('http://0.0.0.0:') ||
-      origin.startsWith('ws://0.0.0.0:')
-    ));
+      // Always allow Replit domains
+      const isReplitDomain = origin.match(/https?:\/\/.*\.(replit\.dev|repl\.co|replit\.app)(?::\d+)?$/) !== null;
+      
+      // Check if origin is allowed
+      const originWithoutProtocol = origin.replace(/^(https?:|wss?:)\/\//, '');
+      const isAllowed = allowedOrigins.some(allowed => {
+        const allowedWithoutProtocol = allowed.replace(/^(https?:|wss?:)\/\//, '');
+        return allowedWithoutProtocol === originWithoutProtocol;
+      }) || isReplitDomain || (process.env.NODE_ENV !== 'production' && (
+        origin.startsWith('http://localhost:') || 
+        origin.startsWith('ws://localhost:') ||
+        origin.startsWith('http://127.0.0.1:') || 
+        origin.startsWith('ws://127.0.0.1:') ||
+        origin.startsWith('http://0.0.0.0:') ||
+        origin.startsWith('ws://0.0.0.0:')
+      ));
 
-    if (isAllowed) {
-      log('CORS request allowed for origin:', { origin });
-      callback(null, true);
-    } else {
-      log('CORS request blocked:', { 
-        origin,
-        allowedOrigins,
-        environment: process.env.NODE_ENV
-      });
-      callback(new Error(`CORS not allowed for origin: ${origin}`), false);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'Access-Control-Request-Method',
-    'Access-Control-Request-Headers',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Credentials',
-    'Sec-WebSocket-Protocol',
-    'Sec-WebSocket-Version',
-    'Sec-WebSocket-Key'
-  ],
-  exposedHeaders: [
-    'Content-Length',
-    'Content-Type',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Credentials'
-  ],
-  maxAge: 86400, // 24 hours
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+      if (isAllowed) {
+        log('CORS request allowed for origin:', { origin });
+        callback(null, true);
+      } else {
+        log('CORS request blocked:', { 
+          origin,
+          allowedOrigins,
+          environment: process.env.NODE_ENV
+        });
+        callback(new Error(`CORS not allowed for origin: ${origin}`), false);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Credentials',
+      'Sec-WebSocket-Protocol',
+      'Sec-WebSocket-Version',
+      'Sec-WebSocket-Key'
+    ],
+    exposedHeaders: [
+      'Content-Length',
+      'Content-Type',
+      'Access-Control-Allow-Origin',
+      'Access-Control-Allow-Credentials'
+    ],
+    maxAge: 86400, // 24 hours
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 };
 
 // Initialize express middleware
