@@ -5,28 +5,114 @@ import { logger } from "../server/utils/logger";
 
 const { Pool } = pg;
 
+// Database configuration constants
+const DB_CONFIG = {
+  MAX_POOL_SIZE: 20,
+  IDLE_TIMEOUT_MS: 30000,
+  CONNECTION_TIMEOUT_MS: 5000,
+  MAX_RETRIES: 5,
+  RETRY_DELAY_MS: 5000,
+  SSL_CONFIG: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false }
+    : undefined
+} as const;
+
+// Ensure DATABASE_URL is set
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
+  throw new Error("DATABASE_URL must be set. Please check your environment variables.");
 }
 
-const pool = new Pool({
+// Create pool configuration
+const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
-});
+  max: DB_CONFIG.MAX_POOL_SIZE,
+  idleTimeoutMillis: DB_CONFIG.IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: DB_CONFIG.CONNECTION_TIMEOUT_MS,
+  ssl: DB_CONFIG.SSL_CONFIG
+};
 
+// Create a single pool instance
+const pool = new Pool(poolConfig);
+
+// Enhanced error handling for the pool
 pool.on('error', (err) => {
-  logger('Unexpected error on idle client', { error: err.message });
+  logger('Database pool error', { 
+    error: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    poolConfig: {
+      ...poolConfig,
+      connectionString: '[REDACTED]'
+    }
+  });
 });
 
-export const db = drizzle(pool, { schema });
+// Verify database connection with retries and enhanced diagnostics
+async function verifyConnection(): Promise<void> {
+  logger('Verifying database connection...', {
+    retries: DB_CONFIG.MAX_RETRIES,
+    delay: DB_CONFIG.RETRY_DELAY_MS,
+    connectionString: process.env.DATABASE_URL ? 'Present' : 'Missing',
+    environment: process.env.NODE_ENV,
+    sslEnabled: !!DB_CONFIG.SSL_CONFIG
+  });
 
-// Verify database connection
-pool.connect()
-  .then(() => logger('Database connection verified'))
+  for (let attempt = 1; attempt <= DB_CONFIG.MAX_RETRIES; attempt++) {
+    try {
+      const client = await pool.connect();
+      try {
+        const result = await client.query(`
+          SELECT 
+            current_database() as database,
+            current_user as user,
+            version() as version,
+            (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = current_database()) as active_connections
+        `);
+        
+        logger('Database connection verified', { 
+          attempt,
+          database: result.rows[0].database,
+          user: result.rows[0].user,
+          version: result.rows[0].version,
+          activeConnections: result.rows[0].active_connections
+        });
+        return;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger('Connection verification failed', { 
+        attempt,
+        error: errorMessage,
+        maxAttempts: DB_CONFIG.MAX_RETRIES
+      });
+      
+      if (attempt === DB_CONFIG.MAX_RETRIES) {
+        throw new Error(`Failed to verify connection after ${DB_CONFIG.MAX_RETRIES} attempts: ${errorMessage}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, DB_CONFIG.RETRY_DELAY_MS));
+    }
+  }
+}
+
+// Initialize connection
+verifyConnection()
+  .then(() => logger('Database initialized successfully'))
   .catch(err => {
-    logger('Failed to connect to database', { error: err.message });
+    logger('Failed to initialize database', { 
+      error: err instanceof Error ? err.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
     process.exit(1);
   });
+
+// Export the drizzle instance
+export const db = drizzle(pool, { schema });
+
+// Cleanup function for graceful shutdown
+export async function cleanup(): Promise<void> {
+  logger('Cleaning up database connections...');
+  await pool.end();
+  logger('Database pool cleaned up');
+}

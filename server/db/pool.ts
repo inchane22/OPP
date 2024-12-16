@@ -39,7 +39,9 @@ export class DatabasePool {
         idleTimeoutMillis: POOL_CONFIG.IDLE_TIMEOUT,
         connectionTimeoutMillis: POOL_CONFIG.CONNECTION_TIMEOUT,
         ssl: process.env.NODE_ENV === 'production' 
-          ? { rejectUnauthorized: false } 
+          ? { 
+              rejectUnauthorized: false
+            } 
           : undefined
       };
 

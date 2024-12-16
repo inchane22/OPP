@@ -20,7 +20,8 @@ const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePa
 // Ensure all paths are resolved relative to the current module
 const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
 // Import database configuration
-import { DatabasePool } from './db/pool';
+import { db, cleanup as dbCleanup } from '../db/index';
+import { sql } from 'drizzle-orm';
 import type { Pool } from 'pg';
 
 interface DatabaseError extends Error {
@@ -62,37 +63,13 @@ const RATE_LIMIT = {
 import { logger, type LogData } from "./utils/logger.js";
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize database connection
-  const initializeDatabase = async (): Promise<void> => {
-    const retries = 3;
-    const retryDelay = 2000;
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        const db = DatabasePool.getInstance();
-        await db.getPool();
-        logger('Database connection initialized successfully', { attempt } as LogData);
-        return;
-      } catch (error) {
-        logger('Database connection attempt failed', {
-          attempt,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
-        } as LogData);
-
-        if (attempt === retries) {
-          throw new Error('Failed to initialize database after all retries');
-        }
-
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
-    }
-  };
-
+  // Database is already initialized in db/index.ts
   try {
-    await initializeDatabase();
+    // Verify connection is working
+    await db.execute(sql`SELECT 1`);
+    logger('Database connection verified in production setup');
   } catch (error) {
-    logger('Failed to initialize database after all retries', {
+    logger('Database verification failed in production setup', {
       error: error instanceof Error ? error.message : 'Unknown error'
     } as LogData);
     process.exit(1);
@@ -239,7 +216,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
       logger('Shutting down gracefully', {
         environment: process.env.NODE_ENV
       } as LogData);
-      await DatabasePool.end();
+      await dbCleanup();
       process.exit(0);
     } catch (error) {
       logger('Error during shutdown', {
