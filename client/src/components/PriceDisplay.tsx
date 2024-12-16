@@ -47,17 +47,31 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
     const data = await response.json() as FetchBitcoinPriceResult;
     console.log('Bitcoin price data:', data);
     
+    if (!data) {
+      throw new Error('No data received from API');
+    }
+    
     if ('error' in data) {
       const errorDetails = data.details ? `: ${data.details}` : '';
       throw new Error(`${data.error}${errorDetails}`);
     }
 
-    if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
-      console.error('Invalid data structure received:', data);
-      throw new Error('Datos de precio inválidos. Por favor, intente más tarde.');
+    if (!data.bitcoin || typeof data.bitcoin !== 'object') {
+      console.error('Invalid data structure - missing bitcoin object:', data);
+      throw new Error('Invalid API response structure');
+    }
+
+    if (typeof data.bitcoin.pen !== 'number') {
+      console.error('Invalid price data type:', typeof data.bitcoin.pen);
+      throw new Error('Invalid price data format');
+    }
+
+    if (data.bitcoin.pen <= 0) {
+      console.error('Invalid price value:', data.bitcoin.pen);
+      throw new Error('Invalid price value received');
     }
     
-    return data;
+    return data as BitcoinPriceResponse;
   } catch (error) {
     console.error('Error fetching Bitcoin price:', error);
     
@@ -77,9 +91,8 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
 function PriceContent({ data }: { data: BitcoinPriceResponse }) {
   console.log('PriceContent data:', JSON.stringify(data, null, 2));
   
-  const btcInPen = Number(data?.bitcoin?.pen || 0);
-  if (isNaN(btcInPen) || btcInPen <= 0) {
-    console.error('Invalid BTC price in PEN:', btcInPen);
+  if (!data || !data.bitcoin || typeof data.bitcoin.pen !== 'number') {
+    console.error('Invalid or missing bitcoin price data:', data);
     return (
       <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
         <CardHeader className="pb-2">
@@ -87,6 +100,21 @@ function PriceContent({ data }: { data: BitcoinPriceResponse }) {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Unable to load price data</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  const btcInPen = data.bitcoin.pen;
+  if (btcInPen <= 0) {
+    console.error('Invalid BTC price in PEN:', btcInPen);
+    return (
+      <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg font-medium">Error</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Invalid price data received</p>
         </CardContent>
       </Card>
     );
