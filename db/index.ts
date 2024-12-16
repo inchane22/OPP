@@ -1,9 +1,9 @@
 import { drizzle } from "drizzle-orm/node-postgres";
+import { sql } from "drizzle-orm";
 import pg from "pg";
+const { Pool } = pg;
 import * as schema from "./schema";
 import { logger } from "../server/utils/logger";
-
-const { Pool } = pg;
 
 // Database configuration constants
 const DB_CONFIG = {
@@ -46,16 +46,8 @@ pool.on('error', (err) => {
   });
 });
 
-// Verify database connection with retries and enhanced diagnostics
+// Verify database connection with retries
 async function verifyConnection(): Promise<void> {
-  logger('Verifying database connection...', {
-    retries: DB_CONFIG.MAX_RETRIES,
-    delay: DB_CONFIG.RETRY_DELAY_MS,
-    connectionString: process.env.DATABASE_URL ? 'Present' : 'Missing',
-    environment: process.env.NODE_ENV,
-    sslEnabled: !!DB_CONFIG.SSL_CONFIG
-  });
-
   for (let attempt = 1; attempt <= DB_CONFIG.MAX_RETRIES; attempt++) {
     try {
       const client = await pool.connect();
@@ -107,8 +99,9 @@ verifyConnection()
     process.exit(1);
   });
 
-// Export the drizzle instance
+// Export the drizzle instance and sql template tag
 export const db = drizzle(pool, { schema });
+export { sql } from 'drizzle-orm';
 
 // Cleanup function for graceful shutdown
 export async function cleanup(): Promise<void> {
