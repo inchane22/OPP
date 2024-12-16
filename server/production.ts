@@ -22,6 +22,7 @@ const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', 
 // Import database configuration
 import { db, cleanup as dbCleanup } from '../db/index';
 import { sql } from 'drizzle-orm';
+import { drizzle } from "drizzle-orm/node-postgres";
 import type { Pool } from 'pg';
 
 interface DatabaseError extends Error {
