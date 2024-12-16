@@ -252,8 +252,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
 
-  // Serve index.html for client-side routing
-  app.get('*', (req, res) => {
+  // Serve static files excluding API routes
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    // For non-API routes, try to serve static files
+    const staticFile = path.join(publicPath, req.path);
+    if (fs.existsSync(staticFile) && fs.statSync(staticFile).isFile()) {
+      return res.sendFile(staticFile);
+    }
+    // If no static file exists, serve index.html for client-side routing
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 }
