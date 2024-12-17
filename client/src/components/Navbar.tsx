@@ -58,9 +58,14 @@ export default function Navbar({ user }: { user: User | null | undefined }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatar || `https://i.pravatar.cc/150?u=${user.id}`} alt={user.username} />
-                    <AvatarFallback>{user.username[0].toUpperCase()}</AvatarFallback>
-                  </Avatar>
+                      <AvatarImage 
+                        src={user?.avatar ?? `https://i.pravatar.cc/150?u=${user?.id ?? 'default'}`} 
+                        alt={user?.username ?? 'User'} 
+                      />
+                      <AvatarFallback>
+                        {user?.username?.[0]?.toUpperCase() ?? 'U'}
+                      </AvatarFallback>
+                    </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
