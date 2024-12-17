@@ -5,29 +5,36 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import type { Post } from "@/db/schema";
 
+interface PostAuthor {
+  id: string;
+  username: string;
+  email: string | null;
+  role: string;
+  createdAt: string;
+}
+
 interface EditPostFormProps {
   post: {
     id: string;
     title: string;
     content: string;
-    author: {
-      id: string;
-      username: string;
-      email: string | null;
-      role: string;
-      createdAt: string;
-    };
+    author: PostAuthor;
     createdAt: string;
-  };
+  } | null;
   onSubmit: (data: Partial<Post>) => Promise<void>;
   isPending: boolean;
 }
 
+type PostFormData = {
+  title: string;
+  content: string;
+};
+
 export function EditPostForm({ post, onSubmit, isPending }: EditPostFormProps) {
-  const form = useForm({
+  const form = useForm<PostFormData>({
     defaultValues: {
-      title: post.title,
-      content: post.content,
+      title: post?.title ?? '',
+      content: post?.content ?? '',
     }
   });
 

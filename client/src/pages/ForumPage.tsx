@@ -1,5 +1,6 @@
 import React, { useTransition } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUser } from "../hooks/use-user";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,12 +52,22 @@ async function fetchPosts(): Promise<Post[]> {
   return Array.isArray(data) ? data : [];
 }
 
+interface CommentFormData {
+  content: string;
+}
+
 export default function ForumPage() {
   const { t } = useLanguage();
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
+  
+  const commentForm = useForm<CommentFormData>({
+    defaultValues: {
+      content: ""
+    }
+  });
   
   const { data: posts = [], isLoading, isFetching, error } = useQuery<Post[]>({
     queryKey: ['posts'],
@@ -245,28 +256,45 @@ export default function ForumPage() {
                 <p className="text-sm text-muted-foreground">No comments yet</p>
               )}
             </div>
-            <form
-              className="mt-4 space-y-2"
-              onSubmit={(e) => handleCreateComment(e, post.id)}
-            >
-              <Textarea
-                name="content"
-                placeholder="Add a comment..."
-                required
-                rows={2}
-                disabled={isPending}
-              />
-              <Button type="submit" size="sm" disabled={isPending}>
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Posting...
-                  </>
-                ) : (
-                  'Post Comment'
-                )}
-              </Button>
-            </form>
+            <Form {...commentForm}>
+              <form
+                className="mt-4 space-y-2"
+                onSubmit={commentForm.handleSubmit((data) => {
+                  const formData = new FormData();
+                  formData.append('content', data.content);
+                  handleCreateComment(new Event('submit') as any, post.id);
+                  commentForm.reset();
+                })}
+              >
+                <FormField
+                  control={commentForm.control}
+                  name="content"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder="Add a comment..."
+                          required
+                          rows={2}
+                          disabled={isPending}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" size="sm" disabled={isPending}>
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Posting...
+                    </>
+                  ) : (
+                    'Post Comment'
+                  )}
+                </Button>
+              </form>
+            </Form>
           </div>
         </CardContent>
       </Card>
@@ -287,29 +315,27 @@ export default function ForumPage() {
                 <DialogTitle>{t('forum.create_post')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreatePost} className="space-y-4">
-                <FormItem>
-                  <FormLabel>Title</FormLabel>
-                  <FormControl>
-                    <Input
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Title</Label>
+                    <Input 
                       id="title"
                       name="title"
-                      required
+                      required 
                       disabled={isPending}
                     />
-                  </FormControl>
-                </FormItem>
-                <FormItem>
-                  <FormLabel>Content</FormLabel>
-                  <FormControl>
-                    <Textarea
+                  </div>
+                  <div>
+                    <Label htmlFor="content">Content</Label>
+                    <Textarea 
                       id="content"
                       name="content"
-                      required
-                      rows={5}
+                      required 
+                      rows={5} 
                       disabled={isPending}
                     />
-                  </FormControl>
-                </FormItem>
+                  </div>
+                </div>
                 <Button type="submit" disabled={isPending}>
                   {isPending ? (
                     <>

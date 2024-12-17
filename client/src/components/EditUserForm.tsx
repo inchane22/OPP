@@ -26,7 +26,7 @@ const editUserSchema = z.object({
 type EditUserFormValues = z.infer<typeof editUserSchema>;
 
 interface EditUserFormProps {
-  user: User;
+  user: User | null;
   onSubmit: (data: EditUserFormValues) => Promise<void>;
   isPending: boolean;
 }
@@ -35,12 +35,12 @@ export function EditUserForm({ user, onSubmit, isPending }: EditUserFormProps) {
   const form = useForm<EditUserFormValues>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
-      username: user.username,
-      email: user.email || "",
-      role: user.role as (typeof ROLES)[number],
-      language: user.language as (typeof LANGUAGES)[number],
-      avatar: user.avatar || "",
-      bio: user.bio || "",
+      username: user?.username ?? "",
+      email: user?.email ?? "",
+      role: (user?.role as (typeof ROLES)[number]) ?? "user",
+      language: (user?.language as (typeof LANGUAGES)[number]) ?? "en",
+      avatar: user?.avatar ?? "",
+      bio: user?.bio ?? "",
     },
   });
 
