@@ -8,25 +8,18 @@ import { Loader2 } from "lucide-react";
 import type { Event } from "@/db/schema";
 
 interface EditEventFormProps {
-  event: Event | null;
+  event: Event;
   onSubmit: (data: Partial<Event>) => Promise<void>;
   isPending: boolean;
 }
 
-type EventFormData = {
-  title: string;
-  description: string;
-  location: string;
-  date: string;
-};
-
 export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps) {
-  const form = useForm<EventFormData>({
+  const form = useForm({
     defaultValues: {
-      title: event?.title ?? '',
-      description: event?.description ?? '',
-      location: event?.location ?? '',
-      date: event?.date ? new Date(event.date).toISOString().slice(0, 16) : ''
+      title: event.title,
+      description: event.description,
+      location: event.location,
+      date: new Date(event.date).toISOString().slice(0, 16)
     }
   });
 

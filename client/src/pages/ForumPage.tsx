@@ -1,59 +1,41 @@
-import React, { useTransition } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useUser } from "../hooks/use-user";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { useLanguage } from '../hooks/use-language';
+import { useUser } from '../hooks/use-user';
+import { useToast } from '@/hooks/use-toast';
+import { Link } from 'wouter';
+import React, { useState, useTransition, Suspense } from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useLanguage } from "../hooks/use-language";
-import { Link } from "wouter";
-import { Loader2 } from "lucide-react";
+import type { Post, Comment } from '@db/schema';
 
 interface User {
   id: number;
   username: string;
 }
 
-interface Post {
-  id: number;
-  title: string;
-  content: string;
-  authorId?: number;
-  createdAt: string;
+interface PostWithAuthor extends Post {
   author?: User | null;
   comments?: Comment[];
 }
 
-interface Comment {
-  id: number;
-  content: string;
-  authorId?: number;
-  postId: number;
-  createdAt: string;
-  authorName?: string;
-}
-
-async function fetchPosts(): Promise<Post[]> {
+async function fetchPosts(): Promise<PostWithAuthor[]> {
   const response = await fetch('/api/posts?include=comments,author');
   if (!response.ok) throw new Error('Failed to fetch posts');
-  const data = await response.json();
-  return Array.isArray(data) ? data : [];
-}
-
-interface CommentFormData {
-  content: string;
+  return response.json();
 }
 
 export default function ForumPage() {
@@ -63,26 +45,13 @@ export default function ForumPage() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
   
-  const commentForm = useForm<CommentFormData>({
-    defaultValues: {
-      content: ""
-    }
-  });
-  
-  const { data: posts = [], isLoading, isFetching, error } = useQuery<Post[]>({
-    queryKey: ['posts'],
+  const { data: posts = [], isLoading, isFetching, error } = useQuery({
+    queryKey: ['posts'] as const,
     queryFn: fetchPosts,
     staleTime: 5000,
     refetchOnWindowFocus: false,
     refetchInterval: false,
-    retry: 3,
-    select: (data) => {
-      if (!Array.isArray(data)) {
-        console.warn('Posts data is not an array:', data);
-        return [];
-      }
-      return data.filter(post => post && typeof post === 'object');
-    }
+    retry: 3
   });
 
   if (error instanceof Error) {
@@ -165,7 +134,8 @@ export default function ForumPage() {
 
           const newComment = await response.json();
           
-          queryClient.setQueryData(['posts'], (oldData: Post[] | undefined) => {
+          // Update the cache with the new comment
+          queryClient.setQueryData(['posts'], (oldData: PostWithAuthor[] | undefined) => {
             if (!oldData) return oldData;
             return oldData.map(p => {
               if (p.id === postId) {
@@ -204,7 +174,7 @@ export default function ForumPage() {
       );
     }
 
-    if (!Array.isArray(posts) || posts.length === 0) {
+    if (posts.length === 0) {
       return (
         <div className="text-center p-8 text-muted-foreground">
           No posts yet. Be the first to create one!
@@ -212,89 +182,50 @@ export default function ForumPage() {
       );
     }
 
-    // Ensure posts is an array and each post has required properties
-    const safePosts = posts.filter(post => 
-      post && 
-      typeof post === 'object' && 
-      'id' in post &&
-      'title' in post
-    );
-
-    return safePosts.map((post) => (
-      <Card key={post.id} className="mb-6">
+    return posts.map((post) => (
+      <Card key={post.id}>
         <CardHeader>
-          <CardTitle>{post.title || 'Untitled Post'}</CardTitle>
-          <div className="text-sm text-muted-foreground">
-            Posted by {post.author?.username || 'Anonymous'} • {
-              post.createdAt 
-                ? new Date(post.createdAt).toLocaleDateString() 
-                : 'Unknown date'
-            }
-          </div>
+          <CardTitle>{post.title}</CardTitle>
+          <CardDescription>
+            Posted by {post.author ? post.author.username : 'Anonymous'} • {new Date(post.createdAt).toLocaleDateString()}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>{post.content || ''}</p>
+          <p>{post.content}</p>
           <div className="mt-4 border-t pt-4">
             <h4 className="text-sm font-semibold mb-2">Comments</h4>
             <div className="space-y-2">
-              {Array.isArray(post.comments) && post.comments.length > 0 ? (
-                post.comments
-                  .filter(comment => comment && typeof comment === 'object' && 'id' in comment)
-                  .map((comment) => (
-                    <div key={comment.id} className="bg-muted p-2 rounded-md">
-                      <p className="text-sm">{comment.content || 'No content'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {comment.authorName || 'Anonymous'} • {
-                          comment.createdAt 
-                            ? new Date(comment.createdAt).toLocaleDateString() 
-                            : 'Unknown date'
-                        }
-                      </p>
-                    </div>
-                  ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No comments yet</p>
-              )}
+              {post.comments?.map((comment) => (
+                <div key={comment.id} className="bg-muted p-2 rounded-md">
+                  <p className="text-sm">{comment.content}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {comment.authorName || 'Anonymous'} • {new Date(comment.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
             </div>
-            <Form {...commentForm}>
-              <form
-                className="mt-4 space-y-2"
-                onSubmit={commentForm.handleSubmit((data) => {
-                  const formData = new FormData();
-                  formData.append('content', data.content);
-                  handleCreateComment(new Event('submit') as any, post.id);
-                  commentForm.reset();
-                })}
-              >
-                <FormField
-                  control={commentForm.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Textarea
-                          {...field}
-                          placeholder="Add a comment..."
-                          required
-                          rows={2}
-                          disabled={isPending}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" size="sm" disabled={isPending}>
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Posting...
-                    </>
-                  ) : (
-                    'Post Comment'
-                  )}
-                </Button>
-              </form>
-            </Form>
+            <form
+              className="mt-4 space-y-2"
+              onSubmit={(e) => handleCreateComment(e, post.id)}
+            >
+              <Textarea
+                name="content"
+                placeholder="Add a comment..."
+                required
+                rows={2}
+                disabled={isPending}
+              />
+              <Button type="submit" size="sm" disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Posting...
+                  </>
+                ) : (
+                  'Post Comment'
+                )}
+              </Button>
+            </form>
           </div>
         </CardContent>
       </Card>
@@ -315,37 +246,26 @@ export default function ForumPage() {
                 <DialogTitle>{t('forum.create_post')}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreatePost} className="space-y-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Title</Label>
-                    <Input 
-                      id="title"
-                      name="title"
-                      required 
-                      disabled={isPending}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="content">Content</Label>
-                    <Textarea 
-                      id="content"
-                      name="content"
-                      required 
-                      rows={5} 
-                      disabled={isPending}
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input id="title" name="title" required disabled={isPending} />
                 </div>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    'Create Post'
-                  )}
-                </Button>
+                <div>
+                  <Label htmlFor="content">Content</Label>
+                  <Textarea id="content" name="content" required rows={5} disabled={isPending} />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={isPending}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Post'
+                    )}
+                  </Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>

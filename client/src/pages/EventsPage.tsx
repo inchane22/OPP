@@ -13,7 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -22,7 +21,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Calendar, MapPin, Loader2, Heart, Instagram, X } from "lucide-react";
 import { useLanguage } from "../hooks/use-language";
-import { Link } from "wouter";
 
 export default function EventsPage() {
   const { user } = useUser();
@@ -31,54 +29,28 @@ export default function EventsPage() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
-  const { data: events, isLoading, isFetching, error } = useQuery<Event[]>({
+  const { data: events = [], isLoading, isFetching } = useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: async () => {
-      try {
-        const response = await fetch("/api/events");
-        if (!response.ok) {
-          throw new Error('Failed to fetch events');
-        }
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-          console.warn('Events data is not an array:', data);
-          return [];
-        }
-        
-        return data.filter(event => 
-          event && 
-          typeof event === 'object' &&
-          'id' in event &&
-          'title' in event &&
-          'description' in event &&
-          'date' in event &&
-          'location' in event
-        );
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        return [];
+      const response = await fetch("/api/events");
+      if (!response.ok) {
+        throw new Error('Failed to fetch events');
       }
+      return response.json();
     },
     staleTime: 5000,
     refetchOnWindowFocus: false,
     retry: 3
   });
 
-  const safeEvents = React.useMemo(() => {
-    if (!Array.isArray(events)) {
-      console.warn('Events is not an array:', events);
-      return [];
-    }
-    return events.filter(event => event && typeof event === 'object');
-  }, [events]);
-
+  // Function to get the next 21st date
   const getNext21stDate = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const next21st = new Date(currentYear, currentMonth, 21);
     
+    // If we're past the 21st of this month, get next month's 21st
     if (now.getDate() > 21) {
       next21st.setMonth(currentMonth + 1);
     }
@@ -170,6 +142,7 @@ export default function EventsPage() {
                 <form onSubmit={form.handleSubmit(data => {
                   startTransition(() => {
                     createEvent.mutate(data);
+                    queryClient.invalidateQueries({ queryKey: ['events'] });
                   });
                 })} className="space-y-4">
                   <FormField
@@ -217,7 +190,7 @@ export default function EventsPage() {
                         <FormControl>
                           <Input 
                             type="datetime-local" 
-                            value={field.value instanceof Date ? field.value.toISOString().slice(0, 16) : ''}
+                            value={field.value.toISOString().slice(0, 16)}
                             onChange={(e) => field.onChange(new Date(e.target.value))}
                           />
                         </FormControl>
@@ -239,189 +212,139 @@ export default function EventsPage() {
 
       <ErrorBoundary>
         <div className={`grid md:grid-cols-2 gap-6 ${isPending || isFetching ? 'opacity-50 pointer-events-none' : ''}`}>
-          {safeEvents.map((event) => {
-            if (!event || typeof event !== 'object' || !('id' in event)) {
-              console.warn('Invalid event object:', event);
-              return null;
-            }
-            
-            const eventDate = event.date ? new Date(event.date) : null;
-            const formattedDate = eventDate && !isNaN(eventDate.getTime()) 
-              ? format(eventDate, "PPP 'at' p")
-              : 'Date not available';
-
-            const eventKey = `event-${event.id || Math.random()}`;
-
-            return (
-              <Card key={eventKey} className="group hover:shadow-lg transition-shadow duration-200">
-                <CardHeader>
-                  <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
-                    {(event.title && typeof event.title === 'string') ? event.title : 'Untitled Event'}
-                  </CardTitle>
-                  <div className="flex flex-col space-y-2 mt-2">
-                    <div className="flex items-center text-sm">
-                      <Calendar className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">{formattedDate}</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="mr-2 h-5 w-5 text-primary" />
-                      <span className="font-medium">
-                        {(event.location && typeof event.location === 'string') ? event.location : 'Location not specified'}
-                      </span>
-                    </div>
+          {events.map((event: Event) => (
+            <Card key={event.id} className="group hover:shadow-lg transition-shadow duration-200">
+              <CardHeader>
+                <CardTitle className="text-2xl group-hover:text-primary transition-colors duration-200">
+                  {event.title}
+                </CardTitle>
+                <div className="flex flex-col space-y-2 mt-2">
+                  <div className="flex items-center text-sm">
+                    <Calendar className="mr-2 h-5 w-5 text-primary" />
+                    <span className="font-medium">{format(new Date(event.date), "PPP 'at' p")}</span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {(event.description && typeof event.description === 'string') ? event.description : 'No description available'}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className="hover:text-primary"
-                      onClick={(e) => {
-                        if (isPending || !event.id) return;
-                        e.stopPropagation();
-                        e.preventDefault();
-                        
-                        startTransition(() => {
-                          (async () => {
-                            try {
-                              const response = await fetch(`/api/events/${event.id}/like`, { 
-                                method: 'POST',
-                                credentials: 'include'
-                              });
-                              if (!response.ok) {
-                                throw new Error('Failed to like event');
-                              }
-                              await queryClient.invalidateQueries({ queryKey: ['events'] });
-                            } catch (error) {
-                              console.error('Like error:', error);
-                              toast({
-                                title: "Failed to like event",
-                                description: error instanceof Error ? error.message : "An error occurred",
-                                variant: "destructive"
-                              });
+                  <div className="flex items-center text-sm">
+                    <MapPin className="mr-2 h-5 w-5 text-primary" />
+                    <span className="font-medium">{event.location}</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                <div className="mt-4 flex items-center justify-between">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="hover:text-primary"
+                    onClick={(e) => {
+                      if (isPending) return;
+                      e.stopPropagation();
+                      startTransition(() => {
+                        (async () => {
+                          try {
+                            const response = await fetch(`/api/events/${event.id}/like`, { 
+                              method: 'POST',
+                              credentials: 'include'
+                            });
+                            if (!response.ok) {
+                              throw new Error('Failed to like event');
                             }
-                          })();
-                        });
-                      }}
-                      disabled={isPending || !event.id}
-                    >
-                      <Heart className="mr-2 h-4 w-4" />
-                      <span>{typeof event.likes === 'number' ? event.likes : 0}</span>
-                    </Button>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hover:text-black dark:hover:text-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          if (!isPending && event.title && event.location && event.date) {
-                            startTransition(() => {
-                              try {
-                                const eventDate = new Date(event.date);
-                                const tweetText = `Check out ${event.title} at ${event.location} on ${format(
-                                  eventDate,
-                                  "PPP"
-                                )}!`;
-                                const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                                  `${tweetText}&url=${window.location.href}`
-                                )}`;
-                                window.open(tweetUrl, "_blank");
-                              } catch (error) {
-                                console.error('Error sharing to Twitter:', error);
-                              }
+                            await queryClient.invalidateQueries({ queryKey: ['events'] });
+                          } catch (error) {
+                            toast({
+                              title: "Failed to like event",
+                              description: error instanceof Error ? error.message : "An error occurred",
+                              variant: "destructive"
                             });
                           }
-                        }}
-                        disabled={isPending || !event.title || !event.location || !event.date}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="hover:text-[#E4405F]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          startTransition(() => {
-                            try {
-                              window.open(
-                                `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
-                                "_blank"
-                              );
-                            } catch (error) {
-                              console.error('Error sharing to Instagram:', error);
-                            }
-                          });
-                        }}
-                        disabled={isPending}
-                      >
-                        <Instagram className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      
-                      if (!event.date || !event.title) {
-                        console.warn('Missing required event data for calendar export');
-                        return;
-                      }
-
-                      try {
-                        const eventDate = new Date(event.date);
-                        if (isNaN(eventDate.getTime())) {
-                          console.warn('Invalid event date');
-                          return;
-                        }
-
-                        const endDate = new Date(eventDate);
-                        endDate.setHours(eventDate.getHours() + 2);
-                        
-                        const icsData = [
-                          'BEGIN:VCALENDAR',
-                          'VERSION:2.0',
-                          'BEGIN:VEVENT',
-                          `DTSTART:${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-                          `DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-                          `SUMMARY:${event.title}`,
-                          `DESCRIPTION:${event.description || 'No description provided'}`,
-                          `LOCATION:${event.location || 'No location specified'}`,
-                          'END:VEVENT',
-                          'END:VCALENDAR'
-                        ].join('\n');
-                        
-                        const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
-                        const link = document.createElement('a');
-                        link.href = window.URL.createObjectURL(blob);
-                        link.download = `${event.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ics`;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        window.URL.revokeObjectURL(link.href);
-                      } catch (error) {
-                        console.error('Error creating calendar event:', error);
-                      }
+                        })();
+                      });
                     }}
-                    disabled={!event.date || !event.title}
+                    disabled={isPending}
                   >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Add to Calendar
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>{event.likes}</span>
                   </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover:text-black dark:hover:text-white"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isPending) {
+                          startTransition(() => {
+                            const tweetText = `Check out ${event.title} at ${event.location} on ${format(
+                              new Date(event.date),
+                              "PPP"
+                            )}!`;
+                            const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                              `${tweetText}&url=${window.location.href}`
+                            )}`;
+                            window.open(tweetUrl, "_blank");
+                          });
+                        }
+                      }}
+                      disabled={isPending}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="hover:text-[#E4405F]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startTransition(() => {
+                          window.open(
+                            `https://www.instagram.com/share?url=${encodeURIComponent(window.location.href)}`,
+                            "_blank"
+                          );
+                        });
+                      }}
+                      disabled={isPending}
+                    >
+                      <Instagram className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full group-hover:bg-primary group-hover:text-white transition-colors duration-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const eventDate = new Date(event.date);
+                    const endDate = new Date(eventDate);
+                    endDate.setHours(eventDate.getHours() + 2);
+                    
+                    const icsData = [
+                      'BEGIN:VCALENDAR',
+                      'VERSION:2.0',
+                      'BEGIN:VEVENT',
+                      `DTSTART:${eventDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                      `DTEND:${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+                      `SUMMARY:${event.title}`,
+                      `DESCRIPTION:${event.description}`,
+                      `LOCATION:${event.location}`,
+                      'END:VEVENT',
+                      'END:VCALENDAR'
+                    ].join('\n');
+                    
+                    const blob = new Blob([icsData], { type: 'text/calendar;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = `${event.title.toLowerCase().replace(/\s+/g, '-')}.ics`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Add to Calendar
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </ErrorBoundary>
     </div>

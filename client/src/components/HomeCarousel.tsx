@@ -100,58 +100,27 @@ interface CarouselItem {
 }
 
 // Memoized carousel item display component
-const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => {
-  // Enhanced null checks for the item and its properties
-  if (!item || typeof item !== 'object') {
-    console.error('Carousel item is null or not an object:', item);
-    return null;
-  }
-
-  // Ensure all required properties exist and are of correct type
-  if (!item.title || typeof item.title !== 'string' || !item.embed_url || typeof item.embed_url !== 'string') {
-    console.error('Invalid carousel item properties:', {
-      title: item.title,
-      embed_url: item.embed_url
-    });
-    return null;
-  }
-
-  // Safely create embed URL
-  const embedUrl = React.useMemo(() => {
-    try {
-      return getEmbedUrl(item.embed_url);
-    } catch (error) {
-      console.error('Error creating embed URL:', error);
-      return null;
-    }
-  }, [item.embed_url]);
-
-  if (!embedUrl) {
-    return null;
-  }
-
-  return (
-    <div className="p-1">
-      <Card>
-        <CardContent className="flex aspect-square items-center justify-center p-6">
-          <div className="w-full h-full">
-            <iframe
-              title={item.title}
-              src={embedUrl}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              style={{ minHeight: '400px' }}
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-              sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-});
+const CarouselItemDisplay = React.memo(({ item }: { item: CarouselItem }) => (
+  <div className="p-1">
+    <Card>
+      <CardContent className="flex aspect-square items-center justify-center p-6">
+        <div className="w-full h-full">
+          <iframe
+            title={item.title}
+            src={getEmbedUrl(item.embed_url)}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ minHeight: '400px' }}
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox allow-forms"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+));
 
 CarouselItemDisplay.displayName = "CarouselItemDisplay";
 
@@ -159,44 +128,11 @@ interface CarouselDisplayProps {
   items: CarouselItem[];
 }
 
-const CarouselDisplay = React.memo(({ items = [] }: CarouselDisplayProps) => {
+const CarouselDisplay = React.memo(({ items }: CarouselDisplayProps) => {
   const [api, setApi] = React.useState<CarouselApi>();
   const [current, setCurrent] = React.useState(0);
   const [count, setCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<Error | null>(null);
-  
-  // Enhanced safety checks for items prop
-  if (!Array.isArray(items)) {
-    const errorMsg = 'Invalid items prop provided to CarouselDisplay: expected array';
-    console.error(errorMsg, items);
-    setError(new Error(errorMsg));
-    return (
-      <div className="text-center text-red-500 p-4">
-        Error loading carousel items
-      </div>
-    );
-  }
-
-  // Validate each item in the array
-  const validItems = items.filter(item => 
-    item && 
-    typeof item === 'object' && 
-    'id' in item &&
-    'title' in item && 
-    typeof item.title === 'string' &&
-    'embed_url' in item && 
-    typeof item.embed_url === 'string'
-  );
-
-  if (validItems.length === 0 && items.length > 0) {
-    console.warn('No valid items found in carousel data');
-    return (
-      <div className="text-center text-muted-foreground p-4">
-        No valid content available
-      </div>
-    );
-  }
 
   const carouselOptions: EmblaOptionsType = React.useMemo(() => ({
     align: "center",
@@ -295,7 +231,7 @@ export default function HomeCarousel() {
   const [isPending, startTransition] = React.useTransition();
 
   // Use suspense: false to prevent unwanted suspense behavior
-  const { data: rawItems, error, isLoading } = useQuery({
+  const { data: items = [], error, isLoading } = useQuery({
     queryKey: ['carousel-items'],
     queryFn: fetchCarouselItems,
     staleTime: 30000,
@@ -303,51 +239,6 @@ export default function HomeCarousel() {
     retry: 2,
     retryDelay: 1000,
   });
-
-  // Enhanced data validation and filtering
-  const items = React.useMemo(() => {
-    // Check if rawItems exists and is an array
-    if (!rawItems || !Array.isArray(rawItems)) {
-      console.warn('Invalid rawItems:', rawItems);
-      return [];
-    }
-
-    // Filter and validate each item
-    return rawItems.filter(item => {
-      try {
-        return (
-          item &&
-          typeof item === 'object' &&
-          'id' in item &&
-          typeof item.id === 'number' &&
-          'title' in item &&
-          typeof item.title === 'string' &&
-          'embed_url' in item &&
-          typeof item.embed_url === 'string' &&
-          item.active === true
-        );
-      } catch (error) {
-        console.error('Error validating carousel item:', error);
-        return false;
-      }
-    });
-  }, [rawItems]);
-
-  // Early return if no valid items
-  if (items.length === 0) {
-    return (
-      <section className="py-12 bg-muted/50">
-        <div className="container">
-          <h2 className="text-3xl font-bold text-center mb-8">
-            {t('carousel.title')}
-          </h2>
-          <div className="text-center text-muted-foreground">
-            {isLoading ? <LoadingSpinner /> : t('carousel.empty')}
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   // Prefetch data with transition
   React.useEffect(() => {
@@ -372,7 +263,6 @@ export default function HomeCarousel() {
     }
 
     if (error) {
-      console.error('Carousel error:', error);
       return (
         <div className="text-center text-red-500">
           {t('carousel.error')}
@@ -380,17 +270,8 @@ export default function HomeCarousel() {
       );
     }
 
-    // Ensure items is an array and has valid structure
-    const carouselItems = Array.isArray(items) ? items.filter(item => 
-      item && 
-      typeof item === 'object' && 
-      'id' in item &&
-      'title' in item &&
-      'embed_url' in item
-    ) : [];
-
-    if (carouselItems.length === 0) {
-      console.warn('No valid carousel items found');
+    const carouselItems = items as CarouselItem[];
+    if (!carouselItems || carouselItems.length === 0) {
       return (
         <div className="text-center text-muted-foreground">
           {t('carousel.empty')}
