@@ -48,14 +48,6 @@ args = "Production Build"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Dev Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Production Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Backend Dev Server"
 
 [[workflows.workflow]]
@@ -100,36 +92,6 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run build"
-
-[[workflows.workflow]]
-name = "Dev Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=development tsx watch server/index.ts"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Production Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=production npm start"
-waitForPort = 3000
 
 [[workflows.workflow]]
 name = "Backend Dev Server"
