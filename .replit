@@ -137,7 +137,7 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "tsx watch server/index.ts"
-waitForPort = 5000
+waitForPort = 3001
 
 [[workflows.workflow]]
 name = "Dev Server"
@@ -152,7 +152,6 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_ENV=development tsx watch --clear-screen=false server/index.ts"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Frontend Dev Server"

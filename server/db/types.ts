@@ -1,10 +1,10 @@
-import { DatabaseError } from 'pg';
+import pg from 'pg';
 
-// Re-export the pg DatabaseError type and implementation
-export type { DatabaseError } from 'pg';
-export { DatabaseError as PostgresError };
+// Export PostgreSQL error types
+export type DatabaseError = pg.DatabaseError;
+export type PostgresError = DatabaseError;
 
-// Define valid PostgreSQL error codes
+// Valid PostgreSQL error codes
 export type PostgresErrorCode = 
   | '08006' // Connection failure
   | '08001' // Unable to establish connection
@@ -28,8 +28,7 @@ export type PoolConfig = {
   readonly RETRYABLE_ERROR_CODES: readonly PostgresErrorCode[];
 };
 
-// Pool configuration
-// Define the constant configuration with explicit typing
+// Pool configuration constant
 export const POOL_CONFIG: Readonly<PoolConfig> = {
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000,
@@ -85,12 +84,17 @@ export class DatabaseQueryError extends Error {
   }
 }
 
-// Type guard for DatabaseError
+// Type guards
 export function isDatabaseError(error: unknown): error is DatabaseError {
-  return error instanceof DatabaseError;
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    'code' in error &&
+    'message' in error &&
+    'severity' in error
+  );
 }
 
-// Type guard for DatabaseQueryError
 export function isDatabaseQueryError(error: unknown): error is DatabaseQueryError {
   return error instanceof DatabaseQueryError;
 }

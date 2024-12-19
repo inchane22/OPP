@@ -1,5 +1,5 @@
 import pg from 'pg';
-import type { Pool, PoolConfig as PgPoolConfig } from 'pg';
+import type { Pool, PoolConfig as PgPoolConfig, DatabaseError as PgDatabaseError } from 'pg';
 import { logger } from '../utils/logger';
 
 import { 
@@ -94,21 +94,27 @@ export class DatabasePool {
         client.release();
       }
     } catch (error) {
-      const pgError = error as DatabaseError;
-      const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
-      
-      logger('Connection check failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorCode: pgError.code,
-        isRetryable,
-        willRetry: isRetryable
-      });
+        const isDbError = isDatabaseError(error);
+        const pgError = isDbError ? error : new DatabaseQueryError(
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        
+        const isRetryable = isDbError && pgError.code ? 
+          POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : 
+          false;
+        
+        logger('Connection check failed', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorCode: isDbError ? pgError.code : undefined,
+          isRetryable,
+          willRetry: isRetryable
+        });
 
-      if (isRetryable) {
-        this.pool = null; // Force reconnection on next getPool() call
-      } else {
-        throw new DatabaseConnectionError('Database connection check failed', error as Error);
-      }
+        if (isRetryable) {
+          this.pool = null; // Force reconnection on next getPool() call
+        } else {
+          throw new DatabaseConnectionError('Database connection check failed', error instanceof Error ? error : undefined);
+        }
     }
   }
 
@@ -130,14 +136,20 @@ export class DatabasePool {
           client.release();
         }
       } catch (error) {
-        lastError = error as Error;
-        const pgError = error as DatabaseError;
-        const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        const isDbError = isDatabaseError(error);
+        const pgError = isDbError ? error : new DatabaseQueryError(
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        
+        const isRetryable = isDbError && pgError.code ? 
+          POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : 
+          false;
         
         logger('Connection verification failed', { 
           attempt,
           error: error instanceof Error ? error.message : 'Unknown error',
-          errorCode: pgError.code,
+          errorCode: isDbError ? pgError.code : undefined,
           isRetryable,
           maxAttempts: POOL_CONFIG.MAX_RETRIES,
           willRetry: attempt < POOL_CONFIG.MAX_RETRIES && isRetryable
