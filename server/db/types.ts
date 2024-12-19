@@ -1,8 +1,8 @@
-import { DatabaseError as PgDatabaseError } from 'pg';
+import { DatabaseError } from 'pg';
 
-// Re-export DatabaseError from pg with type safety
+// Re-export the pg DatabaseError type and implementation
 export type { DatabaseError } from 'pg';
-export { PgDatabaseError as DatabaseError };
+export { DatabaseError as PostgresError };
 
 // Define valid PostgreSQL error codes
 export type PostgresErrorCode = 

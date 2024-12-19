@@ -1,7 +1,15 @@
 
 import { logger } from '../utils/logger';
 import pg from 'pg';
-import type { Pool } from 'pg';
+import type { Pool, PoolConfig } from 'pg';
+import { 
+  DatabaseConnectionError,
+  DatabaseQueryError,
+  PostgresErrorCode,
+  POOL_CONFIG,
+  isDatabaseError,
+  PostgresError
+} from './types';
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
@@ -73,12 +81,17 @@ export class DatabaseConnection {
         this.retryCount++;
         logger('Retrying database connection', { 
           attempt: this.retryCount, 
-          maxRetries: this.maxRetries 
+          maxRetries: this.maxRetries,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorCode: isDatabaseError(error) ? error.code : undefined
         });
         await new Promise(resolve => setTimeout(resolve, this.retryDelay));
         return this.verifyConnection(pool);
       }
-      throw new Error(`Failed to connect to database after ${this.maxRetries} attempts`);
+      throw new DatabaseConnectionError(
+        `Failed to connect to database after ${this.maxRetries} attempts`,
+        error instanceof Error ? error : undefined
+      );
     }
   }
 

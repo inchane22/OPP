@@ -1,5 +1,5 @@
 import pg from 'pg';
-import type { Pool, PoolConfig } from 'pg';
+import type { Pool, PoolConfig as PgPoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
 import { 
@@ -7,17 +7,9 @@ import {
   DatabaseQueryError,
   PostgresErrorCode,
   POOL_CONFIG,
-  isDatabaseError
+  isDatabaseError,
+  DatabaseError
 } from './types';
-
-interface DatabaseError extends Error {
-  code?: PostgresErrorCode;
-  column?: string;
-  constraint?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-}
 
 export class DatabasePool {
   private static instance: DatabasePool;
@@ -45,7 +37,7 @@ export class DatabasePool {
         throw new DatabaseConnectionError('DATABASE_URL environment variable is not set');
       }
 
-      const config: PoolConfig = {
+      const config: PgPoolConfig = {
         connectionString: process.env.DATABASE_URL,
         max: POOL_CONFIG.MAX_SIZE,
         idleTimeoutMillis: POOL_CONFIG.IDLE_TIMEOUT,
