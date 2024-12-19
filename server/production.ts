@@ -29,6 +29,7 @@ import {
   PostgresErrorCode,
   POOL_CONFIG,
   isDatabaseError,
+  isDatabaseQueryError,
   DatabaseError
 } from './db/types';
 
@@ -70,10 +71,10 @@ export async function setupProduction(app: express.Express): Promise<void> {
         }
         return;
       } catch (error) {
-        const pgError = error instanceof DatabaseError ? error : new DatabaseQueryError(
+        const pgError = isDatabaseError(error) ? error : new DatabaseQueryError(
           error instanceof Error ? error.message : 'Unknown error'
         );
-        const isRetryable = pgError.code && POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode);
+        const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
         
         logger('Database connection attempt failed', {
           attempt,
@@ -240,12 +241,22 @@ export async function setupProduction(app: express.Express): Promise<void> {
         'Database connection error: ' + error.message;
     } else if (error instanceof DatabaseQueryError) {
       statusCode = 400; // Bad Request
-      if (error.code === '23505') { // Unique violation
-        errorMessage = 'Record already exists';
-      } else if (error.code === '23503') { // Foreign key violation
-        errorMessage = 'Referenced record does not exist';
-      } else if (error.code === '23502') { // Not null violation
-        errorMessage = 'Required field is missing';
+      if (error.isRetryableError() && error.code) {
+        switch (error.code) {
+          case '23505': // Unique violation
+            errorMessage = 'Record already exists';
+            break;
+          case '23503': // Foreign key violation
+            errorMessage = 'Referenced record does not exist';
+            break;
+          case '23502': // Not null violation
+            errorMessage = 'Required field is missing';
+            break;
+          default:
+            errorMessage = isProduction ? 
+              'Invalid database operation' : 
+              'Database query error: ' + error.message;
+        }
       } else {
         errorMessage = isProduction ? 
           'Invalid database operation' : 
