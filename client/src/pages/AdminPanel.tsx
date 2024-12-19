@@ -220,25 +220,59 @@ export default function AdminPanel() {
                     <Form {...form}>
                       <form onSubmit={form.handleSubmit(async (data) => {
                         try {
-                          const response = await fetch('/api/carousel', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data),
-                            credentials: 'include'
+                          // Basic validation
+                          if (!data.title.trim()) {
+                            throw new Error('El título es requerido');
+                          }
+                          if (!data.embed_url.trim()) {
+                            throw new Error('La URL es requerida');
+                          }
+
+                          startTransition(async () => {
+                            try {
+                              const response = await fetch('/api/carousel', {
+                                method: 'POST',
+                                headers: { 
+                                  'Content-Type': 'application/json',
+                                  'Accept': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                  title: data.title.trim(),
+                                  description: data.description?.trim() || null,
+                                  embed_url: data.embed_url.trim(),
+                                  active: data.active
+                                }),
+                                credentials: 'include'
+                              });
+
+                              const result = await response.json();
+
+                              if (!response.ok) {
+                                throw new Error(result.message || 'Error al agregar el item al carousel');
+                              }
+
+                              await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              toast({ title: "Item agregado exitosamente" });
+                              
+                              // Reset form
+                              form.reset();
+                              
+                              // Close dialog
+                              const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                              if (closeButton) closeButton.click();
+                            } catch (error) {
+                              console.error('Error adding carousel item:', error);
+                              toast({
+                                title: "Error al agregar item",
+                                description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
+                                variant: "destructive"
+                              });
+                            }
                           });
-
-                          if (!response.ok) throw new Error('Failed to add carousel item');
-
-                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                          toast({ title: "Item agregado exitosamente" });
-                          
-                          const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                          if (closeButton) closeButton.click();
-                        } catch (error) {
-                          console.error('Error adding carousel item:', error);
+                        } catch (validationError) {
                           toast({
-                            title: "Error al agregar item",
-                            description: error instanceof Error ? error.message : "Unknown error occurred",
+                            title: "Error de validación",
+                            description: validationError instanceof Error ? validationError.message : "Error en el formulario",
                             variant: "destructive"
                           });
                         }
