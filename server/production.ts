@@ -19,18 +19,18 @@ const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePa
 
 // Ensure all paths are resolved relative to the current module
 const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
-// Import database configuration
+
+// Import database configuration and types
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
-
-interface DatabaseError extends Error {
-  code?: string;
-  column?: string;
-  constraint?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-}
+import { 
+  DatabaseConnectionError,
+  DatabaseQueryError,
+  PostgresErrorCode,
+  POOL_CONFIG,
+  isDatabaseError,
+  DatabaseError
+} from './db/types';
 
 type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
   _startTime?: number;
@@ -43,15 +43,6 @@ type CustomResponse = Response & {
     (chunk: any, encoding: BufferEncoding, cb?: (() => void)): Response;
   };
 };
-
-// Constants
-const DB_CONFIG = {
-  MAX_POOL_SIZE: 20,
-  IDLE_TIMEOUT_MS: 30000,
-  CONNECTION_TIMEOUT_MS: 5000,
-  MAX_RETRIES: 5,
-  RETRY_DELAY_MS: 5000
-} as const;
 
 const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000,
@@ -79,8 +70,10 @@ export async function setupProduction(app: express.Express): Promise<void> {
         }
         return;
       } catch (error) {
-        const pgError = error as DatabaseError;
-        const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+        const pgError = error instanceof DatabaseError ? error : new DatabaseQueryError(
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        const isRetryable = pgError.code && POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode);
         
         logger('Database connection attempt failed', {
           attempt,

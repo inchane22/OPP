@@ -2,53 +2,22 @@ import pg from 'pg';
 import type { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
-// Custom error types for better error handling
-class DatabaseConnectionError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message);
-    this.name = 'DatabaseConnectionError';
-  }
-}
-
-class DatabaseQueryError extends Error {
-  constructor(
-    message: string,
-    public readonly code?: string,
-    public readonly query?: string,
-    public readonly params?: any[]
-  ) {
-    super(message);
-    this.name = 'DatabaseQueryError';
-  }
-}
+import { 
+  DatabaseConnectionError,
+  DatabaseQueryError,
+  PostgresErrorCode,
+  POOL_CONFIG,
+  isDatabaseError
+} from './types';
 
 interface DatabaseError extends Error {
-  code?: string;
+  code?: PostgresErrorCode;
   column?: string;
   constraint?: string;
   detail?: string;
   schema?: string;
   table?: string;
 }
-
-// Configuration constants
-const POOL_CONFIG = {
-  MAX_SIZE: 20,
-  IDLE_TIMEOUT: 30000,
-  CONNECTION_TIMEOUT: 5000,
-  MAX_RETRIES: 5,
-  RETRY_DELAY: 5000,
-  // Error codes that warrant a retry
-  RETRYABLE_ERROR_CODES: [
-    '08006', // Connection failure
-    '08001', // Unable to connect
-    '08004', // Rejected connection
-    '57P01', // Database shutdown
-    '57P02', // Connection shutdown
-    '57P03', // Cannot connect now
-    'XX000'  // Internal error
-  ]
-} as const;
 
 export class DatabasePool {
   private static instance: DatabasePool;
@@ -134,7 +103,7 @@ export class DatabasePool {
       }
     } catch (error) {
       const pgError = error as DatabaseError;
-      const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+      const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
       
       logger('Connection check failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -171,7 +140,7 @@ export class DatabasePool {
       } catch (error) {
         lastError = error as Error;
         const pgError = error as DatabaseError;
-        const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+        const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
         
         logger('Connection verification failed', { 
           attempt,

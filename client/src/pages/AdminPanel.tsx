@@ -228,46 +228,51 @@ export default function AdminPanel() {
                             throw new Error('La URL es requerida');
                           }
 
-                          startTransition(async () => {
-                            try {
-                              const response = await fetch('/api/carousel', {
-                                method: 'POST',
-                                headers: { 
-                                  'Content-Type': 'application/json',
-                                  'Accept': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                  title: data.title.trim(),
-                                  description: data.description?.trim() || null,
-                                  embed_url: data.embed_url.trim(),
-                                  active: data.active
-                                }),
-                                credentials: 'include'
-                              });
+                          startTransition(() => {
+                            // Handle the async operations inside the transition
+                            const submitCarouselItem = async () => {
+                              try {
+                                const response = await fetch('/api/carousel', {
+                                  method: 'POST',
+                                  headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                  },
+                                  body: JSON.stringify({
+                                    title: data.title.trim(),
+                                    description: data.description?.trim() || null,
+                                    embed_url: data.embed_url.trim(),
+                                    active: data.active
+                                  }),
+                                  credentials: 'include'
+                                });
 
-                              const result = await response.json();
+                                const result = await response.json();
 
-                              if (!response.ok) {
-                                throw new Error(result.message || 'Error al agregar el item al carousel');
+                                if (!response.ok) {
+                                  throw new Error(result.message || 'Error al agregar el item al carousel');
+                                }
+
+                                await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                toast({ title: "Item agregado exitosamente" });
+                                
+                                // Reset form
+                                form.reset();
+                                
+                                // Close dialog
+                                const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                if (closeButton) closeButton.click();
+                              } catch (error) {
+                                console.error('Error adding carousel item:', error);
+                                toast({
+                                  title: "Error al agregar item",
+                                  description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
+                                  variant: "destructive"
+                                });
                               }
-
-                              await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                              toast({ title: "Item agregado exitosamente" });
-                              
-                              // Reset form
-                              form.reset();
-                              
-                              // Close dialog
-                              const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                              if (closeButton) closeButton.click();
-                            } catch (error) {
-                              console.error('Error adding carousel item:', error);
-                              toast({
-                                title: "Error al agregar item",
-                                description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
-                                variant: "destructive"
-                              });
-                            }
+                            };
+                            
+                            void submitCarouselItem();
                           });
                         } catch (validationError) {
                           toast({
