@@ -33,6 +33,10 @@ export class DatabasePool {
 
   private async createPool(): Promise<Pool> {
     try {
+      if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is not set');
+      }
+
       const config: PoolConfig = {
         connectionString: process.env.DATABASE_URL,
         max: POOL_CONFIG.MAX_SIZE,
@@ -45,6 +49,7 @@ export class DatabasePool {
 
       const pool = new pg.Pool(config);
 
+      // Handle pool-level errors
       pool.on('error', (err: Error) => {
         logger('Unexpected error on idle client', { 
           error: err.message,
@@ -53,12 +58,46 @@ export class DatabasePool {
         this.handlePoolError(err);
       });
 
+      // Handle connection errors
+      pool.on('connect', (client) => {
+        client.on('error', (err: Error) => {
+          logger('Client connection error', {
+            error: err.message,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+          });
+          this.handlePoolError(err);
+        });
+      });
+
       await this.verifyConnection(pool);
+      
+      // Set up periodic connection check
+      setInterval(() => {
+        this.checkConnection();
+      }, POOL_CONFIG.IDLE_TIMEOUT / 2);
+      
       return pool;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger('Failed to create pool', { error: errorMessage });
       throw error;
+    }
+  }
+
+  private async checkConnection(): Promise<void> {
+    try {
+      const pool = await this.getPool();
+      const client = await pool.connect();
+      try {
+        await client.query('SELECT 1');
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      logger('Connection check failed, attempting reconnection', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      this.pool = null; // Force reconnection on next getPool() call
     }
   }
 
