@@ -2,13 +2,52 @@ import pg from 'pg';
 import type { Pool, PoolConfig } from 'pg';
 import { logger } from '../utils/logger';
 
+// Custom error types for better error handling
+class DatabaseConnectionError extends Error {
+  constructor(message: string, public readonly cause?: Error) {
+    super(message);
+    this.name = 'DatabaseConnectionError';
+  }
+}
+
+class DatabaseQueryError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly query?: string,
+    public readonly params?: any[]
+  ) {
+    super(message);
+    this.name = 'DatabaseQueryError';
+  }
+}
+
+interface DatabaseError extends Error {
+  code?: string;
+  column?: string;
+  constraint?: string;
+  detail?: string;
+  schema?: string;
+  table?: string;
+}
+
 // Configuration constants
 const POOL_CONFIG = {
   MAX_SIZE: 20,
   IDLE_TIMEOUT: 30000,
   CONNECTION_TIMEOUT: 5000,
   MAX_RETRIES: 5,
-  RETRY_DELAY: 5000
+  RETRY_DELAY: 5000,
+  // Error codes that warrant a retry
+  RETRYABLE_ERROR_CODES: [
+    '08006', // Connection failure
+    '08001', // Unable to connect
+    '08004', // Rejected connection
+    '57P01', // Database shutdown
+    '57P02', // Connection shutdown
+    '57P03', // Cannot connect now
+    'XX000'  // Internal error
+  ]
 } as const;
 
 export class DatabasePool {
@@ -34,7 +73,7 @@ export class DatabasePool {
   private async createPool(): Promise<Pool> {
     try {
       if (!process.env.DATABASE_URL) {
-        throw new Error('DATABASE_URL environment variable is not set');
+        throw new DatabaseConnectionError('DATABASE_URL environment variable is not set');
       }
 
       const config: PoolConfig = {
@@ -94,37 +133,71 @@ export class DatabasePool {
         client.release();
       }
     } catch (error) {
-      logger('Connection check failed, attempting reconnection', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+      const pgError = error as DatabaseError;
+      const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+      
+      logger('Connection check failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: pgError.code,
+        isRetryable,
+        willRetry: isRetryable
       });
-      this.pool = null; // Force reconnection on next getPool() call
+
+      if (isRetryable) {
+        this.pool = null; // Force reconnection on next getPool() call
+      } else {
+        throw new DatabaseConnectionError('Database connection check failed', error as Error);
+      }
     }
   }
 
   private async verifyConnection(pool: Pool): Promise<void> {
+    let lastError: Error | null = null;
+    
     for (let attempt = 1; attempt <= POOL_CONFIG.MAX_RETRIES; attempt++) {
       try {
         const client = await pool.connect();
         try {
           await client.query('SELECT 1');
-          logger('Database connection verified', { attempt });
+          if (attempt > 1) {
+            logger('Database connection recovered', { attempt });
+          } else {
+            logger('Database connection verified', { attempt });
+          }
           return;
         } finally {
           client.release();
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        lastError = error as Error;
+        const pgError = error as DatabaseError;
+        const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+        
         logger('Connection verification failed', { 
           attempt,
-          error: errorMessage,
-          maxAttempts: POOL_CONFIG.MAX_RETRIES
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorCode: pgError.code,
+          isRetryable,
+          maxAttempts: POOL_CONFIG.MAX_RETRIES,
+          willRetry: attempt < POOL_CONFIG.MAX_RETRIES && isRetryable
         });
         
-        if (attempt === POOL_CONFIG.MAX_RETRIES) {
-          throw new Error(`Failed to verify connection after ${POOL_CONFIG.MAX_RETRIES} attempts`);
+        if (!isRetryable) {
+          throw new DatabaseConnectionError(
+            `Database connection failed with non-retryable error: ${pgError.message}`,
+            error as Error
+          );
         }
         
-        await new Promise(resolve => setTimeout(resolve, POOL_CONFIG.RETRY_DELAY));
+        if (attempt === POOL_CONFIG.MAX_RETRIES) {
+          throw new DatabaseConnectionError(
+            `Failed to verify connection after ${POOL_CONFIG.MAX_RETRIES} attempts`,
+            lastError
+          );
+        }
+        
+        const backoffDelay = POOL_CONFIG.RETRY_DELAY * Math.pow(1.5, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
     }
   }

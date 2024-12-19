@@ -62,29 +62,64 @@ const RATE_LIMIT = {
 import { logger, type LogData } from "./utils/logger.js";
 
 export async function setupProduction(app: express.Express): Promise<void> {
-  // Initialize database connection
+  // Initialize database connection with fallback mode
   const initializeDatabase = async (): Promise<void> => {
     const retries = 3;
     const retryDelay = 2000;
+    let fallbackMode = false;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         const db = DatabasePool.getInstance();
         await db.getPool();
-        logger('Database connection initialized successfully', { attempt } as LogData);
+        if (fallbackMode) {
+          logger('Database connection restored, exiting fallback mode', { attempt } as LogData);
+        } else {
+          logger('Database connection initialized successfully', { attempt } as LogData);
+        }
         return;
       } catch (error) {
+        const pgError = error as DatabaseError;
+        const isRetryable = POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code || '');
+        
         logger('Database connection attempt failed', {
           attempt,
           error: error instanceof Error ? error.message : 'Unknown error',
+          errorCode: pgError.code,
+          isRetryable,
           stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
         } as LogData);
 
         if (attempt === retries) {
-          throw new Error('Failed to initialize database after all retries');
+          if (process.env.NODE_ENV === 'production') {
+            logger('Entering fallback mode - some features will be limited', {
+              mode: 'fallback',
+              features: ['read-only', 'cached-data']
+            } as LogData);
+            fallbackMode = true;
+            // Instead of throwing, we'll continue with limited functionality
+            app.use((req: Request, res: Response, next: Function) => {
+              if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+                res.status(503).json({
+                  error: 'Service temporarily in read-only mode due to database connectivity issues',
+                  status: 503,
+                  fallback: true
+                });
+              } else {
+                next();
+              }
+            });
+            return;
+          } else {
+            throw new DatabaseConnectionError(
+              'Failed to initialize database after all retries',
+              error as Error
+            );
+          }
         }
 
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        const backoffDelay = retryDelay * Math.pow(1.5, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
     }
   };
@@ -200,17 +235,54 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   // Error handling
   app.use((error: Error, req: Request, res: Response, next: Function) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    let statusCode = 500;
+    let errorMessage = isProduction ? 'Internal Server Error' : error.message;
+    
+    // Handle specific database errors
+    if (error instanceof DatabaseConnectionError) {
+      statusCode = 503; // Service Unavailable
+      errorMessage = isProduction ? 
+        'Database service temporarily unavailable' : 
+        'Database connection error: ' + error.message;
+    } else if (error instanceof DatabaseQueryError) {
+      statusCode = 400; // Bad Request
+      if (error.code === '23505') { // Unique violation
+        errorMessage = 'Record already exists';
+      } else if (error.code === '23503') { // Foreign key violation
+        errorMessage = 'Referenced record does not exist';
+      } else if (error.code === '23502') { // Not null violation
+        errorMessage = 'Required field is missing';
+      } else {
+        errorMessage = isProduction ? 
+          'Invalid database operation' : 
+          'Database query error: ' + error.message;
+      }
+    }
+
     const errorData: Record<string, any> = {
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      errorType: error.constructor.name,
+      errorCode: (error as any).code,
+      stack: !isProduction ? error.stack : undefined,
       path: req.path,
       method: req.method
     };
 
     logger('Error occurred', errorData as LogData);
 
-    res.status(500).json({
-      error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message
+    // Send appropriate error response
+    res.status(statusCode).json({
+      error: errorMessage,
+      status: statusCode,
+      path: req.path,
+      timestamp: new Date().toISOString(),
+      ...((!isProduction && error instanceof DatabaseQueryError) && {
+        details: {
+          code: error.code,
+          query: error.query
+        }
+      })
     });
   });
 
