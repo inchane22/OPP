@@ -120,7 +120,14 @@ export default function AdminPanel() {
   const [isPending, startTransition] = useTransition();
   
   const [editingItem, setEditingItem] = useState<CarouselItem | null>(null);
-  const form = useForm<CarouselFormData>();
+  const form = useForm<CarouselFormData>({
+    defaultValues: {
+      title: "",
+      description: "",
+      embed_url: "",
+      active: true,
+    }
+  });
   
   // Reset form when editing item changes
   React.useEffect(() => {
@@ -139,7 +146,7 @@ export default function AdminPanel() {
         active: true,
       });
     }
-  }, [editingItem, form]);
+  }, [editingItem]);
 
   const { data: stats, isLoading, error, refetch } = useQuery<AdminStats>({
     queryKey: ["admin-stats"],
@@ -245,11 +252,11 @@ export default function AdminPanel() {
                                 <FormLabel>Título</FormLabel>
                                 <FormControl>
                                   <Input 
-                                                  {...field}
-                                                  value={field.value || ''}
-                                                  onChange={(e) => field.onChange(e.target.value)}
-                                                  placeholder="Título del elemento"
-                                                />
+                                  {...field}
+                                  type="text"
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  placeholder="Título del elemento"
+                                />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -262,11 +269,11 @@ export default function AdminPanel() {
                                 <FormLabel>URL del Embed</FormLabel>
                                 <FormControl>
                                   <Input 
-                                                    {...field}
-                                                    value={field.value || ''}
-                                                    onChange={(e) => field.onChange(e.target.value)}
-                                                    placeholder="https://..."
-                                                  />
+                                  {...field}
+                                  type="text"
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  placeholder="https://..."
+                                />
                                 </FormControl>
                                 <FormDescription>
                                   Soporta URLs de YouTube, Twitter/X y enlaces directos
@@ -283,12 +290,11 @@ export default function AdminPanel() {
                               <FormLabel>Descripción</FormLabel>
                               <FormControl>
                                 <Textarea 
-                                                  {...field}
-                                                  value={field.value || ''}
-                                                  onChange={(e) => field.onChange(e.target.value)}
-                                                  placeholder="Descripción del elemento..."
-                                                  className="min-h-[100px]"
-                                                />
+                                  {...field}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                  placeholder="Descripción del elemento..."
+                                  className="min-h-[100px]"
+                                />
                               </FormControl>
                             </FormItem>
                           )}
