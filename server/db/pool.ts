@@ -50,9 +50,11 @@ export class DatabasePool {
       const pool = new pg.Pool(config);
 
       // Handle pool-level errors
-      pool.on('error', (err: Error) => {
+      pool.on('error', (err: PgDatabaseError | Error) => {
+        const isDbError = isDatabaseError(err);
         logger('Unexpected error on idle client', { 
           error: err.message,
+          errorCode: isDbError ? err.code : undefined,
           stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
         });
         this.handlePoolError(err);
@@ -60,9 +62,11 @@ export class DatabasePool {
 
       // Handle connection errors
       pool.on('connect', (client) => {
-        client.on('error', (err: Error) => {
+        client.on('error', (err: PgDatabaseError | Error) => {
+          const isDbError = isDatabaseError(err);
           logger('Client connection error', {
             error: err.message,
+            errorCode: isDbError ? err.code : undefined,
             stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
           });
           this.handlePoolError(err);
@@ -175,11 +179,20 @@ export class DatabasePool {
     }
   }
 
-  private handlePoolError(error: Error): void {
-    logger('Pool error occurred', { error: error.message });
+  private handlePoolError(error: PgDatabaseError | Error): void {
+    const isDbError = isDatabaseError(error);
+    logger('Pool error occurred', { 
+      error: error.message,
+      errorCode: isDbError ? error.code : undefined,
+      severity: isDbError ? error.severity : undefined
+    });
     if (this.pool) {
       this.pool.end().catch(err => {
-        logger('Error while ending pool', { error: err.message });
+        const endError = err instanceof Error ? err : new Error('Unknown error ending pool');
+        logger('Error while ending pool', { 
+          error: endError.message,
+          stack: process.env.NODE_ENV === 'development' ? endError.stack : undefined
+        });
       });
       this.pool = null;
     }

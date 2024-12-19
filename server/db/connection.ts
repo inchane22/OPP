@@ -1,14 +1,14 @@
 
 import { logger } from '../utils/logger';
 import pg from 'pg';
-import type { Pool, PoolConfig } from 'pg';
+import type { Pool } from 'pg';
 import { 
   DatabaseConnectionError,
   DatabaseQueryError,
   PostgresErrorCode,
   POOL_CONFIG,
   isDatabaseError,
-  PostgresError
+  DatabaseError
 } from './types';
 
 export class DatabaseConnection {
@@ -42,9 +42,9 @@ export class DatabaseConnection {
 
     const poolConfig = {
       connectionString: process.env.DATABASE_URL,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      max: POOL_CONFIG.MAX_SIZE,
+      idleTimeoutMillis: POOL_CONFIG.IDLE_TIMEOUT,
+      connectionTimeoutMillis: POOL_CONFIG.CONNECTION_TIMEOUT,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
     };
 
@@ -77,19 +77,29 @@ export class DatabaseConnection {
         client.release();
       }
     } catch (error) {
-      if (this.retryCount < this.maxRetries) {
+      const isDbError = isDatabaseError(error);
+      const pgError = isDbError ? error : new DatabaseQueryError(
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      
+      const isRetryable = isDbError && pgError.code ? 
+        POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : 
+        false;
+
+      if (this.retryCount < this.maxRetries && isRetryable) {
         this.retryCount++;
         logger('Retrying database connection', { 
           attempt: this.retryCount, 
           maxRetries: this.maxRetries,
           error: error instanceof Error ? error.message : 'Unknown error',
-          errorCode: isDatabaseError(error) ? error.code : undefined
+          errorCode: isDbError ? pgError.code : undefined,
+          isRetryable
         });
         await new Promise(resolve => setTimeout(resolve, this.retryDelay));
         return this.verifyConnection(pool);
       }
       throw new DatabaseConnectionError(
-        `Failed to connect to database after ${this.maxRetries} attempts`,
+        `Failed to connect to database after ${this.maxRetries} attempts: ${pgError.message}`,
         error instanceof Error ? error : undefined
       );
     }
