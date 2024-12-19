@@ -244,7 +244,12 @@ export default function AdminPanel() {
                               <FormItem>
                                 <FormLabel>Título</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="Título del elemento" />
+                                  <Input 
+                                                  {...field}
+                                                  value={field.value || ''}
+                                                  onChange={(e) => field.onChange(e.target.value)}
+                                                  placeholder="Título del elemento"
+                                                />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -256,7 +261,12 @@ export default function AdminPanel() {
                               <FormItem>
                                 <FormLabel>URL del Embed</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="https://..." />
+                                  <Input 
+                                                    {...field}
+                                                    value={field.value || ''}
+                                                    onChange={(e) => field.onChange(e.target.value)}
+                                                    placeholder="https://..."
+                                                  />
                                 </FormControl>
                                 <FormDescription>
                                   Soporta URLs de YouTube, Twitter/X y enlaces directos
@@ -272,7 +282,13 @@ export default function AdminPanel() {
                             <FormItem>
                               <FormLabel>Descripción</FormLabel>
                               <FormControl>
-                                <Textarea {...field} placeholder="Descripción del elemento..." className="min-h-[100px]" />
+                                <Textarea 
+                                                  {...field}
+                                                  value={field.value || ''}
+                                                  onChange={(e) => field.onChange(e.target.value)}
+                                                  placeholder="Descripción del elemento..."
+                                                  className="min-h-[100px]"
+                                                />
                               </FormControl>
                             </FormItem>
                           )}
