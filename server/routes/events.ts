@@ -29,14 +29,7 @@ const eventSchema = baseEventSchema.transform(data => ({
 }));
 
 // Create partial schema for updates
-const eventUpdateSchema = z.object({
-  title: z.string().min(1, "Title is required").optional(),
-  description: z.string().min(1, "Description is required").optional(),
-  location: z.string().min(1, "Location is required").optional(),
-  date: z.string().optional()
-}).transform(data => {
-  if (!data) return {};
-
+const eventUpdateSchema = baseEventSchema.partial().transform(data => {
   const transformedData: Partial<{
     title: string;
     description: string;
@@ -47,12 +40,7 @@ const eventUpdateSchema = z.object({
   if (data.title) transformedData.title = data.title.trim();
   if (data.description) transformedData.description = data.description.trim();
   if (data.location) transformedData.location = data.location.trim();
-  if (data.date) {
-    const parsedDate = new Date(data.date);
-    if (!isNaN(parsedDate.getTime())) {
-      transformedData.date = parsedDate;
-    }
-  }
+  if (data.date) transformedData.date = new Date(data.date);
 
   return transformedData;
 });

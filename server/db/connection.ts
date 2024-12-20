@@ -7,7 +7,8 @@ import {
   PostgresErrorCode,
   POOL_CONFIG,
   isDatabaseError,
-  type DatabaseError
+  PgDatabaseError,
+  type PostgresError
 } from './types';
 
 export class DatabaseConnection {
@@ -51,7 +52,12 @@ export class DatabaseConnection {
 
     pool.on('error', (err: Error) => {
       if (!this.isShuttingDown) {
-        logger('Unexpected error on idle client', { error: err.message });
+        const isDbError = isDatabaseError(err);
+        logger('Unexpected error on idle client', { 
+          error: err.message,
+          errorCode: isDbError ? (err as PgDatabaseError).code : undefined,
+          severity: isDbError ? (err as PgDatabaseError).severity : undefined
+        });
         this.handlePoolError(err);
       }
     });
@@ -80,7 +86,7 @@ export class DatabaseConnection {
       const pgError = isDbError ? error : new DatabaseQueryError(
         error instanceof Error ? error.message : 'Unknown error'
       );
-      
+
       const isRetryable = isDbError && pgError.code ? 
         POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : 
         false;
@@ -105,7 +111,12 @@ export class DatabaseConnection {
   }
 
   private handlePoolError(error: Error): void {
-    logger('Pool error occurred', { error: error.message });
+    const isDbError = isDatabaseError(error);
+    logger('Pool error occurred', { 
+      error: error.message,
+      errorCode: isDbError ? (error as PgDatabaseError).code : undefined,
+      severity: isDbError ? (error as PgDatabaseError).severity : undefined
+    });
     if (this.pool && !this.isShuttingDown) {
       this.pool.end().catch(err => {
         logger('Error while ending pool', { error: err.message });

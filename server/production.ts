@@ -15,10 +15,12 @@ import { setupAuth } from "./auth.js";
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 
-// Ensure all paths are resolved relative to the current module
-const resolveFromRoot = (relativePath: string) => path.resolve(__dirname, '..', relativePath);
+// Ensure all paths are resolved relative to the project root
+const resolveFromRoot = (relativePath: string) => {
+  const projectRoot = path.resolve(__dirname, '..');
+  return path.join(projectRoot, relativePath);
+};
 
 // Import database configuration and types
 import { DatabasePool } from './db/pool';
@@ -30,7 +32,7 @@ import {
   POOL_CONFIG,
   isDatabaseError,
   isDatabaseQueryError,
-  type DatabaseError,
+  PgDatabaseError,
   type PostgresError
 } from './db/types';
 
@@ -210,6 +212,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   const publicPath = resolveFromRoot('dist/public');
   const indexPath = path.join(publicPath, 'index.html');
   
+
   if (!fs.existsSync(publicPath)) {
     logger('Building client application...', {
       directory: publicPath

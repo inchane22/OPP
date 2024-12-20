@@ -1,8 +1,9 @@
 import pg from 'pg';
 import { DatabaseError as PgDatabaseError } from 'pg-protocol';
 
-// Export for both type and value usage
-export { PgDatabaseError as DatabaseError };
+// Export PostgreSQL database error types
+export { PgDatabaseError }; // Export for value context
+export type { PgDatabaseError as DatabaseError }; // Export for type context
 export type PostgresError = pg.DatabaseError;
 
 // Valid PostgreSQL error codes
@@ -72,7 +73,6 @@ export class DatabaseQueryError extends Error {
   ) {
     super(message);
     this.name = 'DatabaseQueryError';
-    // Only assign if it's a valid PostgresErrorCode
     if (errorCode && POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(errorCode as PostgresErrorCode)) {
       this.code = errorCode as PostgresErrorCode;
     }
@@ -85,7 +85,7 @@ export class DatabaseQueryError extends Error {
   }
 }
 
-// Type guard function (exported as a value)
+// Type guard function
 export function isDatabaseError(error: unknown): error is PgDatabaseError {
   return (
     error !== null &&
