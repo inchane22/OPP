@@ -166,7 +166,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsc --noEmit"
+args = "npx tsc --noEmit --watch"
 
 [[workflows.workflow]]
 name = "Backend Dev Server"

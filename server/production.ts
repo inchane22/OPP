@@ -19,7 +19,11 @@ const __dirname = dirname(__filename);
 // Project root path resolution
 const projectRoot = path.resolve(__dirname, '..');
 
-// Utility function to resolve paths from project root
+/**
+ * Utility function to resolve paths from project root
+ * @param paths - Path segments to join with the project root
+ * @returns Absolute path from project root
+ */
 function resolveFromRoot(...paths: string[]): string {
   return path.join(projectRoot, ...paths);
 }
@@ -70,9 +74,9 @@ export async function setupProduction(app: express.Express): Promise<void> {
         const db = DatabasePool.getInstance();
         await db.getPool();
         if (fallbackMode) {
-          logger('Database connection restored, exiting fallback mode', { attempt } as LogData);
+          logger('Database connection restored, exiting fallback mode', { attempt });
         } else {
-          logger('Database connection initialized successfully', { attempt } as LogData);
+          logger('Database connection initialized successfully', { attempt });
         }
         return;
       } catch (error) {
@@ -87,14 +91,14 @@ export async function setupProduction(app: express.Express): Promise<void> {
           errorCode: pgError.code,
           isRetryable,
           stack: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
-        } as LogData);
+        });
 
         if (attempt === retries) {
           if (process.env.NODE_ENV === 'production') {
             logger('Entering fallback mode - some features will be limited', {
               mode: 'fallback',
               features: ['read-only', 'cached-data']
-            } as LogData);
+            });
             fallbackMode = true;
             // Instead of throwing, we'll continue with limited functionality
             app.use((req: Request, res: Response, next: Function) => {
@@ -128,7 +132,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   } catch (error) {
     logger('Failed to initialize database after all retries', {
       error: error instanceof Error ? error.message : 'Unknown error'
-    } as LogData);
+    });
     process.exit(1);
   }
 
@@ -175,7 +179,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // Compression
   app.use(compression());
 
-  // Request logging
+  // Request logging with proper typing
   app.use((req: CustomRequest, res: CustomResponse, next) => {
     req._startTime = Date.now();
     const cleanup = () => {
@@ -210,29 +214,29 @@ export async function setupProduction(app: express.Express): Promise<void> {
     next();
   });
 
-  // Static file serving with proper path resolution for ES modules
-  const publicPath = resolveFromRoot('dist/public');
-  const indexPath = path.join(publicPath, 'index.html');
+  // Static file serving with proper path resolution
+  const publicDir = resolveFromRoot('dist', 'public');
+  const indexPath = path.join(publicDir, 'index.html');
 
-  if (!fs.existsSync(publicPath)) {
+  if (!fs.existsSync(publicDir)) {
     logger('Building client application...', {
-      directory: publicPath
-    } as LogData);
-    throw new Error(`Build directory not found: ${publicPath}. Please run 'npm run build' first.`);
+      directory: publicDir
+    });
+    throw new Error(`Build directory not found: ${publicDir}. Please run 'npm run build' first.`);
   }
 
   logger('Static files will be served from:', { 
-    path: publicPath,
-    exists: fs.existsSync(publicPath)
-  } as LogData);
+    path: publicDir,
+    exists: fs.existsSync(publicDir)
+  });
 
-  app.use(express.static(publicPath, {
+  app.use(express.static(publicDir, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
     etag: true,
     index: false // We'll handle serving index.html manually
   }));
 
-  // Error handling
+  // Error handling with proper typing
   app.use((error: Error, req: Request, res: Response, next: Function) => {
     const isProduction = process.env.NODE_ENV === 'production';
     let statusCode = 500;
@@ -262,25 +266,20 @@ export async function setupProduction(app: express.Express): Promise<void> {
               'Invalid database operation' : 
               'Database query error: ' + error.message;
         }
-      } else {
-        errorMessage = isProduction ? 
-          'Invalid database operation' : 
-          'Database query error: ' + error.message;
       }
     }
 
-    const errorData: Record<string, any> = {
+    // Log error with proper typing
+    logger('Error occurred', {
       error: error.message,
       errorType: error.constructor.name,
-      errorCode: (error as any).code,
-      stack: !isProduction ? error.stack : undefined,
+      statusCode,
       path: req.path,
-      method: req.method
-    };
+      method: req.method,
+      stack: !isProduction ? error.stack : undefined
+    });
 
-    logger('Error occurred', errorData as LogData);
-
-    // Send appropriate error response
+    // Send error response
     res.status(statusCode).json({
       error: errorMessage,
       status: statusCode,
@@ -296,17 +295,17 @@ export async function setupProduction(app: express.Express): Promise<void> {
   });
 
   // Cleanup on shutdown
-  const cleanup = async (): Promise<never> => {
+  const cleanup = async (): Promise<void> => {
     try {
       logger('Shutting down gracefully', {
         environment: process.env.NODE_ENV
-      } as LogData);
+      });
       await DatabasePool.end();
       process.exit(0);
     } catch (error) {
       logger('Error during shutdown', {
         error: error instanceof Error ? error.message : 'Unknown error'
-      } as LogData);
+      });
       process.exit(1);
     }
   };
@@ -315,7 +314,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   process.on('SIGINT', cleanup);
 
   // Serve index.html for client-side routing
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(publicPath, 'index.html'));
+  app.get('*', (_req: Request, res: Response) => {
+    res.sendFile(indexPath);
   });
 }
