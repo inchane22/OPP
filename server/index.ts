@@ -121,7 +121,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 async function init() {
   try {
     log('Starting server initialization...');
-    
+
     // Initialize database
     const { db } = await import('../db/index.js');
     try {
@@ -232,14 +232,9 @@ async function init() {
         resolve();
       };
 
-      process.on('uncaughtException', (error) => {
-        console.error('Uncaught Exception:', error);
-        cleanup().then(() => process.exit(1));
-      });
-
       server.once('error', onError);
       server.once('listening', onListening);
-      
+
       log('Attempting to bind server...', { host: HOST, port: PORT });
       console.log(`Starting server on ${HOST}:${PORT}`);
       server.listen(PORT, HOST);

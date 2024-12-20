@@ -38,7 +38,7 @@ export function registerRoutes(app: Express) {
             .from(comments)
             .where(eq(comments.postId, post.id))
             .orderBy(comments.createdAt);
-          
+
           return {
             ...post,
             comments: postComments
@@ -52,7 +52,7 @@ export function registerRoutes(app: Express) {
       if (allPosts.length === 0) {
         // First find an admin user to be the author
         const adminUser = await db.select().from(users).where(eq(users.role, 'admin')).limit(1);
-        
+
         if (adminUser.length > 0) {
           const samplePosts = [
             {
@@ -99,7 +99,7 @@ export function registerRoutes(app: Express) {
               .from(comments)
               .where(eq(comments.postId, post.id))
               .orderBy(comments.createdAt);
-            
+
             return {
               ...post,
               comments: postComments
@@ -109,7 +109,7 @@ export function registerRoutes(app: Express) {
 
         allPosts = postsWithComments;
       }
-      
+
       res.json(allPosts);
     } catch (error) {
       console.error("Failed to fetch posts:", error);
@@ -140,36 +140,66 @@ export function registerRoutes(app: Express) {
   // Events routes
   app.get("/api/events", async (_req, res) => {
     try {
-      let allEvents = await db.select().from(events).orderBy(events.date);
-      
+      let allEvents = await db.select({
+        id: events.id,
+        title: events.title,
+        description: events.description,
+        date: events.date,
+        location: events.location,
+        organizerId: events.organizerId,
+        likes: events.likes,
+        createdAt: events.createdAt,
+        organizer: {
+          id: users.id,
+          username: users.username,
+        }
+      })
+      .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
+      .orderBy(desc(events.date));
+
       // If no events exist, insert some sample events
       if (allEvents.length === 0) {
-        const sampleEvents = [
-          {
-            title: "Bitcoin Meetup Lima",
-            description: "Monthly Bitcoin meetup in Lima. Topics: Lightning Network and Mining",
-            date: new Date("2024-12-15T18:00:00"),
-            location: "Miraflores, Lima",
-            organizerId: 1
-          },
-          {
-            title: "Orange Pill Workshop",
-            description: "Introduction to Bitcoin basics and why it matters",
-            date: new Date("2024-12-05T15:00:00"),
-            location: "Barranco, Lima",
-            organizerId: 1
-          },
-          {
-            title: "Mining in Peru Conference",
-            description: "Exploring opportunities for Bitcoin mining in Peru",
-            date: new Date("2025-01-20T09:00:00"),
-            location: "San Isidro, Lima",
-            organizerId: 1
-          }
-        ];
+        const adminUser = await db.select().from(users).where(eq(users.role, 'admin')).limit(1);
 
-        const insertedEvents = await db.insert(events).values(sampleEvents).returning();
-        allEvents = insertedEvents;
+        if (adminUser.length > 0) {
+          const sampleEvents = [
+            {
+              title: "Bitcoin Meetup Lima",
+              description: "Monthly Bitcoin meetup in Lima. Topics: Lightning Network and Mining",
+              date: new Date("2024-12-15T18:00:00"),
+              location: "Miraflores, Lima",
+              organizerId: adminUser[0].id
+            },
+            {
+              title: "Orange Pill Workshop",
+              description: "Introduction to Bitcoin basics and why it matters",
+              date: new Date("2024-12-05T15:00:00"),
+              location: "Barranco, Lima",
+              organizerId: adminUser[0].id
+            }
+          ];
+
+          await db.insert(events).values(sampleEvents);
+
+          allEvents = await db.select({
+            id: events.id,
+            title: events.title,
+            description: events.description,
+            date: events.date,
+            location: events.location,
+            organizerId: events.organizerId,
+            likes: events.likes,
+            createdAt: events.createdAt,
+            organizer: {
+              id: users.id,
+              username: users.username,
+            }
+          })
+          .from(events)
+          .leftJoin(users, eq(events.organizerId, users.id))
+          .orderBy(desc(events.date));
+        }
       }
 
       res.json(allEvents);
@@ -181,98 +211,157 @@ export function registerRoutes(app: Express) {
 
   app.post("/api/events", async (req, res) => {
     if (!req.isAuthenticated()) {
-      return res.status(401).send("Not authenticated");
+      return res.status(401).json({ error: "Not authenticated" });
     }
-    
+
     if (req.user.role !== 'admin') {
-      return res.status(403).send("Only administrators can create events");
+      return res.status(403).json({ error: "Only administrators can create events" });
     }
 
     try {
+      // Validate required fields
+      const { title, description, date, location } = req.body;
+
+      if (!title?.trim()) {
+        return res.status(400).json({ error: "Title is required" });
+      }
+      if (!description?.trim()) {
+        return res.status(400).json({ error: "Description is required" });
+      }
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
+      if (!location?.trim()) {
+        return res.status(400).json({ error: "Location is required" });
+      }
+
+      // Parse and validate date
+      const eventDate = new Date(date);
+      if (isNaN(eventDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+
       const [event] = await db
         .insert(events)
         .values({
-          ...req.body,
+          title: title.trim(),
+          description: description.trim(),
+          date: eventDate,
+          location: location.trim(),
           organizerId: req.user.id,
         })
         .returning();
+
       return res.json(event);
     } catch (error) {
-      return res.status(500).json({ error: "Failed to create event" });
+      console.error("Failed to create event:", error);
+      return res.status(500).json({ 
+        error: "Failed to create event",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
   // Update event endpoint
-  app.put("/api/events/:id", async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
+  app.patch("/api/events/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Only administrators can update events" });
     }
 
     try {
-      const { date, ...otherData } = req.body;
-      
-      // Validate and parse the date
-      let parsedDate;
-      if (date) {
-        try {
-          parsedDate = new Date(date);
-          if (isNaN(parsedDate.getTime())) {
-            throw new Error('Invalid date format');
-          }
-        } catch (dateError) {
-          console.error("Date parsing error:", dateError);
-          return res.status(400).json({ error: "Invalid date format provided" });
-        }
+      const eventId = parseInt(req.params.id);
+      if (isNaN(eventId)) {
+        return res.status(400).json({ error: "Invalid event ID" });
       }
 
-      const updatedData = {
-        ...otherData,
-        ...(parsedDate && { date: parsedDate }),
-        updatedAt: new Date()
-      };
+      // Validate the event exists
+      const existingEvent = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, eventId))
+        .limit(1);
 
-      // Remove undefined fields to avoid overwriting with null
-      Object.keys(updatedData).forEach(key => 
-        updatedData[key] === undefined && delete updatedData[key]
-      );
-
-      const [event] = await db
-        .update(events)
-        .set(updatedData)
-        .where(eq(events.id, parseInt(req.params.id)))
-        .returning();
-
-      if (!event) {
+      if (existingEvent.length === 0) {
         return res.status(404).json({ error: "Event not found" });
       }
 
-      return res.json(event);
+      const { title, description, date, location } = req.body;
+      const updateData: Partial<typeof events.$inferInsert> = {};
+
+      // Only include fields that are provided and valid
+      if (title?.trim()) updateData.title = title.trim();
+      if (description?.trim()) updateData.description = description.trim();
+      if (location?.trim()) updateData.location = location.trim();
+
+      if (date) {
+        const eventDate = new Date(date);
+        if (isNaN(eventDate.getTime())) {
+          return res.status(400).json({ error: "Invalid date format" });
+        }
+        updateData.date = eventDate;
+      }
+
+      const [updatedEvent] = await db
+        .update(events)
+        .set(updateData)
+        .where(eq(events.id, eventId))
+        .returning();
+
+      return res.json(updatedEvent);
     } catch (error) {
       console.error("Failed to update event:", error);
-      if (error instanceof Error) {
-        return res.status(500).json({ 
-          error: "Failed to update event", 
-          details: error.message 
-        });
-      }
-      return res.status(500).json({ error: "Failed to update event" });
+      return res.status(500).json({ 
+        error: "Failed to update event",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
   // Delete event endpoint
   app.delete("/api/events/:id", async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== 'admin') {
-      return res.status(403).send("Access denied");
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Only administrators can delete events" });
     }
 
     try {
+      const eventId = parseInt(req.params.id);
+      if (isNaN(eventId)) {
+        return res.status(400).json({ error: "Invalid event ID" });
+      }
+
+      // Check if event exists before deleting
+      const existingEvent = await db
+        .select()
+        .from(events)
+        .where(eq(events.id, eventId))
+        .limit(1);
+
+      if (existingEvent.length === 0) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
       await db
         .delete(events)
-        .where(eq(events.id, parseInt(req.params.id)));
-      return res.json({ success: true });
+        .where(eq(events.id, eventId));
+
+      return res.json({ 
+        success: true,
+        message: "Event deleted successfully"
+      });
     } catch (error) {
       console.error("Failed to delete event:", error);
-      return res.status(500).json({ error: "Failed to delete event" });
+      return res.status(500).json({ 
+        error: "Failed to delete event",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
