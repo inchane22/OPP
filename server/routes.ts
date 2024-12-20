@@ -229,18 +229,32 @@ export function registerRoutes(app: Express) {
       if (!description?.trim()) {
         return res.status(400).json({ error: "Description is required" });
       }
-      if (!date) {
-        return res.status(400).json({ error: "Date is required" });
-      }
       if (!location?.trim()) {
         return res.status(400).json({ error: "Location is required" });
       }
+      if (!date) {
+        return res.status(400).json({ error: "Date is required" });
+      }
 
       // Parse and validate date
-      const eventDate = new Date(date);
-      if (isNaN(eventDate.getTime())) {
+      let eventDate: Date;
+      try {
+        eventDate = new Date(date);
+        if (isNaN(eventDate.getTime())) {
+          return res.status(400).json({ error: "Invalid date format" });
+        }
+      } catch (dateError) {
+        console.error("Date parsing error:", dateError);
         return res.status(400).json({ error: "Invalid date format" });
       }
+
+      console.log("Creating event with data:", {
+        title: title.trim(),
+        description: description.trim(),
+        date: eventDate,
+        location: location.trim(),
+        organizerId: req.user.id
+      });
 
       const [event] = await db
         .insert(events)
@@ -253,6 +267,7 @@ export function registerRoutes(app: Express) {
         })
         .returning();
 
+      console.log("Event created successfully:", event);
       return res.json(event);
     } catch (error) {
       console.error("Failed to create event:", error);
@@ -933,8 +948,7 @@ export function registerRoutes(app: Express) {
         throw new Error('Invalid price data from Kraken');
       }
       if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
-        throw new Error('Invalid exchange rate data');
-      }
+        throw new Error('Invalid exchange rate data');      }
 
       const btcUsdPrice = parseFloat(priceData.result.XBTUSDT.c[0]);
       const usdPenRate = rateData.rates.PEN;
@@ -946,7 +960,7 @@ export function registerRoutes(app: Express) {
 
       return finalPrice;
     } catch (error) {
-            if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
       }
       throw new Error(`Kraken price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

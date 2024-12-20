@@ -35,12 +35,12 @@ import { EditUserForm } from "@/components/EditUserForm";
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
 import * as z from "zod";
 
-// Event schema for form validation
+// Event form schema for validation
 const eventFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  location: z.string().min(1, "Location is required"),
-  date: z.string().min(1, "Date is required")
+  title: z.string().min(1, "El título es requerido"),
+  description: z.string().min(1, "La descripción es requerida"),
+  location: z.string().min(1, "La ubicación es requerida"),
+  date: z.string().min(1, "La fecha es requerida")
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
@@ -907,7 +907,7 @@ export default function AdminPanel() {
               <CardHeader className="flex justify-between items-center">
                 <div>
                   <CardTitle>Eventos</CardTitle>
-                  <CardDescription>Administra los eventos de la comunidad</CardDescription>
+                  <CardDescription>Gestiona los eventos de la comunidad</CardDescription>
                 </div>
                 <Dialog>
                   <DialogTrigger asChild>
@@ -916,15 +916,12 @@ export default function AdminPanel() {
                       Crear Evento
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[600px]">
+                  <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Crear Nuevo Evento</DialogTitle>
-                      <DialogDescription>Añade un nuevo evento para la comunidad.</DialogDescription>
                     </DialogHeader>
                     <Form {...eventForm}>
                       <form onSubmit={eventForm.handleSubmit(async (data) => {
-                        if (isPending) return;
-
                         try {
                           const response = await fetch('/api/events', {
                             method: 'POST',
@@ -932,12 +929,11 @@ export default function AdminPanel() {
                               'Content-Type': 'application/json',
                               'Accept': 'application/json'
                             },
+                            credentials: 'include',
                             body: JSON.stringify({
                               ...data,
-                              date: new Date(data.date).toISOString(),
-                              organizerId: user?.id
-                            }),
-                            credentials: 'include'
+                              date: new Date(data.date).toISOString()
+                            })
                           });
 
                           if (!response.ok) {
@@ -945,16 +941,17 @@ export default function AdminPanel() {
                             throw new Error(error.message || 'Error al crear el evento');
                           }
 
-                          await queryClient.invalidateQueries({ queryKey: ['admin-stats']});
+                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                           toast({ title: "Evento creado exitosamente" });
-                          eventForm.reset();
 
+                          // Close dialog
                           const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                           if (closeButton) closeButton.click();
+
                         } catch (error) {
                           console.error('Error creating event:', error);
                           toast({
-                            title: "Error al crear evento",
+                            title: "Error al crear el evento",
                             description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
                             variant: "destructive"
                           });
@@ -1005,35 +1002,31 @@ export default function AdminPanel() {
                               <FormControl>
                                 <Input
                                   type="datetime-local"
-                                  value={field.value}
-                                  onChange={(e) => {
-                                    const date = e.target.value;
-                                    if (date) {
-                                      field.onChange(date);
-                                    }
-                                  }}
+                                  {...field}
                                 />
                               </FormControl>
                             </FormItem>
                           )}
                         />
-                        <Button type="submit" disabled={isPending}>
-                          {isPending ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Creando...
-                            </>
-                          ) : (
-                            'Crear Evento'
-                          )}
-                        </Button>
+                        <div className="flex justify-end space-x-2">
+                          <Button type="submit" disabled={isPending}>
+                            {isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Guardando...
+                              </>
+                            ) : (
+                              <>Crear Evento</>
+                            )}
+                          </Button>
+                        </div>
                       </form>
                     </Form>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {stats?.events.map((event) => (
                     <div
                       key={event.id}
@@ -1044,15 +1037,13 @@ export default function AdminPanel() {
                         <p className="text-sm text-muted-foreground">
                           {event.description}
                         </p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {event.location}
-                          </div>
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            {new Date(event.date).toLocaleDateString()}
-                          </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="w-4 h-4" />
+                          <span>{event.location}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="w-4 h-4" />
+                          <span>{new Date(event.date).toLocaleString()}</span>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -1068,12 +1059,12 @@ export default function AdminPanel() {
                             </DialogHeader>
                             <EditEventForm
                               event={event}
+                              isPending={isPending}
                               onSubmit={async (formData) => {
                                 if (typeof event.id === 'number') {
                                   await handleEventUpdate(formData, event.id);
                                 }
                               }}
-                              isPending={isPending}
                             />
                           </DialogContent>
                         </Dialog>
@@ -1081,8 +1072,6 @@ export default function AdminPanel() {
                           variant="destructive"
                           size="sm"
                           onClick={async () => {
-                            if (!confirm('¿Estás seguro de que deseas eliminar este evento?')) return;
-
                             try {
                               const response = await fetch(`/api/events/${event.id}`, {
                                 method: 'DELETE',
@@ -1090,8 +1079,7 @@ export default function AdminPanel() {
                               });
 
                               if (!response.ok) {
-                                const error = await response.json();
-                                throw new Error(error.message || 'Error al eliminar el evento');
+                                throw new Error('Failed to delete event');
                               }
 
                               await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });

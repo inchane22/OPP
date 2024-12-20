@@ -43,42 +43,42 @@ export default function EventsPage() {
     retry: 3
   });
 
-  // Function to get the next 21st date
-  const getNext21stDate = () => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const next21st = new Date(currentYear, currentMonth, 21);
-    
-    // If we're past the 21st of this month, get next month's 21st
-    if (now.getDate() > 21) {
-      next21st.setMonth(currentMonth + 1);
-    }
-    
-    return next21st;
-  };
-
   const form = useForm<InsertEvent>({
     resolver: zodResolver(insertEventSchema),
     defaultValues: {
       title: "",
       description: "",
       location: "",
-      date: getNext21stDate(),
+      date: new Date(),
       organizerId: user?.id
     }
   });
 
   const createEvent = useMutation({
     mutationFn: async (data: InsertEvent) => {
+      if (!user) {
+        throw new Error('Must be logged in to create events');
+      }
+
       const response = await fetch("/api/events", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...data,
+          date: data.date.toISOString(),
+          organizerId: user.id
+        })
       });
+
       if (!response.ok) {
-        throw new Error('Failed to create event');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create event');
       }
+
       return response.json();
     },
     onSuccess: () => {
@@ -140,9 +140,16 @@ export default function EventsPage() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(data => {
+                  if (!user) {
+                    toast({
+                      title: "Authentication required",
+                      description: "Please log in to create events",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
                   startTransition(() => {
                     createEvent.mutate(data);
-                    queryClient.invalidateQueries({ queryKey: ['events'] });
                   });
                 })} className="space-y-4">
                   <FormField
