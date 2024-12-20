@@ -52,10 +52,6 @@ args = "Production Build"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Backend Dev Server"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Dev Server"
 
 [[workflows.workflow.tasks]]
@@ -65,6 +61,10 @@ args = "Frontend Dev Server"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "TypeScript Build Check"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Backend Dev Server"
 
 [[workflows.workflow]]
 name = "Create Admin"
@@ -125,21 +125,6 @@ task = "shell.exec"
 args = "npm run build"
 
 [[workflows.workflow]]
-name = "Backend Dev Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_ENV=development tsx watch --clear-screen=false server/index.ts"
-waitForPort = 5000
-
-[[workflows.workflow]]
 name = "Dev Server"
 author = "agent"
 
@@ -181,3 +166,18 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsc --noEmit"
+
+[[workflows.workflow]]
+name = "Backend Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development tsx watch --clear-screen=false server/index.ts"
+waitForPort = 5000

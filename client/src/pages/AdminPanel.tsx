@@ -6,6 +6,8 @@ import { useUser } from "@/hooks/use-user";
 import { useLanguage } from "@/hooks/use-language";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -18,9 +20,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { MapPin, Calendar } from "lucide-react";
 
 // Icons
-import { Loader2, Plus, FolderOpen, Link2, Calendar, Pencil } from "lucide-react";
+import { Loader2, Plus, FolderOpen, Link2, Pencil } from "lucide-react";
 
 // Form Components
 import { EditBusinessForm } from "@/components/EditBusinessForm";
@@ -32,28 +35,22 @@ import { EditUserForm } from "@/components/EditUserForm";
 // Types
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
 
-// Define interfaces with all required properties
-interface PostWithAuthor extends Omit<Post, 'authorId'> {
-  author: {
-    id: string;
-    username: string;
-    email: string | null;
-    role: string;
-    createdAt: string;
-  };
-}
+// Event schema for form validation
+const eventFormSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  location: z.string().min(1, "Location is required"),
+  date: z.string().min(1, "Date is required")
+});
 
-interface ResourceWithAuthor extends Resource {
-  author: {
-    id: string;
-    username: string;
-    email: string | null;
-    role: string;
-    createdAt: string;
-  };
-}
-
-type BusinessData = Business;
+// Types for forms
+type EventFormData = z.infer<typeof eventFormSchema>;
+type CarouselFormData = {
+  title: string;
+  description: string;
+  embed_url: string;
+  active: boolean;
+};
 
 interface CarouselItem {
   id: number;
@@ -77,20 +74,28 @@ interface AdminStats {
   totalPosts: number;
 }
 
-type CarouselFormData = {
-  title: string;
-  description: string;
-  embed_url: string;
-  active: boolean;
-};
+type BusinessData = Business;
 
-interface CarouselFormSubmitHandler {
-  (data: CarouselFormData): Promise<void>;
+interface PostWithAuthor extends Omit<Post, 'authorId'> {
+  author: {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+    createdAt: string;
+  };
 }
 
-interface FormSubmitHandler<T> {
-  (data: T): Promise<void>;
+interface ResourceWithAuthor extends Resource {
+  author: {
+    id: string;
+    username: string;
+    email: string | null;
+    role: string;
+    createdAt: string;
+  };
 }
+
 
 // Utility function for handling embed URLs
 const getEmbedUrl = (url: string): string => {
@@ -118,9 +123,11 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
-  
+  const { user } = useUser();
+
   const [editingItem, setEditingItem] = useState<CarouselItem | null>(null);
-  const form = useForm<CarouselFormData>({
+
+  const carouselForm = useForm<CarouselFormData>({
     defaultValues: {
       title: "",
       description: "",
@@ -128,18 +135,28 @@ export default function AdminPanel() {
       active: true,
     }
   });
-  
+
+  const eventForm = useForm<EventFormData>({
+    resolver: zodResolver(eventFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      location: "",
+      date: new Date().toISOString().slice(0, 16)
+    }
+  });
+
   // Reset form when editing item changes
   React.useEffect(() => {
     if (editingItem) {
-      form.reset({
+      carouselForm.reset({
         title: editingItem.title,
         description: editingItem.description || "",
         embed_url: editingItem.embed_url,
         active: editingItem.active,
       });
     } else {
-      form.reset({
+      carouselForm.reset({
         title: "",
         description: "",
         embed_url: "",
@@ -217,8 +234,8 @@ export default function AdminPanel() {
                       <DialogTitle>Agregar Item al Carousel</DialogTitle>
                       <DialogDescription>Añade un nuevo elemento al carrusel de la página principal.</DialogDescription>
                     </DialogHeader>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(async (data) => {
+                    <Form {...carouselForm}>
+                      <form onSubmit={carouselForm.handleSubmit(async (data) => {
                         try {
                           // Basic validation
                           if (!data.title.trim()) {
@@ -234,7 +251,7 @@ export default function AdminPanel() {
                               try {
                                 const response = await fetch('/api/carousel', {
                                   method: 'POST',
-                                  headers: { 
+                                  headers: {
                                     'Content-Type': 'application/json',
                                     'Accept': 'application/json'
                                   },
@@ -255,10 +272,10 @@ export default function AdminPanel() {
 
                                 await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                 toast({ title: "Item agregado exitosamente" });
-                                
+
                                 // Reset form
-                                form.reset();
-                                
+                                carouselForm.reset();
+
                                 // Close dialog
                                 const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                 if (closeButton) closeButton.click();
@@ -271,7 +288,7 @@ export default function AdminPanel() {
                                 });
                               }
                             };
-                            
+
                             void submitCarouselItem();
                           });
                         } catch (validationError) {
@@ -284,35 +301,35 @@ export default function AdminPanel() {
                       })} className="space-y-6">
                         <div className="grid grid-cols-2 gap-4">
                           <FormField
-                            control={form.control}
+                            control={carouselForm.control}
                             name="title"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Título</FormLabel>
                                 <FormControl>
-                                  <Input 
-                                  {...field}
-                                  type="text"
-                                  onChange={(e) => field.onChange(e.target.value)}
-                                  placeholder="Título del elemento"
-                                />
+                                  <Input
+                                    {...field}
+                                    type="text"
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                    placeholder="Título del elemento"
+                                  />
                                 </FormControl>
                               </FormItem>
                             )}
                           />
                           <FormField
-                            control={form.control}
+                            control={carouselForm.control}
                             name="embed_url"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>URL del Embed</FormLabel>
                                 <FormControl>
-                                  <Input 
-                                  {...field}
-                                  type="text"
-                                  onChange={(e) => field.onChange(e.target.value)}
-                                  placeholder="https://..."
-                                />
+                                  <Input
+                                    {...field}
+                                    type="text"
+                                    onChange={(e) => field.onChange(e.target.value)}
+                                    placeholder="https://..."
+                                  />
                                 </FormControl>
                                 <FormDescription>
                                   Soporta URLs de YouTube, Twitter/X y enlaces directos
@@ -322,13 +339,13 @@ export default function AdminPanel() {
                           />
                         </div>
                         <FormField
-                          control={form.control}
+                          control={carouselForm.control}
                           name="description"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Descripción</FormLabel>
                               <FormControl>
-                                <Textarea 
+                                <Textarea
                                   {...field}
                                   onChange={(e) => field.onChange(e.target.value)}
                                   placeholder="Descripción del elemento..."
@@ -339,7 +356,7 @@ export default function AdminPanel() {
                           )}
                         />
                         <FormField
-                          control={form.control}
+                          control={carouselForm.control}
                           name="active"
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
@@ -451,8 +468,8 @@ export default function AdminPanel() {
                                     Modifica los detalles del elemento seleccionado.
                                   </DialogDescription>
                                 </DialogHeader>
-                                <Form {...form}>
-                                  <form onSubmit={form.handleSubmit(async (data) => {
+                                <Form {...carouselForm}>
+                                  <form onSubmit={carouselForm.handleSubmit(async (data) => {
                                     try {
                                       const response = await fetch(`/api/carousel/${item.id}`, {
                                         method: 'PATCH',
@@ -479,7 +496,7 @@ export default function AdminPanel() {
                                   })} className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
                                       <FormField
-                                        control={form.control}
+                                        control={carouselForm.control}
                                         name="title"
                                         render={({ field }) => (
                                           <FormItem>
@@ -491,7 +508,7 @@ export default function AdminPanel() {
                                         )}
                                       />
                                       <FormField
-                                        control={form.control}
+                                        control={carouselForm.control}
                                         name="embed_url"
                                         render={({ field }) => (
                                           <FormItem>
@@ -504,7 +521,7 @@ export default function AdminPanel() {
                                       />
                                     </div>
                                     <FormField
-                                      control={form.control}
+                                      control={carouselForm.control}
                                       name="description"
                                       render={({ field }) => (
                                         <FormItem>
@@ -516,7 +533,7 @@ export default function AdminPanel() {
                                       )}
                                     />
                                     <FormField
-                                      control={form.control}
+                                      control={carouselForm.control}
                                       name="active"
                                       render={({ field }) => (
                                         <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
@@ -553,9 +570,9 @@ export default function AdminPanel() {
                                 </Form>
                               </DialogContent>
                             </Dialog>
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
+                            <Button
+                              variant="destructive"
+                              size="sm"
                               onClick={async () => {
                                 try {
                                   const response = await fetch(`/api/carousel/${item.id}`, {
@@ -588,7 +605,7 @@ export default function AdminPanel() {
               </CardContent>
             </Card>
           </TabsContent>
-          
+
           {/* Businesses Tab */}
           <TabsContent value="businesses">
             <Card>
@@ -622,7 +639,7 @@ export default function AdminPanel() {
                             <DialogHeader>
                               <DialogTitle>Editar Negocio</DialogTitle>
                             </DialogHeader>
-                            <EditBusinessForm 
+                            <EditBusinessForm
                               business={business}
                               onSubmit={async (formData) => {
                                 if (isPending) return;
@@ -643,7 +660,7 @@ export default function AdminPanel() {
                                 try {
                                   const response = await fetch(`/api/businesses/${business.id}`, {
                                     method: 'PATCH',
-                                    headers: { 
+                                    headers: {
                                       'Content-Type': 'application/json',
                                       'Accept': 'application/json'
                                     },
@@ -658,7 +675,7 @@ export default function AdminPanel() {
                                   }
 
                                   const updatedBusiness = responseData;
-                                  
+
                                   startTransition(() => {
                                     // Update cache with the server response
                                     queryClient.setQueryData(['admin-stats'], (oldData: AdminStats | undefined) => {
@@ -675,9 +692,9 @@ export default function AdminPanel() {
                                   // Force a refetch to ensure consistency
                                   await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                   await queryClient.invalidateQueries({ queryKey: ['businesses'] });
-                                  
+
                                   toast({ title: "Negocio actualizado exitosamente" });
-                                  
+
                                   // Close dialog
                                   const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                   if (closeButton) closeButton.click();
@@ -736,7 +753,7 @@ export default function AdminPanel() {
                               <DialogHeader>
                                 <DialogTitle>Editar Post</DialogTitle>
                               </DialogHeader>
-                              <EditPostForm 
+                              <EditPostForm
                                 post={post}
                                 onSubmit={async (data) => {
                                   try {
@@ -745,12 +762,12 @@ export default function AdminPanel() {
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify(data)
                                     });
-                                    
+
                                     if (!response.ok) throw new Error('Failed to update post');
-                                    
+
                                     await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                     toast({ title: "Post actualizado exitosamente" });
-                                    
+
                                     const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                     if (closeButton) closeButton.click();
                                   } catch (error) {
@@ -807,7 +824,7 @@ export default function AdminPanel() {
                               <DialogHeader>
                                 <DialogTitle>Editar Recurso</DialogTitle>
                               </DialogHeader>
-                              <EditResourceForm 
+                              <EditResourceForm
                                 resource={resource}
                                 onSubmit={async (data) => {
                                   try {
@@ -816,12 +833,12 @@ export default function AdminPanel() {
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify(data)
                                     });
-                                    
+
                                     if (!response.ok) throw new Error('Failed to update resource');
-                                    
+
                                     await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                     toast({ title: "Recurso actualizado exitosamente" });
-                                    
+
                                     const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                     if (closeButton) closeButton.click();
                                   } catch (error) {
@@ -852,66 +869,234 @@ export default function AdminPanel() {
           {/* Events Tab */}
           <TabsContent value="events">
             <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Eventos</CardTitle>
-                <CardDescription>Administra los eventos</CardDescription>
+              <CardHeader className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Eventos</CardTitle>
+                  <CardDescription>Administra los eventos de la comunidad</CardDescription>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Evento
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                      <DialogTitle>Crear Nuevo Evento</DialogTitle>
+                      <DialogDescription>Añade un nuevo evento para la comunidad.</DialogDescription>
+                    </DialogHeader>
+                    <Form {...eventForm}>
+                      <form onSubmit={eventForm.handleSubmit(async (data) => {
+                        if (isPending) return;
+
+                        try {
+                          const response = await fetch('/api/events', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              ...data,
+                              date: new Date(data.date).toISOString(),
+                              organizerId: user?.id
+                            }),
+                            credentials: 'include'
+                          });
+
+                          if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Error al crear el evento');
+                          }
+
+                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                          toast({ title: "Evento creado exitosamente" });
+                          eventForm.reset();
+
+                          const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                          if (closeButton) closeButton.click();
+                        } catch (error) {
+                          console.error('Error creating event:', error);
+                          toast({
+                            title: "Error al crear evento",
+                            description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
+                            variant: "destructive"
+                          });
+                        }
+                      })} className="space-y-4">
+                        <FormField
+                          control={eventForm.control}
+                          name="title"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Título</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={eventForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Descripción</FormLabel>
+                              <FormControl>
+                                <Textarea {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={eventForm.control}
+                          name="location"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Ubicación</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={eventForm.control}
+                          name="date"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fecha y Hora</FormLabel>                              <FormControl>
+                                <Input
+                                  type="datetime-local"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit" disabled={isPending}>
+                          {isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Creando...
+                            </>
+                          ) : (
+                            'Crear Evento'
+                          )}
+                        </Button>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {stats?.events.map((event) => (
-                    <div key={event.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium">{event.title}</h3>
-                          <p className="text-sm text-muted-foreground">
+                    <div
+                      key={event.id}
+                      className="flex justify-between items-start border-b pb-4 last:border-0 last:pb-0"
+                    >
+                      <div className="space-y-1">
+                        <h3 className="font-semibold">{event.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {event.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            {event.location}
+                          </div>
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
                             {new Date(event.date).toLocaleDateString()}
-                          </p>
+                          </div>
                         </div>
-                        <div className="space-x-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                Editar
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Editar Evento</DialogTitle>
-                              </DialogHeader>
-                              <EditEventForm 
-                                event={event}
-                                onSubmit={async (data) => {
-                                  try {
-                                    const response = await fetch(`/api/events/${event.id}`, {
-                                      method: 'PUT',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify(data)
-                                    });
-                                    
-                                    if (!response.ok) throw new Error('Failed to update event');
-                                    
-                                    await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                    toast({ title: "Evento actualizado exitosamente" });
-                                    
-                                    const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                    if (closeButton) closeButton.click();
-                                  } catch (error) {
-                                    console.error('Error updating event:', error);
-                                    toast({
-                                      title: "Error al actualizar evento",
-                                      description: error instanceof Error ? error.message : "Unknown error occurred",
-                                      variant: "destructive"
-                                    });
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              Editar
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Editar Evento</DialogTitle>
+                            </DialogHeader>
+                            <EditEventForm
+                              event={event}
+                              onSubmit={async (formData) => {
+                                if (isPending) return;
+
+                                try {
+                                  const response = await fetch(`/api/events/${event.id}`, {
+                                    method: 'PATCH',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Accept': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                      ...formData,
+                                      date: new Date(formData.date).toISOString()
+                                    }),
+                                    credentials: 'include'
+                                  });
+
+                                  if (!response.ok) {
+                                    const error = await response.json();
+                                    throw new Error(error.message || 'Error al actualizar el evento');
                                   }
-                                }}
-                                isPending={isPending}
-                              />
-                            </DialogContent>
-                          </Dialog>
-                          <Button variant="destructive" size="sm">
-                            Eliminar
-                          </Button>
-                        </div>
+
+                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                                  toast({ title: "Evento actualizado exitosamente" });
+
+                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+                                  if (closeButton) closeButton.click();
+                                } catch (error) {
+                                  console.error('Error updating event:', error);
+                                  toast({
+                                    title: "Error al actualizar evento",
+                                    description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
+                                    variant: "destructive"
+                                  });
+                                }
+                              }}
+                              isPending={isPending}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={async () => {
+                            if (!confirm('¿Estás seguro de que deseas eliminar este evento?')) return;
+
+                            try {
+                              const response = await fetch(`/api/events/${event.id}`, {
+                                method: 'DELETE',
+                                credentials: 'include'
+                              });
+
+                              if (!response.ok) {
+                                const error = await response.json();
+                                throw new Error(error.message || 'Error al eliminar el evento');
+                              }
+
+                              await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                              toast({ title: "Evento eliminado exitosamente" });
+                            } catch (error) {
+                              console.error('Error deleting event:', error);
+                              toast({
+                                title: "Error al eliminar evento",
+                                description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                        >
+                          Eliminar
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -958,12 +1143,12 @@ export default function AdminPanel() {
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify(data)
                                     });
-                                    
+
                                     if (!response.ok) throw new Error('Failed to update user');
-                                    
+
                                     await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
                                     toast({ title: "Usuario actualizado exitosamente" });
-                                    
+
                                     const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
                                     if (closeButton) closeButton.click();
                                   } catch (error) {
