@@ -20,9 +20,9 @@ const __dirname = dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
 // Utility function to resolve paths from project root
-const resolveFromRoot = (relativePath: string): string => {
-  return path.join(projectRoot, relativePath);
-};
+function resolveFromRoot(...paths: string[]): string {
+  return path.join(projectRoot, ...paths);
+}
 
 // Import database configuration and types
 import { DatabasePool } from './db/pool';
@@ -76,11 +76,11 @@ export async function setupProduction(app: express.Express): Promise<void> {
         }
         return;
       } catch (error) {
-        const pgError = isDatabaseError(error) ? error : new DatabaseQueryError(
+        const pgError = isDatabaseError(error) ? error as PgDatabaseError : new DatabaseQueryError(
           error instanceof Error ? error.message : 'Unknown error'
         );
         const isRetryable = pgError.code ? POOL_CONFIG.RETRYABLE_ERROR_CODES.includes(pgError.code as PostgresErrorCode) : false;
-        
+
         logger('Database connection attempt failed', {
           attempt,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -213,7 +213,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // Static file serving with proper path resolution for ES modules
   const publicPath = resolveFromRoot('dist/public');
   const indexPath = path.join(publicPath, 'index.html');
-  
 
   if (!fs.existsSync(publicPath)) {
     logger('Building client application...', {
@@ -238,7 +237,6 @@ export async function setupProduction(app: express.Express): Promise<void> {
     const isProduction = process.env.NODE_ENV === 'production';
     let statusCode = 500;
     let errorMessage = isProduction ? 'Internal Server Error' : error.message;
-    
 
     // Handle specific database errors
     if (error instanceof DatabaseConnectionError) {

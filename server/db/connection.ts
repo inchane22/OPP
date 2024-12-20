@@ -83,7 +83,7 @@ export class DatabaseConnection {
       }
     } catch (error) {
       const isDbError = isDatabaseError(error);
-      const pgError = isDbError ? error : new DatabaseQueryError(
+      const pgError = isDbError ? error as PgDatabaseError : new DatabaseQueryError(
         error instanceof Error ? error.message : 'Unknown error'
       );
 

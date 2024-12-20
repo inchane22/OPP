@@ -76,7 +76,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     });
   }
 
-  // Handle database errors using the type guard
+  // Handle database errors by checking properties instead of using type guard
   if (isDatabaseError(err)) {
     return res.status(500).json({
       error: 'Database error',

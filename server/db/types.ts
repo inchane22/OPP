@@ -3,7 +3,6 @@ import { DatabaseError as PgDatabaseError } from 'pg-protocol';
 
 // Export PostgreSQL database error types
 export { PgDatabaseError }; // Export the concrete class for value context
-export type DatabaseError = PgDatabaseError; // Export type alias for type context
 export type PostgresError = pg.DatabaseError;
 
 // Valid PostgreSQL error codes
@@ -85,7 +84,7 @@ export class DatabaseQueryError extends Error {
   }
 }
 
-// Type guard function
+// Type guard function - export as a value, not just a type
 export function isDatabaseError(error: unknown): error is PgDatabaseError {
   return (
     error !== null &&

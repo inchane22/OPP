@@ -28,17 +28,8 @@ const eventSchema = baseEventSchema.transform(data => ({
   date: new Date(data.date)
 }));
 
-// Create partial schema for updates
-const eventUpdateSchema = z.object({
-  title: z.string().min(1, "Title is required").optional(),
-  description: z.string().min(1, "Description is required").optional(),
-  location: z.string().min(1, "Location is required").optional(),
-  date: z.string().refine((date) => {
-    if (!date) return true;
-    const parsedDate = new Date(date);
-    return !isNaN(parsedDate.getTime());
-  }, "Invalid date format").optional()
-}).transform(data => {
+// Create partial schema for updates using the base schema
+const partialEventSchema = baseEventSchema.partial().transform(data => {
   const transformedData: Partial<{
     title: string;
     description: string;
@@ -46,16 +37,16 @@ const eventUpdateSchema = z.object({
     date: Date;
   }> = {};
 
-  if (data.title) transformedData.title = data.title.trim();
-  if (data.description) transformedData.description = data.description.trim();
-  if (data.location) transformedData.location = data.location.trim();
-  if (data.date) transformedData.date = new Date(data.date);
+  if (data.title !== undefined) transformedData.title = data.title.trim();
+  if (data.description !== undefined) transformedData.description = data.description.trim();
+  if (data.location !== undefined) transformedData.location = data.location.trim();
+  if (data.date !== undefined) transformedData.date = new Date(data.date);
 
   return transformedData;
 });
 
 type EventInput = z.infer<typeof eventSchema>;
-type EventUpdateInput = z.infer<typeof eventUpdateSchema>;
+type EventUpdateInput = z.infer<typeof partialEventSchema>;
 
 // Type guard for admin authentication
 function isAdmin(req: Request): req is AuthenticatedRequest & { user: User & { role: 'admin' } } {
@@ -111,7 +102,7 @@ const updateEvent: RequestHandler = async (req, res) => {
       return res.status(400).json({ error: 'Invalid event ID' });
     }
 
-    const validationResult = eventUpdateSchema.safeParse(req.body);
+    const validationResult = partialEventSchema.safeParse(req.body);
     if (!validationResult.success) {
       return res.status(400).json({
         error: 'Validation error',
