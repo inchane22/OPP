@@ -8,8 +8,8 @@ import type { AuthenticatedRequest } from '../types';
 
 const router = Router();
 
-// Event schema with strict typing
-const eventSchema = z.object({
+// Base event schema without transformation
+const baseEventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   location: z.string().min(1, "Location is required"),
@@ -17,7 +17,10 @@ const eventSchema = z.object({
     const parsedDate = new Date(date);
     return !isNaN(parsedDate.getTime());
   }, "Invalid date format")
-}).transform(data => ({
+});
+
+// Create schemas with transformation
+const eventSchema = baseEventSchema.transform(data => ({
   ...data,
   title: data.title.trim(),
   description: data.description.trim(),
@@ -25,8 +28,25 @@ const eventSchema = z.object({
   date: new Date(data.date)
 }));
 
-// Create a partial schema for updates
-const eventUpdateSchema = eventSchema.partial();
+// Create partial schema for updates
+const eventUpdateSchema = z.object({
+  title: z.string().min(1, "Title is required").optional(),
+  description: z.string().min(1, "Description is required").optional(),
+  location: z.string().min(1, "Location is required").optional(),
+  date: z.string().refine((date) => {
+    if (!date) return true;
+    const parsedDate = new Date(date);
+    return !isNaN(parsedDate.getTime());
+  }, "Invalid date format").optional()
+}).transform(data => {
+  if (!data) return {};
+  return {
+    ...(data.title && { title: data.title.trim() }),
+    ...(data.description && { description: data.description.trim() }),
+    ...(data.location && { location: data.location.trim() }),
+    ...(data.date && { date: new Date(data.date) })
+  };
+});
 
 type EventInput = z.infer<typeof eventSchema>;
 type EventUpdateInput = z.infer<typeof eventUpdateSchema>;
@@ -34,7 +54,7 @@ type EventUpdateInput = z.infer<typeof eventUpdateSchema>;
 // Type guard for admin authentication
 function isAdmin(req: Request): req is AuthenticatedRequest & { user: User & { role: 'admin' } } {
   return Boolean(
-    req.isAuthenticated?.() && 
+    req.isAuthenticated?.() &&
     req.user &&
     'role' in req.user &&
     req.user.role === 'admin'
@@ -93,9 +113,15 @@ const updateEvent: RequestHandler = async (req, res) => {
       });
     }
 
+    // Only update fields that were provided
+    const updateData = validationResult.data;
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid update fields provided' });
+    }
+
     const [event] = await db
       .update(events)
-      .set(validationResult.data)
+      .set(updateData)
       .where(eq(events.id, id))
       .returning();
 

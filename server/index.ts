@@ -6,7 +6,8 @@ import compression from 'compression';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import type { PostgresError, isDatabaseError } from './db/types';
+import type { PostgresError } from './db/types';
+import { isDatabaseError } from './db/types';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
