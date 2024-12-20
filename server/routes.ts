@@ -26,9 +26,9 @@ export function registerRoutes(app: Express) {
           avatar: users.avatar
         }
       })
-      .from(posts)
-      .leftJoin(users, eq(posts.authorId, users.id))
-      .orderBy(desc(posts.createdAt));
+        .from(posts)
+        .leftJoin(users, eq(posts.authorId, users.id))
+        .orderBy(desc(posts.createdAt));
 
       // Fetch comments for each post
       const postsWithComments = await Promise.all(
@@ -87,9 +87,9 @@ export function registerRoutes(app: Express) {
             avatar: users.avatar
           }
         })
-        .from(posts)
-        .leftJoin(users, eq(posts.authorId, users.id))
-        .orderBy(desc(posts.createdAt));
+          .from(posts)
+          .leftJoin(users, eq(posts.authorId, users.id))
+          .orderBy(desc(posts.createdAt));
 
         // Fetch comments for each post
         const postsWithComments = await Promise.all(
@@ -154,9 +154,9 @@ export function registerRoutes(app: Express) {
           username: users.username,
         }
       })
-      .from(events)
-      .leftJoin(users, eq(events.organizerId, users.id))
-      .orderBy(desc(events.date));
+        .from(events)
+        .leftJoin(users, eq(events.organizerId, users.id))
+        .orderBy(desc(events.date));
 
       // If no events exist, insert some sample events
       if (allEvents.length === 0) {
@@ -196,9 +196,9 @@ export function registerRoutes(app: Express) {
               username: users.username,
             }
           })
-          .from(events)
-          .leftJoin(users, eq(events.organizerId, users.id))
-          .orderBy(desc(events.date));
+            .from(events)
+            .leftJoin(users, eq(events.organizerId, users.id))
+            .orderBy(desc(events.date));
         }
       }
 
@@ -255,7 +255,7 @@ export function registerRoutes(app: Express) {
       return res.json(event);
     } catch (error) {
       console.error("Failed to create event:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to create event",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -278,7 +278,7 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ error: "Invalid event ID" });
       }
 
-      // Validate the event exists
+      // Validate the event exists and fetch current data
       const existingEvent = await db
         .select()
         .from(events)
@@ -290,31 +290,47 @@ export function registerRoutes(app: Express) {
       }
 
       const { title, description, date, location } = req.body;
-      const updateData: Partial<typeof events.$inferInsert> = {};
+      const updateData: Record<string, unknown> = {};
 
-      // Only include fields that are provided and valid
-      if (title?.trim()) updateData.title = title.trim();
-      if (description?.trim()) updateData.description = description.trim();
-      if (location?.trim()) updateData.location = location.trim();
+      // Only update fields that are provided and different from current values
+      if (title?.trim() && title.trim() !== existingEvent[0].title) {
+        updateData.title = title.trim();
+      }
+      if (description?.trim() && description.trim() !== existingEvent[0].description) {
+        updateData.description = description.trim();
+      }
+      if (location?.trim() && location.trim() !== existingEvent[0].location) {
+        updateData.location = location.trim();
+      }
 
+      // Handle date update with proper validation
       if (date) {
         const eventDate = new Date(date);
         if (isNaN(eventDate.getTime())) {
           return res.status(400).json({ error: "Invalid date format" });
         }
-        updateData.date = eventDate;
+        // Only update if date is different
+        if (eventDate.toISOString().slice(0, 19) !== new Date(existingEvent[0].date).toISOString().slice(0, 19)) {
+          updateData.date = eventDate;
+        }
       }
 
+      // If no fields to update, return success with existing event
+      if (Object.keys(updateData).length === 0) {
+        return res.json(existingEvent[0]);
+      }
+
+      // Perform the update
       const [updatedEvent] = await db
         .update(events)
-        .set(updateData)
+        .set(updateData as typeof events.$inferInsert)
         .where(eq(events.id, eventId))
         .returning();
 
       return res.json(updatedEvent);
     } catch (error) {
       console.error("Failed to update event:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to update event",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -352,13 +368,13 @@ export function registerRoutes(app: Express) {
         .delete(events)
         .where(eq(events.id, eventId));
 
-      return res.json({ 
+      return res.json({
         success: true,
         message: "Event deleted successfully"
       });
     } catch (error) {
       console.error("Failed to delete event:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to delete event",
         details: error instanceof Error ? error.message : "Unknown error"
       });
@@ -373,7 +389,7 @@ export function registerRoutes(app: Express) {
         .set({ likes: sql`${events.likes} + 1` })
         .where(eq(events.id, eventId))
         .returning();
-      
+
       res.json(event);
     } catch (error) {
       res.status(500).json({ error: "Failed to update likes" });
@@ -387,7 +403,7 @@ export function registerRoutes(app: Express) {
         .select()
         .from(resources)
         .orderBy(resources.createdAt);
-      
+
       // If no resources exist, insert some initial resources
       if (allResources.length === 0) {
         const sampleResources = [
@@ -470,7 +486,7 @@ export function registerRoutes(app: Express) {
     try {
       const postId = parseInt(req.params.postId);
       const { content, authorName } = req.body;
-      
+
       const [comment] = await db
         .insert(comments)
         .values({
@@ -480,7 +496,7 @@ export function registerRoutes(app: Express) {
           authorName: req.isAuthenticated() ? req.user.username : authorName || "Anonymous"
         })
         .returning();
-        
+
       res.json(comment);
     } catch (error) {
       res.status(500).json({ error: "Failed to create comment" });
@@ -508,9 +524,9 @@ export function registerRoutes(app: Express) {
         updated_at: carousel_items.updated_at,
         created_by_id: carousel_items.created_by_id
       })
-      .from(carousel_items)
-      .orderBy(desc(carousel_items.created_at));
-      
+        .from(carousel_items)
+        .orderBy(desc(carousel_items.created_at));
+
       const postsData = await db.select({
         id: posts.id,
         title: posts.title,
@@ -521,9 +537,9 @@ export function registerRoutes(app: Express) {
           username: users.username,
         }
       })
-      .from(posts)
-      .leftJoin(users, eq(posts.authorId, users.id))
-      .orderBy(desc(posts.createdAt));
+        .from(posts)
+        .leftJoin(users, eq(posts.authorId, users.id))
+        .orderBy(desc(posts.createdAt));
 
       const usersData = await db.select({
         id: users.id,
@@ -533,8 +549,8 @@ export function registerRoutes(app: Express) {
         createdAt: users.createdAt,
         language: users.language
       })
-      .from(users)
-      .orderBy(desc(users.createdAt));
+        .from(users)
+        .orderBy(desc(users.createdAt));
 
       const resourcesData = await db.select({
         id: resources.id,
@@ -549,9 +565,9 @@ export function registerRoutes(app: Express) {
           username: users.username,
         }
       })
-      .from(resources)
-      .leftJoin(users, eq(resources.authorId, users.id))
-      .orderBy(desc(resources.createdAt));
+        .from(resources)
+        .leftJoin(users, eq(resources.authorId, users.id))
+        .orderBy(desc(resources.createdAt));
 
       const businessesData = await db.select({
         id: businesses.id,
@@ -569,9 +585,9 @@ export function registerRoutes(app: Express) {
           username: users.username,
         }
       })
-      .from(businesses)
-      .leftJoin(users, eq(businesses.submittedById, users.id))
-      .orderBy(desc(businesses.createdAt));
+        .from(businesses)
+        .leftJoin(users, eq(businesses.submittedById, users.id))
+        .orderBy(desc(businesses.createdAt));
 
       const eventsData = await db.select({
         id: events.id,
@@ -586,9 +602,9 @@ export function registerRoutes(app: Express) {
           username: users.username,
         }
       })
-      .from(events)
-      .leftJoin(users, eq(events.organizerId, users.id))
-      .orderBy(desc(events.date));
+        .from(events)
+        .leftJoin(users, eq(events.organizerId, users.id))
+        .orderBy(desc(events.date));
 
       const stats = {
         totalUsers: totalUsers[0].count,
@@ -616,7 +632,7 @@ export function registerRoutes(app: Express) {
     }
 
     const postId = parseInt(req.params.id);
-    
+
     try {
       // Delete the post - comments will be deleted automatically due to CASCADE
       const [deletedPost] = await db
@@ -632,9 +648,9 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error("Failed to delete post:", error);
       if (error instanceof Error) {
-        return res.status(500).json({ 
-          error: "Failed to delete post", 
-          details: error.message 
+        return res.status(500).json({
+          error: "Failed to delete post",
+          details: error.message
         });
       }
       return res.status(500).json({ error: "Failed to delete post" });
@@ -714,7 +730,7 @@ export function registerRoutes(app: Express) {
       };
 
       // Remove undefined fields
-      Object.keys(updateData).forEach(key => 
+      Object.keys(updateData).forEach(key =>
         updateData[key] === undefined && delete updateData[key]
       );
 
@@ -732,7 +748,7 @@ export function registerRoutes(app: Express) {
       // Get address information for geocoding
       const address = updateData.address || currentBusiness[0].address;
       const city = updateData.city || currentBusiness[0].city;
-      
+
       try {
         console.log('Attempting to geocode address:', address, city);
         const coordinates = await geocodeAddress(address, city);
@@ -760,7 +776,7 @@ export function registerRoutes(app: Express) {
       return res.json(updatedBusiness);
     } catch (error) {
       console.error("Failed to update business:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to update business",
         message: error instanceof Error ? error.message : "Unknown error"
       });
@@ -784,7 +800,7 @@ export function registerRoutes(app: Express) {
         .update(users)
         .set({ language })
         .where(eq(users.id, req.user.id));
-      
+
       return res.json({ message: "Language updated successfully" });
     } catch (error) {
       return res.status(500).send("Failed to update language preference");
@@ -798,7 +814,7 @@ export function registerRoutes(app: Express) {
         .select()
         .from(businesses)
         .orderBy(businesses.createdAt);
-      
+
       // If no businesses exist, insert some sample businesses
       if (allBusinesses.length === 0) {
         const sampleBusinesses = [
@@ -844,7 +860,7 @@ export function registerRoutes(app: Express) {
     try {
       // Get coordinates from address
       const coordinates = await geocodeAddress(req.body.address, req.body.city);
-      
+
       const [business] = await db
         .insert(businesses)
         .values({
@@ -883,7 +899,7 @@ export function registerRoutes(app: Express) {
     ttl: 300000 // 5 minutes cache for better rate limit protection
   };
 
-  async function fetchKrakenPrice() {
+  async function fetchKrakenPrice(): Promise<number> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -898,8 +914,6 @@ export function registerRoutes(app: Express) {
           signal: controller.signal
         })
       ]);
-
-      clearTimeout(timeoutId);
 
       if (!priceResponse.ok) {
         throw new Error(`Kraken API error: ${priceResponse.status}`);
@@ -939,7 +953,7 @@ export function registerRoutes(app: Express) {
     }
   }
 
-  async function fetchBitsoPrice() {
+  async function fetchBitsoPrice(): Promise<number> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -948,8 +962,6 @@ export function registerRoutes(app: Express) {
         headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
         signal: controller.signal
       });
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Bitso API error: ${response.status}`);
@@ -976,7 +988,7 @@ export function registerRoutes(app: Express) {
     }
   }
 
-  async function fetchBlockchainPrice() {
+  async function fetchBlockchainPrice(): Promise<number> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -992,8 +1004,6 @@ export function registerRoutes(app: Express) {
         })
       ]);
 
-      clearTimeout(timeoutId);
-
       if (!priceResponse.ok) {
         throw new Error(`Blockchain.com API error: ${priceResponse.status}`);
       }
@@ -1006,14 +1016,14 @@ export function registerRoutes(app: Express) {
         rateResponse.json()
       ]);
 
-      if (!priceData?.last_trade_price || isNaN(parseFloat(priceData.last_trade_price))) {
+      if (!priceData?.last_trade_price || isNaN(priceData.last_trade_price)) {
         throw new Error('Invalid price data from Blockchain.com');
       }
       if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
         throw new Error('Invalid exchange rate data');
       }
 
-      const btcUsdPrice = parseFloat(priceData.last_trade_price);
+      const btcUsdPrice = priceData.last_trade_price;
       const usdPenRate = rateData.rates.PEN;
       const finalPrice = btcUsdPrice * usdPenRate;
 
@@ -1026,27 +1036,28 @@ export function registerRoutes(app: Express) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
       }
-      throw new Error(`Blockchain.com price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Blockchain.com error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       clearTimeout(timeoutId);
     }
   }
 
-  async function fetchCoingeckoPrice() {
+  async function fetchCoinGeckoPrice(): Promise<number> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
-      const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen', {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'BitcoinPENTracker/1.0',
-        },
-        signal: controller.signal
-      });
+      const response = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen',
+        {
+          headers: {
+            'User-Agent': 'BitcoinPENTracker/1.0',
+            'Accept': 'application/json'
+          },
+          signal: controller.signal
+        }
+      );
 
-      clearTimeout(timeoutId);
-      
       if (!response.ok) {
         if (response.status === 429) {
           throw new Error('CoinGecko rate limit reached');
@@ -1054,11 +1065,12 @@ export function registerRoutes(app: Express) {
         const errorBody = await response.text();
         throw new Error(`CoinGecko API error: ${response.status} - ${errorBody}`);
       }
-      
+
       const data = await response.json();
       if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
         throw new Error('Invalid price data structure');
       }
+
       return data.bitcoin.pen;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -1084,17 +1096,17 @@ export function registerRoutes(app: Express) {
       const providers = [
         { name: 'Kraken', fn: fetchKrakenPrice },
         { name: 'Blockchain.com', fn: fetchBlockchainPrice },
-        { name: 'CoinGecko', fn: fetchCoingeckoPrice },
+        { name: 'CoinGecko', fn: fetchCoinGeckoPrice },
         { name: 'Bitso', fn: fetchBitsoPrice }
       ];
 
       let lastError: Error | null = null;
-      
+
       for (const provider of providers) {
         try {
           console.log(`Attempting to fetch price from ${provider.name}...`);
           const penPrice = await provider.fn();
-          
+
           const response: PriceData = {
             bitcoin: {
               pen: penPrice,
@@ -1160,7 +1172,7 @@ export function registerRoutes(app: Express) {
       return res.json(items);
     } catch (error) {
       console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "Failed to fetch carousel items",
         details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
       });
