@@ -1,15 +1,11 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes.js";
-import { setupVite } from "./vite.js";
-import { sql } from "drizzle-orm";
+import express, { type Request, type Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite } from "./vite";
 import { createServer } from "http";
 import compression from 'compression';
 import cors from 'cors';
-import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import type { DatabaseError } from 'pg';
-import { DatabaseConnectionError, DatabaseQueryError, isDatabaseError } from './db/types.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +38,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200,
   maxAge: 86400 // 24 hours
 };
@@ -68,24 +64,8 @@ app.use((req, res, next) => {
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   log('Error occurred:', { error: err.message, stack: err.stack });
 
-  if (isDatabaseError(err)) {
-    return res.status(503).json({
-      error: 'Database error occurred',
-      message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    });
-  }
-
-  if (err instanceof DatabaseQueryError) {
-    return res.status(400).json({
-      error: 'Database query error',
-      message: process.env.NODE_ENV === 'development' ? err.message : 'Invalid operation',
-      ...(process.env.NODE_ENV === 'development' && { 
-        code: err.code,
-        query: err.query,
-        stack: err.stack 
-      })
-    });
+  if (res.headersSent) {
+    return next(err);
   }
 
   if (err instanceof SyntaxError) {
@@ -112,17 +92,20 @@ async function init() {
     log('Starting server initialization...');
 
     // Initialize database
-    const { db } = await import('../db/index.js');
+    const { testConnection } = await import('./db/index.js');
 
     try {
       log('Attempting to connect to database...');
-      await db.execute(sql`SELECT 1`);
+      const connected = await testConnection();
+      if (!connected) {
+        throw new Error('Database connection test failed');
+      }
       log('Database connection established successfully');
     } catch (dbError) {
       log('Database connection error:', {
         error: dbError instanceof Error ? dbError.message : 'Unknown database error'
       });
-      throw dbError;
+      throw new Error(`Database connection failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
     }
 
     // Register API routes
@@ -133,7 +116,7 @@ async function init() {
       log('Failed to register routes:', {
         error: routesError instanceof Error ? routesError.message : 'Unknown routes error'
       });
-      throw routesError;
+      throw new Error(`Failed to register routes: ${routesError instanceof Error ? routesError.message : 'Unknown error'}`);
     }
 
     // Create server instance first
