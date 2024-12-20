@@ -1,4 +1,3 @@
-
 import { logger } from '../utils/logger';
 import pg from 'pg';
 import type { Pool } from 'pg';
@@ -8,7 +7,7 @@ import {
   PostgresErrorCode,
   POOL_CONFIG,
   isDatabaseError,
-  DatabaseError
+  type DatabaseError
 } from './types';
 
 export class DatabaseConnection {

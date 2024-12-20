@@ -33,19 +33,28 @@ const eventUpdateSchema = z.object({
   title: z.string().min(1, "Title is required").optional(),
   description: z.string().min(1, "Description is required").optional(),
   location: z.string().min(1, "Location is required").optional(),
-  date: z.string().refine((date) => {
-    if (!date) return true;
-    const parsedDate = new Date(date);
-    return !isNaN(parsedDate.getTime());
-  }, "Invalid date format").optional()
+  date: z.string().optional()
 }).transform(data => {
   if (!data) return {};
-  return {
-    ...(data.title && { title: data.title.trim() }),
-    ...(data.description && { description: data.description.trim() }),
-    ...(data.location && { location: data.location.trim() }),
-    ...(data.date && { date: new Date(data.date) })
-  };
+
+  const transformedData: Partial<{
+    title: string;
+    description: string;
+    location: string;
+    date: Date;
+  }> = {};
+
+  if (data.title) transformedData.title = data.title.trim();
+  if (data.description) transformedData.description = data.description.trim();
+  if (data.location) transformedData.location = data.location.trim();
+  if (data.date) {
+    const parsedDate = new Date(data.date);
+    if (!isNaN(parsedDate.getTime())) {
+      transformedData.date = parsedDate;
+    }
+  }
+
+  return transformedData;
 });
 
 type EventInput = z.infer<typeof eventSchema>;

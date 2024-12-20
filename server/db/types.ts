@@ -85,7 +85,7 @@ export class DatabaseQueryError extends Error {
   }
 }
 
-// Type guards (exported as values, not types)
+// Type guard function (exported as a value)
 export function isDatabaseError(error: unknown): error is PgDatabaseError {
   return (
     error !== null &&

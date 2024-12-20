@@ -30,8 +30,8 @@ import {
   POOL_CONFIG,
   isDatabaseError,
   isDatabaseQueryError,
-  DatabaseError,
-  PostgresError
+  type DatabaseError,
+  type PostgresError
 } from './db/types';
 
 type CustomRequest = Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>> & {
