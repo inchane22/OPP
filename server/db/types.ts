@@ -2,8 +2,8 @@ import pg from 'pg';
 import { DatabaseError as PgDatabaseError } from 'pg-protocol';
 
 // Export PostgreSQL database error types
-export { PgDatabaseError }; // Export for value context
-export type { PgDatabaseError as DatabaseError }; // Export for type context
+export { PgDatabaseError }; // Export the concrete class for value context
+export type DatabaseError = PgDatabaseError; // Export type alias for type context
 export type PostgresError = pg.DatabaseError;
 
 // Valid PostgreSQL error codes

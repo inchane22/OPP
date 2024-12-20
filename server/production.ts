@@ -16,9 +16,11 @@ import { setupAuth } from "./auth.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Ensure all paths are resolved relative to the project root
-const resolveFromRoot = (relativePath: string) => {
-  const projectRoot = path.resolve(__dirname, '..');
+// Project root path resolution
+const projectRoot = path.resolve(__dirname, '..');
+
+// Utility function to resolve paths from project root
+const resolveFromRoot = (relativePath: string): string => {
   return path.join(projectRoot, relativePath);
 };
 
@@ -237,6 +239,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
     let statusCode = 500;
     let errorMessage = isProduction ? 'Internal Server Error' : error.message;
     
+
     // Handle specific database errors
     if (error instanceof DatabaseConnectionError) {
       statusCode = 503; // Service Unavailable
