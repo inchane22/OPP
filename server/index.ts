@@ -6,6 +6,7 @@ import compression from 'compression';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import type { DatabaseError } from 'pg';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -60,8 +61,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+// Error handling middleware with proper typing
+app.use((err: Error | DatabaseError, req: Request, res: Response, next: NextFunction) => {
   log('Error occurred:', { error: err.message, stack: err.stack });
 
   if (res.headersSent) {
@@ -72,6 +73,14 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     return res.status(400).json({
       error: 'Invalid request syntax',
       message: process.env.NODE_ENV === 'development' ? err.message : 'Bad request'
+    });
+  }
+
+  // Handle database errors
+  if ('code' in err && typeof err.code === 'string') {
+    return res.status(500).json({
+      error: 'Database error',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'Database operation failed'
     });
   }
 

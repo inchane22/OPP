@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { events } from '../../db/schema';
+import { events, users, type User } from '../../db/schema';
 import { db } from '../db';
 import { eq, desc } from 'drizzle-orm';
+import type { Request, Response, RequestHandler } from 'express';
 
 const router = Router();
 
-// Improved event schema with better date validation
+// Event schema with strict typing
 const eventSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
@@ -21,17 +22,25 @@ const eventSchema = z.object({
   }, "Invalid date format. Please provide a valid date string"),
 });
 
-// Create event
-router.post('/', async (req, res) => {
+type EventInput = z.infer<typeof eventSchema>;
+
+// Extend express Request type for authenticated routes
+interface AuthenticatedRequest extends Request {
+  isAuthenticated(): this is AuthenticatedRequest & { user: User };
+  user?: User;
+}
+
+// Event handlers with proper Express types
+const createEvent: RequestHandler = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Only administrators can create events" });
+  }
+
   try {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can create events" });
-    }
-
     const result = eventSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ 
@@ -59,25 +68,23 @@ router.post('/', async (req, res) => {
     console.error('Error creating event:', error);
     return res.status(500).json({ error: 'Failed to create event' });
   }
-});
+};
 
-// Update event
-router.patch('/:id', async (req, res) => {
+const updateEvent: RequestHandler = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Only administrators can update events" });
+  }
+
   try {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (req.user?.role !== 'admin') {
-      return res.status(403).json({ error: "Only administrators can update events" });
-    }
-
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid event ID' });
     }
 
-    // Allow partial updates
     const result = eventSchema.partial().safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({ 
@@ -89,7 +96,6 @@ router.patch('/:id', async (req, res) => {
     const updateData: Partial<typeof events.$inferInsert> = {};
     const { title, description, location, date } = result.data;
 
-    // Only update provided fields
     if (title) updateData.title = title.trim();
     if (description) updateData.description = description.trim();
     if (location) updateData.location = location.trim();
@@ -116,14 +122,30 @@ router.patch('/:id', async (req, res) => {
     console.error('Error updating event:', error);
     return res.status(500).json({ error: 'Failed to update event' });
   }
-});
+};
 
-// Get all events
-router.get('/', async (_req, res) => {
+// Configure routes with proper Express types
+router.post('/', createEvent);
+router.patch('/:id', updateEvent);
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const allEvents = await db
-      .select()
+      .select({
+        id: events.id,
+        title: events.title,
+        description: events.description,
+        date: events.date,
+        location: events.location,
+        organizerId: events.organizerId,
+        likes: events.likes,
+        createdAt: events.createdAt,
+        organizer: {
+          id: users.id,
+          username: users.username,
+        }
+      })
       .from(events)
+      .leftJoin(users, eq(events.organizerId, users.id))
       .orderBy(desc(events.date));
 
     return res.json(allEvents);
@@ -133,39 +155,13 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// Get single event
-router.get('/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid event ID' });
-    }
-
-    const [event] = await db
-      .select()
-      .from(events)
-      .where(eq(events.id, id))
-      .limit(1);
-
-    if (!event) {
-      return res.status(404).json({ error: 'Event not found' });
-    }
-
-    return res.json(event);
-  } catch (error) {
-    console.error('Error fetching event:', error);
-    return res.status(500).json({ error: 'Failed to fetch event' });
-  }
-});
-
-// Delete event
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
-    if (req.user?.role !== 'admin') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({ error: "Only administrators can delete events" });
     }
 
