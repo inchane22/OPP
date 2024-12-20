@@ -8,13 +8,12 @@ import cors from 'cors';
 import path from "path";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import type { DatabaseError } from 'pg';
+import { DatabaseConnectionError, DatabaseQueryError, isDatabaseError } from './db/types.js';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// Helper for consistent path resolution
-const resolvePath = (relativePath: string) => path.resolve(__dirname, relativePath);
 
 function log(message: string, data: Record<string, any> = {}) {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -65,36 +64,59 @@ app.use((req, res, next) => {
   next();
 });
 
+// Error handling middleware
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  log('Error occurred:', { error: err.message, stack: err.stack });
+
+  if (isDatabaseError(err)) {
+    return res.status(503).json({
+      error: 'Database error occurred',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
+  }
+
+  if (err instanceof DatabaseQueryError) {
+    return res.status(400).json({
+      error: 'Database query error',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'Invalid operation',
+      ...(process.env.NODE_ENV === 'development' && { 
+        code: err.code,
+        query: err.query,
+        stack: err.stack 
+      })
+    });
+  }
+
+  if (err instanceof SyntaxError) {
+    return res.status(400).json({
+      error: 'Invalid request syntax',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'Bad request'
+    });
+  }
+
+  return res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
+});
+
 // Server configuration
 const PORT = Number(process.env.PORT || 5000);
 const HOST = '0.0.0.0';
-let server: ReturnType<typeof createServer> | null = null;
 
-// Ensure process.env.NODE_ENV is set
-process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-
-// Cleanup function
-async function cleanup(): Promise<void> {
-  if (server && server.listening) {
-    return new Promise((resolve) => {
-      server!.close(() => {
-        server = null;
-        resolve();
-      });
-    });
-  }
-}
-
-// Initialize database and start server
+// Initialize and start server
 async function init() {
   try {
     log('Starting server initialization...');
 
     // Initialize database
     const { db } = await import('../db/index.js');
+
     try {
       log('Attempting to connect to database...');
-      const result = await db.execute(sql`SELECT 1`);
+      await db.execute(sql`SELECT 1`);
       log('Database connection established successfully');
     } catch (dbError) {
       log('Database connection error:', {
@@ -114,47 +136,17 @@ async function init() {
       throw routesError;
     }
 
-    // Ensure cleanup of any existing server
-    await cleanup();
-    log('Previous server instance cleaned up');
-
-    // Create new server instance
-    server = createServer(app);
-    log('Created new server instance');
+    // Create server instance first
+    const server = createServer(app);
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV !== 'production') {
       log('Setting up development server...');
-      try {
-        await setupVite(app, server);
-        log('Vite development server setup completed');
-      } catch (viteError) {
-        log('Vite setup failed:', {
-          error: viteError instanceof Error ? viteError.message : 'Unknown Vite error'
-        });
-        throw viteError;
-      }
-    } else {
-      log('Setting up production server...');
-      try {
-        const { setupProduction } = await import('./production.js');
-        await setupProduction(app);
-        log('Production server setup completed');
-      } catch (prodError) {
-        log('Production setup failed:', {
-          error: prodError instanceof Error ? prodError.message : 'Unknown production error'
-        });
-        throw prodError;
-      }
+      await setupVite(app, server);
+      log('Vite development server setup completed');
     }
 
-    // Start server
     return new Promise<void>((resolve, reject) => {
-      if (!server) {
-        reject(new Error('Server instance is null'));
-        return;
-      }
-
       server.listen(PORT, HOST, () => {
         log(`Server listening on port ${PORT}`, {
           host: HOST,
@@ -181,12 +173,10 @@ async function init() {
   }
 }
 
-// Graceful shutdown handlers
-process.on('SIGTERM', cleanup);
-process.on('SIGINT', cleanup);
-
 // Start server
 init().catch((error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
   process.exit(1);
 });
+
+export default app;

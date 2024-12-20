@@ -308,6 +308,8 @@ export function registerRoutes(app: Express) {
       const { title, description, date, location } = req.body;
       const updateData: Partial<typeof events.$inferInsert> = {};
 
+      console.log('Received update data:', { title, description, date, location });
+
       // Only update fields that are provided and different from current values
       if (title?.trim() && title.trim() !== existingEvent[0].title) {
         updateData.title = title.trim();
@@ -321,19 +323,33 @@ export function registerRoutes(app: Express) {
 
       // Handle date update with proper validation
       if (date) {
-        const eventDate = new Date(date);
-        if (isNaN(eventDate.getTime())) {
-          return res.status(400).json({ error: "Invalid date format" });
-        }
+        try {
+          const eventDate = new Date(date);
+          if (isNaN(eventDate.getTime())) {
+            console.error('Invalid date format received:', date);
+            return res.status(400).json({ error: "Invalid date format" });
+          }
 
-        const existingDate = new Date(existingEvent[0].date);
-        if (eventDate.getTime() !== existingDate.getTime()) {
-          updateData.date = eventDate;
+          // Compare dates properly by converting both to ISO strings
+          const existingDate = new Date(existingEvent[0].date);
+          if (eventDate.toISOString() !== existingDate.toISOString()) {
+            updateData.date = eventDate;
+            console.log('Date will be updated to:', eventDate.toISOString());
+          }
+        } catch (dateError) {
+          console.error('Date parsing error:', dateError);
+          return res.status(400).json({ 
+            error: "Invalid date format",
+            details: dateError instanceof Error ? dateError.message : "Unknown date error"
+          });
         }
       }
 
+      console.log('Final update data:', updateData);
+
       // If no fields to update, return success with existing event
       if (Object.keys(updateData).length === 0) {
+        console.log('No fields to update, returning existing event');
         return res.json(existingEvent[0]);
       }
 
@@ -344,6 +360,7 @@ export function registerRoutes(app: Express) {
         .where(eq(events.id, eventId))
         .returning();
 
+      console.log('Event updated successfully:', updatedEvent);
       return res.json(updatedEvent);
     } catch (error) {
       console.error("Failed to update event:", error);

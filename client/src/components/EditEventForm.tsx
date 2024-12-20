@@ -29,23 +29,30 @@ export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: event.title,
-      description: event.description,
-      location: event.location,
-      date: new Date(event.date).toISOString().slice(0, 16),
+      description: event.description ?? "",
+      location: event.location ?? "",
+      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : "",
     }
   });
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(async (data) => {
-        await onSubmit(data);
+        try {
+          await onSubmit({
+            ...data,
+            date: new Date(data.date).toISOString()
+          });
+        } catch (error) {
+          console.error('Error updating event:', error);
+        }
       })} className="space-y-4">
         <FormField
           control={form.control}
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Title</FormLabel>
+              <FormLabel>Título</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -57,7 +64,7 @@ export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Descripción</FormLabel>
               <FormControl>
                 <Textarea {...field} rows={3} />
               </FormControl>
@@ -69,7 +76,7 @@ export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps
           name="location"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Location</FormLabel>
+              <FormLabel>Ubicación</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -81,12 +88,11 @@ export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps
           name="date"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Date</FormLabel>
+              <FormLabel>Fecha y Hora</FormLabel>
               <FormControl>
                 <Input 
-                  type="datetime-local" 
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
+                  type="datetime-local"
+                  {...field}
                 />
               </FormControl>
             </FormItem>
@@ -94,7 +100,7 @@ export function EditEventForm({ event, onSubmit, isPending }: EditEventFormProps
         />
         <Button type="submit" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Update Event
+          Actualizar Evento
         </Button>
       </form>
     </Form>
