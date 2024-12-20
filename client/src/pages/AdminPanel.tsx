@@ -7,7 +7,6 @@ import { useLanguage } from "@/hooks/use-language";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -34,17 +33,18 @@ import { EditUserForm } from "@/components/EditUserForm";
 
 // Types
 import type { Post, User, Resource, Business, Event } from "@/db/schema";
+import * as z from "zod";
 
 // Event schema for form validation
 const eventFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   location: z.string().min(1, "Location is required"),
-  date: z.string().min(1, "Date is required"),
-  id: z.number().optional()
+  date: z.string().min(1, "Date is required")
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
+
 type CarouselFormData = {
   title: string;
   description: string;
@@ -197,15 +197,6 @@ export default function AdminPanel() {
   }
 
   const handleEventUpdate = async (formData: EventFormData, eventId: number): Promise<void> => {
-    if (!formData.date) {
-      toast({
-        title: "Error",
-        description: "Date is required",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
       const response = await fetch(`/api/events/${eventId}`, {
         method: 'PATCH',
@@ -1078,8 +1069,8 @@ export default function AdminPanel() {
                             <EditEventForm
                               event={event}
                               onSubmit={async (formData) => {
-                                if (event?.id) {
-                                  await handleEventUpdate(formData as EventFormData, event.id);
+                                if (typeof event.id === 'number') {
+                                  await handleEventUpdate(formData, event.id);
                                 }
                               }}
                               isPending={isPending}
