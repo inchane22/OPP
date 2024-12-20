@@ -40,10 +40,10 @@ const eventFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   location: z.string().min(1, "Location is required"),
-  date: z.string().min(1, "Date is required")
+  date: z.string().min(1, "Date is required"),
+  id: z.number().optional()
 });
 
-// Types for forms
 type EventFormData = z.infer<typeof eventFormSchema>;
 type CarouselFormData = {
   title: string;
@@ -97,7 +97,6 @@ interface ResourceWithAuthor extends Resource {
 }
 
 
-// Utility function for handling embed URLs
 const getEmbedUrl = (url: string): string => {
   try {
     const urlObj = new URL(url);
@@ -196,6 +195,51 @@ export default function AdminPanel() {
       </div>
     );
   }
+
+  const handleEventUpdate = async (formData: EventFormData, eventId: number): Promise<void> => {
+    if (!formData.date) {
+      toast({
+        title: "Error",
+        description: "Date is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/events/${eventId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          ...formData,
+          date: new Date(formData.date).toISOString()
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update event');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+      toast({ title: "Event updated successfully" });
+
+      // Close dialog
+      const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
+      if (closeButton) closeButton.click();
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast({
+        title: "Error updating event",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -910,7 +954,7 @@ export default function AdminPanel() {
                             throw new Error(error.message || 'Error al crear el evento');
                           }
 
-                          await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
+                          await queryClient.invalidateQueries({ queryKey: ['admin-stats']});
                           toast({ title: "Evento creado exitosamente" });
                           eventForm.reset();
 
@@ -966,10 +1010,17 @@ export default function AdminPanel() {
                           name="date"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Fecha y Hora</FormLabel>                              <FormControl>
+                              <FormLabel>Fecha y Hora</FormLabel>
+                              <FormControl>
                                 <Input
                                   type="datetime-local"
-                                  {...field}
+                                  value={field.value}
+                                  onChange={(e) => {
+                                    const date = e.target.value;
+                                    if (date) {
+                                      field.onChange(date);
+                                    }
+                                  }}
                                 />
                               </FormControl>
                             </FormItem>
@@ -1027,39 +1078,8 @@ export default function AdminPanel() {
                             <EditEventForm
                               event={event}
                               onSubmit={async (formData) => {
-                                if (isPending) return;
-
-                                try {
-                                  const response = await fetch(`/api/events/${event.id}`, {
-                                    method: 'PATCH',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Accept': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                      ...formData,
-                                      date: new Date(formData.date).toISOString()
-                                    }),
-                                    credentials: 'include'
-                                  });
-
-                                  if (!response.ok) {
-                                    const error = await response.json();
-                                    throw new Error(error.message || 'Error al actualizar el evento');
-                                  }
-
-                                  await queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-                                  toast({ title: "Evento actualizado exitosamente" });
-
-                                  const closeButton = document.querySelector('[data-dialog-close]') as HTMLButtonElement;
-                                  if (closeButton) closeButton.click();
-                                } catch (error) {
-                                  console.error('Error updating event:', error);
-                                  toast({
-                                    title: "Error al actualizar evento",
-                                    description: error instanceof Error ? error.message : "Ha ocurrido un error desconocido",
-                                    variant: "destructive"
-                                  });
+                                if (event?.id) {
+                                  await handleEventUpdate(formData as EventFormData, event.id);
                                 }
                               }}
                               isPending={isPending}

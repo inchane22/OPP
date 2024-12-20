@@ -107,6 +107,7 @@ export type InsertCarouselItem = z.infer<typeof insertCarouselItemSchema>;
 export type CarouselItem = z.infer<typeof selectCarouselItemSchema>;
 
 
+
 export const insertCommentSchema = createInsertSchema(comments);
 export const selectCommentSchema = createSelectSchema(comments);
 export type InsertComment = z.infer<typeof insertCommentSchema>;

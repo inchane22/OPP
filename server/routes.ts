@@ -209,6 +209,7 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Events routes - Admin specific endpoints
   app.post("/api/events", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -290,7 +291,7 @@ export function registerRoutes(app: Express) {
       }
 
       const { title, description, date, location } = req.body;
-      const updateData: Record<string, unknown> = {};
+      const updateData: Partial<typeof events.$inferInsert> = {};
 
       // Only update fields that are provided and different from current values
       if (title?.trim() && title.trim() !== existingEvent[0].title) {
@@ -309,8 +310,9 @@ export function registerRoutes(app: Express) {
         if (isNaN(eventDate.getTime())) {
           return res.status(400).json({ error: "Invalid date format" });
         }
-        // Only update if date is different
-        if (eventDate.toISOString().slice(0, 19) !== new Date(existingEvent[0].date).toISOString().slice(0, 19)) {
+
+        const existingDate = new Date(existingEvent[0].date);
+        if (eventDate.getTime() !== existingDate.getTime()) {
           updateData.date = eventDate;
         }
       }
@@ -323,7 +325,7 @@ export function registerRoutes(app: Express) {
       // Perform the update
       const [updatedEvent] = await db
         .update(events)
-        .set(updateData as typeof events.$inferInsert)
+        .set(updateData)
         .where(eq(events.id, eventId))
         .returning();
 
@@ -944,7 +946,7 @@ export function registerRoutes(app: Express) {
 
       return finalPrice;
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+            if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Request timed out');
       }
       throw new Error(`Kraken price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1060,13 +1062,13 @@ export function registerRoutes(app: Express) {
 
       if (!response.ok) {
         if (response.status === 429) {
-          throw new Error('CoinGecko rate limit reached');
+          throw new Error('Rate limit exceeded');
         }
-        const errorBody = await response.text();
-        throw new Error(`CoinGecko API error: ${response.status} - ${errorBody}`);
+        throw new Error(`CoinGecko API error: ${response.status}`);
       }
 
       const data = await response.json();
+
       if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
         throw new Error('Invalid price data structure');
       }
@@ -1082,15 +1084,11 @@ export function registerRoutes(app: Express) {
     }
   }
 
-  // Bitcoin price proxy endpoint with multiple providers and caching
-  app.get("/api/bitcoin/price", async (_req, res): Promise<void> => {
+  app.get("/api/bitcoin/price", async (_req, res) => {
     try {
-      // Check cache first
       const now = Date.now();
-      if (priceCache.data && (now - priceCache.timestamp) < priceCache.ttl) {
-        console.log('Returning cached price data');
-        res.json(priceCache.data);
-        return;
+      if (priceCache.data && now - priceCache.timestamp < priceCache.ttl) {
+        return res.json(priceCache.data);
       }
 
       const providers = [
