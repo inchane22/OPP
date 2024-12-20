@@ -6,7 +6,7 @@ import compression from 'compression';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import type { DatabaseError } from 'pg';
+import type { PostgresError, isDatabaseError } from './db/types';
 
 // ES Module path resolution utility
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +62,7 @@ app.use((req, res, next) => {
 });
 
 // Error handling middleware with proper typing
-app.use((err: Error | DatabaseError, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   log('Error occurred:', { error: err.message, stack: err.stack });
 
   if (res.headersSent) {
@@ -76,8 +76,8 @@ app.use((err: Error | DatabaseError, req: Request, res: Response, next: NextFunc
     });
   }
 
-  // Handle database errors
-  if ('code' in err && typeof err.code === 'string') {
+  // Handle database errors using the type guard
+  if (isDatabaseError(err)) {
     return res.status(500).json({
       error: 'Database error',
       message: process.env.NODE_ENV === 'development' ? err.message : 'Database operation failed'

@@ -1,17 +1,12 @@
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import { neon, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
 import { sql } from 'drizzle-orm';
-import type { NeonClient } from '@neondatabase/serverless';
 
 // Configure neon
 const connectionString = process.env.DATABASE_URL!;
 
-// Basic configuration
-neonConfig.fetchConnectionCache = true;
-neonConfig.wsProxy = (host) => host;
-
-// Create SQL connection
-const sql_connection: NeonClient = neon(connectionString);
+// Create SQL connection with proper configuration
+const sql_connection = neon(connectionString);
 
 // Initialize drizzle with proper configuration and type safety
 export const db = drizzle(sql_connection);
@@ -20,7 +15,7 @@ export const db = drizzle(sql_connection);
 export async function testConnection() {
   try {
     console.log('Testing database connection...');
-    const result = await db.execute(sql`SELECT NOW()`);
+    const result = await db.execute(sql`SELECT 1 as test`);
     console.log('Database connection verified', { 
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
