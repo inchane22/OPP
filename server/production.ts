@@ -25,7 +25,7 @@ const projectRoot = path.resolve(__dirname, '..');
  * @returns Absolute path from project root
  */
 function resolveFromRoot(...paths: string[]): string {
-  return path.join(projectRoot, ...paths);
+  return path.join(process.cwd(), ...paths);
 }
 
 // Import database configuration and types
@@ -222,45 +222,58 @@ export async function setupProduction(app: express.Express): Promise<void> {
   if (!fs.existsSync(publicDir)) {
     logger('Error: Build directory not found', {
       directory: publicDir,
-      expected: resolveFromRoot('dist', 'public')
+      expected: resolveFromRoot('dist', 'public'),
+      cwd: process.cwd()
     });
     throw new Error(`Build directory not found: ${publicDir}. Please run 'npm run build' first.`);
   }
 
-  if (!fs.existsSync(indexPath)) {
-    logger('Error: index.html not found', {
-      path: indexPath,
-      expected: path.join(publicDir, 'index.html')
-    });
-    throw new Error(`index.html not found at ${indexPath}. Please ensure the build process is correct.`);
-  }
-
-  logger('Static files configuration:', {
-    publicDir,
-    indexPath,
-    exists: {
-      publicDir: fs.existsSync(publicDir),
-      indexHtml: fs.existsSync(indexPath)
-    }
-  });
-
-  // Serve static files first
+  // Serve static files first with proper configuration
   app.use(express.static(publicDir, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
     etag: true,
-    index: false // We'll handle serving index.html manually
+    index: false, // We'll handle serving index.html manually
+    fallthrough: true, // Allow falling through to next middleware if file not found
+    // Add proper content type handling
+    setHeaders: (res, filePath) => {
+      // Set proper cache headers
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+      // Set proper security headers
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
   }));
 
   // API routes should be registered before this point
 
-  // Serve index.html for client-side routing
+  // Serve index.html for client-side routing with proper headers
   app.get('*', (req: Request, res: Response) => {
+    // Skip API routes
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
     logger('Serving index.html for path:', {
       path: req.path,
       method: req.method,
-      file: indexPath
+      file: indexPath,
+      exists: fs.existsSync(indexPath)
     });
-    res.sendFile(indexPath);
+
+    // Serve index.html with proper headers
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Type', 'text/html');
+    res.sendFile(indexPath, (err) => {
+      if (err) {
+        logger('Error serving index.html:', {
+          error: err.message,
+          path: req.path,
+          indexPath
+        });
+        res.status(500).send('Error loading page');
+      }
+    });
   });
 
   // Error handling with proper typing

@@ -199,5 +199,5 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=production node dist/index.js"
+args = "NODE_ENV=production node --trace-warnings dist/index.js"
 waitForPort = 5000
