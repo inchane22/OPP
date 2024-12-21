@@ -31,7 +31,7 @@ function resolveFromRoot(...paths: string[]): string {
 // Import database configuration and types
 import { DatabasePool } from './db/pool';
 import type { Pool } from 'pg';
-import { 
+import {
   DatabaseConnectionError,
   DatabaseQueryError,
   PostgresErrorCode,
@@ -218,23 +218,50 @@ export async function setupProduction(app: express.Express): Promise<void> {
   const publicDir = resolveFromRoot('dist', 'public');
   const indexPath = path.join(publicDir, 'index.html');
 
+  // Verify build directory exists
   if (!fs.existsSync(publicDir)) {
-    logger('Building client application...', {
-      directory: publicDir
+    logger('Error: Build directory not found', {
+      directory: publicDir,
+      expected: resolveFromRoot('dist', 'public')
     });
     throw new Error(`Build directory not found: ${publicDir}. Please run 'npm run build' first.`);
   }
 
-  logger('Static files will be served from:', { 
-    path: publicDir,
-    exists: fs.existsSync(publicDir)
+  if (!fs.existsSync(indexPath)) {
+    logger('Error: index.html not found', {
+      path: indexPath,
+      expected: path.join(publicDir, 'index.html')
+    });
+    throw new Error(`index.html not found at ${indexPath}. Please ensure the build process is correct.`);
+  }
+
+  logger('Static files configuration:', {
+    publicDir,
+    indexPath,
+    exists: {
+      publicDir: fs.existsSync(publicDir),
+      indexHtml: fs.existsSync(indexPath)
+    }
   });
 
+  // Serve static files first
   app.use(express.static(publicDir, {
     maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
     etag: true,
     index: false // We'll handle serving index.html manually
   }));
+
+  // API routes should be registered before this point
+
+  // Serve index.html for client-side routing
+  app.get('*', (req: Request, res: Response) => {
+    logger('Serving index.html for path:', {
+      path: req.path,
+      method: req.method,
+      file: indexPath
+    });
+    res.sendFile(indexPath);
+  });
 
   // Error handling with proper typing
   app.use((error: Error, req: Request, res: Response, next: Function) => {
@@ -245,8 +272,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
     // Handle specific database errors
     if (error instanceof DatabaseConnectionError) {
       statusCode = 503; // Service Unavailable
-      errorMessage = isProduction ? 
-        'Database service temporarily unavailable' : 
+      errorMessage = isProduction ?
+        'Database service temporarily unavailable' :
         'Database connection error: ' + error.message;
     } else if (error instanceof DatabaseQueryError) {
       statusCode = 400; // Bad Request
@@ -262,8 +289,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
             errorMessage = 'Required field is missing';
             break;
           default:
-            errorMessage = isProduction ? 
-              'Invalid database operation' : 
+            errorMessage = isProduction ?
+              'Invalid database operation' :
               'Database query error: ' + error.message;
         }
       }
@@ -312,9 +339,4 @@ export async function setupProduction(app: express.Express): Promise<void> {
 
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
-
-  // Serve index.html for client-side routing
-  app.get('*', (_req: Request, res: Response) => {
-    res.sendFile(indexPath);
-  });
 }

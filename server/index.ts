@@ -98,7 +98,11 @@ const HOST = '0.0.0.0';
 // Initialize and start server
 async function init() {
   try {
-    log('Starting server initialization...');
+    log('Starting server initialization...', {
+      env: process.env.NODE_ENV,
+      port: PORT,
+      host: HOST
+    });
 
     // Initialize database
     const { testConnection } = await import('./db/index.js');
@@ -128,11 +132,16 @@ async function init() {
       throw new Error(`Failed to register routes: ${routesError instanceof Error ? routesError.message : 'Unknown error'}`);
     }
 
-    // Create server instance first
+    // Create server instance
     const server = createServer(app);
 
     // Setup environment-specific configuration
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV === 'production') {
+      log('Setting up production server...');
+      const { setupProduction } = await import('./production.js');
+      await setupProduction(app);
+      log('Production server setup completed');
+    } else {
       log('Setting up development server...');
       await setupVite(app, server);
       log('Vite development server setup completed');
@@ -143,7 +152,8 @@ async function init() {
         log(`Server listening on port ${PORT}`, {
           host: HOST,
           port: PORT,
-          env: process.env.NODE_ENV
+          env: process.env.NODE_ENV,
+          mode: process.env.NODE_ENV === 'production' ? 'production' : 'development'
         });
         resolve();
       });
@@ -159,7 +169,8 @@ async function init() {
 
   } catch (error) {
     log('Fatal server startup error:', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
     throw error;
   }
