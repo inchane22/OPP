@@ -1,5 +1,5 @@
-// Define type for log data to ensure consistency
-export type LogData = Record<string, any>;
+// Type-safe logging utility
+import { type LogData } from '../types';
 
 export function logger(message: string, data: LogData = {}) {
   console.log(JSON.stringify({
@@ -9,3 +9,6 @@ export function logger(message: string, data: LogData = {}) {
     ...data
   }));
 }
+
+// Re-export the LogData type for consumers
+export type { LogData };

@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger';
+import { logger } from '../../server/utils/logger';
 import pg from 'pg';
 import type { Pool } from 'pg';
 import { 

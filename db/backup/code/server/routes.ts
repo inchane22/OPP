@@ -1,6 +1,6 @@
 import { type Express } from "express";
-import { db } from "./db";
-import { posts, events, resources, users, comments, businesses, carousel_items } from "./db/schema";
+import { db } from "../db";
+import { posts, events, resources, users, comments, businesses, carousel_items } from "../db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
@@ -947,7 +947,7 @@ export function registerRoutes(app: Express) {
           signal: controller.signal
         })      ]);
 
-      if (!priceResponse.ok) {
+      if      if (!priceResponse.ok) {
         throw new Error(`Kraken API error: ${priceResponse.status}`);
       }
       if (!rateResponse.ok) {
