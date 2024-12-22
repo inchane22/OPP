@@ -21,14 +21,25 @@ pg_dump --data-only $DATABASE_URL > db/backup/data/data_$(date +%Y%m%d).sql
 echo "Creating full backup..."
 pg_dump $DATABASE_URL > db/backup/full_backup.sql
 
+# Copy seed data
+echo "Copying seed data..."
+cp db/backup/data/seed.sql db/backup/data/seed_$(date +%Y%m%d).sql
+
 # Backup configuration files
 echo "Backing up configuration files..."
+mkdir -p db/backup/config
 cp package.json db/backup/config/
 cp tsconfig.json db/backup/config/
 cp vite.config.ts db/backup/config/
 cp tailwind.config.ts db/backup/config/
 cp drizzle.config.ts db/backup/config/
 cp theme.json db/backup/config/
+cp .env db/backup/config/ 2>/dev/null || :
+cp .env.example db/backup/config/ 2>/dev/null || :
+
+# Backup type definitions and schema
+cp db/schema.ts db/backup/config/
+cp migrations/*.sql db/backup/migrations/ 2>/dev/null || :
 
 # Update README with latest backup information
 CURRENT_DATE=$(date '+%Y-%m-%d %H:%M:%S')
@@ -38,5 +49,7 @@ echo "Backup completed successfully on $CURRENT_DATE"
 echo "Files created:"
 echo "- db/backup/schema/schema_$(date +%Y%m%d).sql"
 echo "- db/backup/data/data_$(date +%Y%m%d).sql"
+echo "- db/backup/data/seed_$(date +%Y%m%d).sql"
 echo "- db/backup/full_backup.sql"
 echo "Configuration files backed up to db/backup/config/"
+echo "Migration files backed up to db/backup/migrations/"
