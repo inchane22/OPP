@@ -1,13 +1,14 @@
+import { type Express, type Request, type Response } from "express";
 import passport from "passport";
 import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
-import { type Express, type Request, type Response } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
-import { db } from "@db/index";
+import { users, insertUserSchema, type User as SelectUser } from "@backup/db/schema";
+import { db } from "@backup/db/index";
 import { eq } from "drizzle-orm";
+import { type AuthenticatedRequest } from "./types";
 
 // Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
@@ -30,6 +31,13 @@ const crypto = {
     return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
   },
 };
+
+// Extend express user object with our schema
+declare global {
+  namespace Express {
+    interface User extends SelectUser {}
+  }
+}
 
 // Export auth setup function
 export function setupAuth(app: Express): void {

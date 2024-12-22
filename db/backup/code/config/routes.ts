@@ -1,9 +1,18 @@
 import { type Express } from "express";
-import { db } from "@db/index";
-import { posts, events, resources, users, comments, businesses, carousel_items } from "@db/schema";
+import { db } from "@backup/db/index";
+import { 
+  posts, 
+  events, 
+  resources, 
+  users, 
+  comments, 
+  businesses, 
+  carousel_items,
+  type Post as DbPost 
+} from "@backup/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { setupAuth } from "./auth";
-import { geocodeAddress } from "@server/utils/geocoding";
+import { setupAuth } from "@backup/server/auth";
+import { geocodeAddress } from "@backup/server/utils/geocoding";
 
 // Define strict types for database query results
 interface PostAuthor {
@@ -21,14 +30,8 @@ interface PostComment {
   postId: number;
 }
 
-interface Post {
-  id: number;
-  title: string;
-  content: string;
-  authorId: number;
-  createdAt: Date;
-  updatedAt: Date;
-  author: PostAuthor | null;
+interface ExtendedPost extends DbPost {
+  author?: PostAuthor | null;
   comments?: PostComment[];
 }
 
@@ -42,6 +45,7 @@ export function registerRoutes(app: Express) {
         id: posts.id,
         title: posts.title,
         content: posts.content,
+        category: posts.category,
         authorId: posts.authorId,
         createdAt: posts.createdAt,
         updatedAt: posts.updatedAt,
@@ -56,8 +60,8 @@ export function registerRoutes(app: Express) {
         .orderBy(desc(posts.createdAt));
 
       // Fetch comments for each post
-      const postsWithComments: Post[] = await Promise.all(
-        allPosts.map(async (post: Post) => {
+      const postsWithComments: ExtendedPost[] = await Promise.all(
+        allPosts.map(async (post): Promise<ExtendedPost> => {
           const postComments = await db
             .select()
             .from(comments)
