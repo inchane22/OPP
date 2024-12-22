@@ -170,12 +170,22 @@ export default function AdminPanel() {
       try {
         const response = await fetch("/api/admin/stats");
         if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("Admin stats error response:", errorData);
           throw new Error(`Failed to fetch admin stats: ${response.statusText}`);
         }
         const data = await response.json();
+        if (!data || typeof data !== 'object') {
+          throw new Error('Invalid data format received from server');
+        }
         return data;
       } catch (err) {
         console.error("Error fetching admin stats:", err);
+        toast({
+          title: "Error loading admin data",
+          description: err instanceof Error ? err.message : "Failed to load admin panel data",
+          variant: "destructive"
+        });
         throw err;
       }
     },
@@ -191,6 +201,17 @@ export default function AdminPanel() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+          <div className="text-destructive">Error loading admin data</div>
+          <Button onClick={() => refetch()}>Retry</Button>
         </div>
       </div>
     );

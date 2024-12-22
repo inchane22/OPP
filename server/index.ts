@@ -24,24 +24,15 @@ function log(message: string, data: Record<string, any> = {}) {
 
 const app = express();
 
-// Configure CORS
+// Configure CORS with more permissive settings for development
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    const allowedOrigins = process.env.NODE_ENV === 'production'
-      ? ['https://orange-pill-peru.com', 'http://localhost:3000', 'http://0.0.0.0:3000']
-      : ['http://localhost:5000', 'http://localhost:3000', 'http://0.0.0.0:5000', 'http://0.0.0.0:3000'];
-
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all origins in development
-    }
+    callback(null, true); // Allow all origins in development
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200,
-  maxAge: 86400 // 24 hours
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
@@ -49,21 +40,32 @@ app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
+// Request logging middleware with more details
 app.use((req, res, next) => {
   const start = Date.now();
+  log(`Incoming ${req.method} request to ${req.path}`, {
+    query: req.query,
+    headers: req.headers
+  });
+
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (req.path.startsWith("/api")) {
-      log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
-    }
+    log(`${req.method} ${req.path} completed`, {
+      statusCode: res.statusCode,
+      duration: `${duration}ms`
+    });
   });
   next();
 });
 
-// Error handling middleware with proper typing
+// Error handling middleware with enhanced logging
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  log('Error occurred:', { error: err.message, stack: err.stack });
+  log('Error occurred:', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
 
   if (res.headersSent) {
     return next(err);
@@ -76,7 +78,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     });
   }
 
-  // Handle database errors by checking properties instead of using type guard
   if (isDatabaseError(err)) {
     return res.status(500).json({
       error: 'Database error',
@@ -95,7 +96,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 const PORT = Number(process.env.PORT || 5000);
 const HOST = '0.0.0.0';
 
-// Initialize and start server
+// Initialize and start server with enhanced error handling
 async function init() {
   try {
     log('Starting server initialization...', {
@@ -104,21 +105,33 @@ async function init() {
       host: HOST
     });
 
-    // Initialize database
+    // Initialize database with retry mechanism
     const { testConnection } = await import('./db/index.js');
+    let connected = false;
+    const maxRetries = 3;
 
-    try {
-      log('Attempting to connect to database...');
-      const connected = await testConnection();
-      if (!connected) {
-        throw new Error('Database connection test failed');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        log(`Attempting database connection (attempt ${attempt}/${maxRetries})...`);
+        connected = await testConnection();
+        if (connected) {
+          log('Database connection established successfully');
+          break;
+        }
+      } catch (dbError) {
+        log('Database connection attempt failed:', {
+          attempt,
+          error: dbError instanceof Error ? dbError.message : 'Unknown error'
+        });
+        if (attempt === maxRetries) {
+          throw new Error(`Database connection failed after ${maxRetries} attempts`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
       }
-      log('Database connection established successfully');
-    } catch (dbError) {
-      log('Database connection error:', {
-        error: dbError instanceof Error ? dbError.message : 'Unknown database error'
-      });
-      throw new Error(`Database connection failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
+
+    if (!connected) {
+      throw new Error('Could not establish database connection');
     }
 
     // Register API routes
@@ -129,7 +142,7 @@ async function init() {
       log('Failed to register routes:', {
         error: routesError instanceof Error ? routesError.message : 'Unknown routes error'
       });
-      throw new Error(`Failed to register routes: ${routesError instanceof Error ? routesError.message : 'Unknown error'}`);
+      throw routesError;
     }
 
     // Create server instance
@@ -152,8 +165,7 @@ async function init() {
         log(`Server listening on port ${PORT}`, {
           host: HOST,
           port: PORT,
-          env: process.env.NODE_ENV,
-          mode: process.env.NODE_ENV === 'production' ? 'production' : 'development'
+          env: process.env.NODE_ENV
         });
         resolve();
       });
@@ -161,7 +173,8 @@ async function init() {
       server.on('error', (error: NodeJS.ErrnoException) => {
         log('Server error:', {
           code: error.code,
-          message: error.message
+          message: error.message,
+          stack: error.stack
         });
         reject(error);
       });
@@ -176,7 +189,7 @@ async function init() {
   }
 }
 
-// Start server
+// Start server with proper error handling
 init().catch((error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
   process.exit(1);
