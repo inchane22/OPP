@@ -112,7 +112,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
                 next();
               }
             });
-            return;
+            return; // Explicit return for production fallback mode
           } else {
             throw new DatabaseConnectionError(
               'Failed to initialize database after all retries',
@@ -125,6 +125,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
     }
+    // Add explicit return at the end of the function
+    return;
   };
 
   try {
@@ -264,7 +266,9 @@ export async function setupProduction(app: express.Express): Promise<void> {
     // Serve index.html with proper headers
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'text/html');
-    res.sendFile(indexPath, (err) => {
+
+    // TypeScript requires explicit void return type for callback
+    const sendFileCallback = (err: Error | null): void => {
       if (err) {
         logger('Error serving index.html:', {
           error: err.message,
@@ -272,8 +276,12 @@ export async function setupProduction(app: express.Express): Promise<void> {
           indexPath
         });
         res.status(500).send('Error loading page');
+        return;
       }
-    });
+      // Success case - no need to do anything
+    };
+
+    return res.sendFile(indexPath, sendFileCallback);
   });
 
   // Error handling with proper typing
@@ -319,8 +327,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
       stack: !isProduction ? error.stack : undefined
     });
 
-    // Send error response
-    res.status(statusCode).json({
+    // Send error response with explicit return
+    return res.status(statusCode).json({
       error: errorMessage,
       status: statusCode,
       path: req.path,
