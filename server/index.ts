@@ -5,7 +5,7 @@ import { createServer } from "http";
 import compression from 'compression';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { isDatabaseError } from './db/types';
 
 // ES Module path resolution utility
@@ -44,19 +44,21 @@ const corsOptions = {
   maxAge: 86400 // 24 hours
 };
 
+// Basic middleware setup
 app.use(cors(corsOptions));
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware
+// Request logging middleware with error handling
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (req.path.startsWith("/api")) {
-      log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
-    }
+    log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+  });
+  res.on("error", (error) => {
+    log(`Error processing ${req.method} ${req.path}:`, { error: error.message });
   });
   next();
 });
@@ -76,7 +78,6 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     });
   }
 
-  // Handle database errors by checking properties instead of using type guard
   if (isDatabaseError(err)) {
     return res.status(500).json({
       error: 'Database error',
@@ -121,21 +122,10 @@ async function init() {
       throw new Error(`Database connection failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
     }
 
-    // Register API routes
-    try {
-      await registerRoutes(app);
-      log('API routes registered successfully');
-    } catch (routesError) {
-      log('Failed to register routes:', {
-        error: routesError instanceof Error ? routesError.message : 'Unknown routes error'
-      });
-      throw new Error(`Failed to register routes: ${routesError instanceof Error ? routesError.message : 'Unknown error'}`);
-    }
-
     // Create server instance
     const server = createServer(app);
 
-    // Setup environment-specific configuration
+    // Setup environment-specific configuration before registering API routes
     if (process.env.NODE_ENV === 'production') {
       log('Setting up production server...');
       const { setupProduction } = await import('./production.js');
@@ -143,8 +133,21 @@ async function init() {
       log('Production server setup completed');
     } else {
       log('Setting up development server...');
-      await setupVite(app, server);
-      log('Vite development server setup completed');
+      try {
+        // Setup Vite development server first
+        await setupVite(app, server);
+        log('Vite development server setup completed');
+
+        // Register API routes after Vite setup
+        await registerRoutes(app);
+        log('Routes registered successfully');
+      } catch (setupError) {
+        log('Failed to setup development server:', {
+          error: setupError instanceof Error ? setupError.message : 'Unknown setup error',
+          stack: setupError instanceof Error ? setupError.stack : undefined
+        });
+        throw setupError;
+      }
     }
 
     return new Promise<void>((resolve, reject) => {
@@ -161,7 +164,8 @@ async function init() {
       server.on('error', (error: NodeJS.ErrnoException) => {
         log('Server error:', {
           code: error.code,
-          message: error.message
+          message: error.message,
+          stack: error.stack
         });
         reject(error);
       });
@@ -176,7 +180,7 @@ async function init() {
   }
 }
 
-// Start server
+// Start server with proper error handling
 init().catch((error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
   process.exit(1);

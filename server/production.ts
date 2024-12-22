@@ -241,6 +241,8 @@ export async function setupProduction(app: express.Express): Promise<void> {
       // Set proper cache headers
       if (filePath.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.match(/\.(js|css|png|jpg|jpeg|gif|ico|svg)$/)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
       }
       // Set proper security headers
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -250,7 +252,7 @@ export async function setupProduction(app: express.Express): Promise<void> {
   // API routes should be registered before this point
 
   // Serve index.html for client-side routing with proper headers
-  app.get('*', (req: Request, res: Response) => {
+  app.get('/*', (req: Request, res: Response) => {
     // Skip API routes
     if (req.path.startsWith('/api')) {
       return res.status(404).json({ error: 'API endpoint not found' });
