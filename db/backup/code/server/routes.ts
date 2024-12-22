@@ -1,8 +1,7 @@
 import { type Express } from "express";
-import { db } from "../db";
-import { posts, events, resources, users, comments, businesses } from "@db/schema";
+import { db } from "./db";
+import { posts, events, resources, users, comments, businesses, carousel_items } from "./db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
 
@@ -338,7 +337,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (dateError) {
           console.error('Date parsing error:', dateError);
-          return res.status(400).json({ 
+          return res.status(400).json({
             error: "Invalid date format",
             details: dateError instanceof Error ? dateError.message : "Unknown date error"
           });
@@ -946,8 +945,7 @@ export function registerRoutes(app: Express) {
         fetch('https://api.exchangerate-api.com/v4/latest/USD', {
           headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
           signal: controller.signal
-        })
-      ]);
+        })      ]);
 
       if (!priceResponse.ok) {
         throw new Error(`Kraken API error: ${priceResponse.status}`);

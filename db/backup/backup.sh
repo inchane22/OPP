@@ -8,6 +8,8 @@
 mkdir -p db/backup/schema
 mkdir -p db/backup/data
 mkdir -p db/backup/config
+mkdir -p db/backup/code/server
+mkdir -p db/backup/code/db
 
 # Backup database schema
 echo "Creating schema backup..."
@@ -37,8 +39,12 @@ cp theme.json db/backup/config/
 cp .env db/backup/config/ 2>/dev/null || :
 cp .env.example db/backup/config/ 2>/dev/null || :
 
+# Backup server code
+echo "Backing up server code..."
+cp -r server/* db/backup/code/server/
+cp -r db/* db/backup/code/db/
+
 # Backup type definitions and schema
-cp db/schema.ts db/backup/config/
 cp migrations/*.sql db/backup/migrations/ 2>/dev/null || :
 
 # Update README with latest backup information
@@ -52,4 +58,5 @@ echo "- db/backup/data/data_$(date +%Y%m%d).sql"
 echo "- db/backup/data/seed_$(date +%Y%m%d).sql"
 echo "- db/backup/full_backup.sql"
 echo "Configuration files backed up to db/backup/config/"
+echo "Server code backed up to db/backup/code/"
 echo "Migration files backed up to db/backup/migrations/"

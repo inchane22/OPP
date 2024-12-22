@@ -5,8 +5,8 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
-import { db } from "../db";
+import { users, insertUserSchema, type User as SelectUser } from "./db/schema";
+import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 // Promisify scrypt for async usage
@@ -75,7 +75,7 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         console.log(`Attempting login for user: ${username}`);
-        
+
         // Find user by username
         const [user] = await db
           .select()
@@ -92,7 +92,7 @@ export function setupAuth(app: Express) {
         // Verify password
         const isMatch = await crypto.compare(password, user.password);
         console.log('Password match:', isMatch);
-        
+
         if (!isMatch) {
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
