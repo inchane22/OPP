@@ -1,6 +1,6 @@
 import pg from 'pg';
 import type { Pool, PoolConfig as PgPoolConfig } from 'pg';
-import { logger } from '../../server/utils/logger';
+import { logger } from '../server/utils/logger';
 
 import { 
   DatabaseConnectionError,

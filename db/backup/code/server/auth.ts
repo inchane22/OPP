@@ -6,7 +6,7 @@ import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "../db/schema";
-import { db } from "../db";
+import { db } from "../db/index";
 import { eq } from "drizzle-orm";
 
 // Promisify scrypt for async usage

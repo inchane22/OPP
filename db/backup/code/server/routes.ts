@@ -1,9 +1,19 @@
 import { type Express } from "express";
-import { db } from "../db";
+import { db } from "../db/index";
 import { posts, events, resources, users, comments, businesses, carousel_items } from "../db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
+
+// Add type for post parameter
+interface Post {
+  id: number;
+  title: string;
+  content: string;
+  authorId: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export function registerRoutes(app: Express) {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
@@ -947,7 +957,7 @@ export function registerRoutes(app: Express) {
           signal: controller.signal
         })      ]);
 
-      if      if (!priceResponse.ok) {
+      if (!priceResponse.ok) {
         throw new Error(`Kraken API error: ${priceResponse.status}`);
       }
       if (!rateResponse.ok) {

@@ -26,6 +26,8 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@db/*": ["./db/*"],
+      "@backup/*": ["./db/backup/code/*"],
+      "@server/*": ["./server/*"],
       "db/*": ["./db/*"]
     },
     "forceConsistentCasingInFileNames": true,
