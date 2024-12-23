@@ -76,11 +76,14 @@ export function setupAuth(app: Express) {
       try {
         console.log(`Attempting login for user: ${username}`);
 
+        // Convert username to lowercase for consistent comparison
+        const normalizedUsername = username.toLowerCase();
+
         // Find user by username (case-insensitive)
         const [user] = await db
           .select()
           .from(users)
-          .where(ilike(users.username, username))
+          .where(ilike(users.username, normalizedUsername))
           .limit(1);
 
         if (!user) {
@@ -136,14 +139,14 @@ export function setupAuth(app: Express) {
 
       const { username, password, email } = result.data;
 
-      // Convert username to lowercase for consistent storage
+      // Convert username to lowercase for storage
       const normalizedUsername = username.toLowerCase();
 
       // Check if user exists (case-insensitive)
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(ilike(users.username, username))
+        .where(ilike(users.username, normalizedUsername))
         .limit(1);
 
       if (existingUser) {
@@ -155,7 +158,7 @@ export function setupAuth(app: Express) {
       const [newUser] = await db
         .insert(users)
         .values({
-          username: normalizedUsername,
+          username: normalizedUsername, // Store username in lowercase
           password: hashedPassword,
           email,
           language: "es", // Default to Spanish
