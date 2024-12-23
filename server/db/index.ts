@@ -48,6 +48,11 @@ const sql_connection = await createConnection();
 // Create the database instance
 const db = drizzle(sql_connection);
 
+// Define the expected query result type that extends Record<string, unknown>
+interface TimeQueryResult extends Record<string, unknown> {
+  current_time: Date;
+}
+
 // Test database connection function with improved error handling
 async function testConnection(): Promise<boolean> {
   try {
@@ -55,14 +60,18 @@ async function testConnection(): Promise<boolean> {
     const start = Date.now();
 
     // Execute query with proper type handling using drizzle-orm's sql template literal
-    const result = await db.execute(sql`SELECT NOW() as current_time`);
+    const queryResult = await db.execute(sql`SELECT NOW() as current_time`);
     const duration = Date.now() - start;
+
+    // Safely access and type the result
+    const results = queryResult as unknown as TimeQueryResult[];
+    const firstResult = results[0];
 
     console.log('Database connection successful', {
       responseTime: `${duration}ms`,
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
-      current_time: result[0]?.current_time
+      current_time: firstResult?.current_time
     });
 
     return true;

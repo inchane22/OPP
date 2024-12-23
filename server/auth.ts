@@ -6,7 +6,7 @@ import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
-import { db } from "../db";
+import { db } from "./db";
 import { eq, ilike } from "drizzle-orm";
 
 // Promisify scrypt for async usage
@@ -257,7 +257,7 @@ export function setupAuth(app: Express) {
       const user = req.user;
       return res.json({
         id: user.id,
-        username: user.username,
+        username: user.username, // Return original casing
         email: user.email,
         language: user.language,
         role: user.role,
