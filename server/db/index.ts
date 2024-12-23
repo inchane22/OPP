@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/neon-http';
-import { neon, neonConfig } from '@neondatabase/serverless';
+import { neon } from '@neondatabase/serverless';
 import { sql } from 'drizzle-orm';
 
 // Check required environment variables
@@ -7,9 +7,6 @@ if (!process.env.DATABASE_URL) {
   console.error('Fatal: DATABASE_URL environment variable is not set');
   throw new Error('DATABASE_URL environment variable is not set');
 }
-
-// Initialize neon config
-neonConfig.fetchConnectionCache = true;
 
 // Create the SQL connection with retries
 let retryCount = 0;

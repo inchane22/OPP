@@ -60,7 +60,7 @@ async function init() {
     app.use(cors({
       origin: process.env.NODE_ENV === 'production' 
         ? ['https://orange-pill-peru.com'] 
-        : ['http://localhost:3000', 'http://0.0.0.0:3000'],
+        : true, // Allow all origins in development
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
