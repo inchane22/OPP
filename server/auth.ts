@@ -115,18 +115,31 @@ export function setupAuth(app: Express) {
 
   passport.deserializeUser(async (id: number, done) => {
     try {
+      // Find user by ID, maintaining original username case for display
       const [user] = await db
         .select()
         .from(users)
         .where(eq(users.id, id))
         .limit(1);
+
+      if (!user) {
+        console.log('User not found during deserialization:', { id });
+        return done(null, false);
+      }
+
+      console.log('User deserialized successfully:', { 
+        id,
+        username: user.username, // Log original case for debugging
+      });
+
       done(null, user);
     } catch (err) {
+      console.error('Error during user deserialization:', err);
       done(err);
     }
   });
 
-  // Authentication routes
+  // Registration endpoint
   app.post("/api/register", async (req, res, next) => {
     try {
       // Validate input
@@ -139,8 +152,13 @@ export function setupAuth(app: Express) {
 
       const { username, password, email } = result.data;
 
-      // Convert username to lowercase for storage
+      // Convert username to lowercase for storage and comparison
       const normalizedUsername = username.toLowerCase();
+      console.log('Registration attempt:', { 
+        originalUsername: username,
+        normalizedUsername,
+        hasEmail: !!email 
+      });
 
       // Check if user exists (case-insensitive)
       const [existingUser] = await db
@@ -150,6 +168,10 @@ export function setupAuth(app: Express) {
         .limit(1);
 
       if (existingUser) {
+        console.log('Registration failed - username exists:', { 
+          attemptedUsername: username,
+          existingUsername: existingUser.username 
+        });
         return res.status(400).json({ error: "El usuario ya existe" });
       }
 
@@ -166,10 +188,16 @@ export function setupAuth(app: Express) {
         })
         .returning();
 
+      console.log('User registered successfully:', { 
+        id: newUser.id,
+        username: newUser.username
+      });
+
       // Log in after registration
       return new Promise<void>((resolve, reject) => {
         req.login(newUser, (err) => {
           if (err) {
+            console.error('Auto-login after registration failed:', err);
             reject(err);
             return;
           }
@@ -187,10 +215,12 @@ export function setupAuth(app: Express) {
         });
       });
     } catch (error) {
+      console.error('Registration error:', error);
       return next(error);
     }
   });
 
+  // Login endpoint
   app.post("/api/login", async (req, res, next) => {
     try {
       const authenticate = (req: Request, res: Response): Promise<Express.User> =>

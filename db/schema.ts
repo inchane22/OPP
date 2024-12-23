@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").unique().notNull(),
+  username: text("username").unique().notNull().$type<string>(), // Will be converted to citext by migration
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
@@ -105,7 +105,6 @@ export const insertCarouselItemSchema = createInsertSchema(carousel_items);
 export const selectCarouselItemSchema = createSelectSchema(carousel_items);
 export type InsertCarouselItem = z.infer<typeof insertCarouselItemSchema>;
 export type CarouselItem = z.infer<typeof selectCarouselItemSchema>;
-
 
 
 export const insertCommentSchema = createInsertSchema(comments);

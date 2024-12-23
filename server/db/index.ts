@@ -21,7 +21,10 @@ async function createConnection() {
 
   while (retryCount < MAX_RETRIES) {
     try {
-      return neon(databaseUrl);
+      console.log('Attempting to create database connection...');
+      const sql_connection = neon(databaseUrl);
+      console.log('Database connection created successfully');
+      return sql_connection;
     } catch (error) {
       retryCount++;
       console.error(`Database connection attempt ${retryCount} failed:`, {
@@ -43,7 +46,7 @@ async function createConnection() {
 const sql_connection = await createConnection();
 
 // Create the database instance
-const db = drizzle(sql_connection);
+export const db = drizzle(sql_connection);
 
 // Define the expected query result type that extends Record<string, unknown>
 interface TimeQueryResult extends Record<string, unknown> {
@@ -51,7 +54,7 @@ interface TimeQueryResult extends Record<string, unknown> {
 }
 
 // Test database connection function with improved error handling
-async function testConnection(): Promise<boolean> {
+export async function testConnection(): Promise<boolean> {
   try {
     console.log('Testing database connection...');
     const start = Date.now();
@@ -82,5 +85,3 @@ async function testConnection(): Promise<boolean> {
     throw error;
   }
 }
-
-export { db, testConnection };
