@@ -7,7 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
 import { db } from "../db";
-import { eq } from "drizzle-orm";
+import { eq, ilike } from "drizzle-orm";
 
 // Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
@@ -70,17 +70,17 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Configure local strategy for username/password auth
+  // Configure local strategy for username/password auth with case-insensitive username
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
         console.log(`Attempting login for user: ${username}`);
-        
-        // Find user by username
+
+        // Find user by username (case-insensitive)
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.username, username))
+          .where(ilike(users.username, username))
           .limit(1);
 
         if (!user) {
@@ -92,7 +92,7 @@ export function setupAuth(app: Express) {
         // Verify password
         const isMatch = await crypto.compare(password, user.password);
         console.log('Password match:', isMatch);
-        
+
         if (!isMatch) {
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
@@ -136,23 +136,26 @@ export function setupAuth(app: Express) {
 
       const { username, password, email } = result.data;
 
-      // Check if user exists
+      // Convert username to lowercase for consistent storage
+      const normalizedUsername = username.toLowerCase();
+
+      // Check if user exists (case-insensitive)
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(eq(users.username, username))
+        .where(ilike(users.username, username))
         .limit(1);
 
       if (existingUser) {
         return res.status(400).json({ error: "El usuario ya existe" });
       }
 
-      // Create new user with hashed password
+      // Create new user with hashed password and lowercase username
       const hashedPassword = await crypto.hash(password);
       const [newUser] = await db
         .insert(users)
         .values({
-          username,
+          username: normalizedUsername,
           password: hashedPassword,
           email,
           language: "es", // Default to Spanish

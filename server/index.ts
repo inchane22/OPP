@@ -7,6 +7,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { isDatabaseError } from './db/types';
+import { setupAuth } from "./auth"; // Add setupAuth import
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -21,8 +22,8 @@ function log(message: string, data: Record<string, any> = {}) {
   console.log(`[${formattedTime}] ${message}`, data);
 }
 
-// Server configuration
-const PORT = Number(process.env.PORT || 5000);
+// Server configuration with correct port for development
+const PORT = Number(process.env.PORT || (process.env.NODE_ENV === 'development' ? 3001 : 5000));
 const HOST = '0.0.0.0';
 
 // Create Express app instance at module scope
@@ -98,7 +99,12 @@ async function init() {
     // Create server instance
     server = createServer(app);
 
-    // Register API routes first
+    // Setup authentication first
+    log('Setting up authentication...');
+    setupAuth(app);
+    log('Authentication setup completed');
+
+    // Register API routes
     try {
       log('Registering API routes...');
       await registerRoutes(app);
