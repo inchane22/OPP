@@ -4,7 +4,8 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").unique().notNull().$type<string>(), // Will be converted to citext by migration
+  // Username is handled case-insensitively via database index and triggers
+  username: text("username").notNull().$type<string>(),
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),

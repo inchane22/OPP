@@ -7,7 +7,7 @@ import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
 import { db } from "./db";
-import { eq, ilike } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 // Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
@@ -76,14 +76,11 @@ export function setupAuth(app: Express) {
       try {
         console.log(`Attempting login for user: ${username}`);
 
-        // Convert username to lowercase for consistent comparison
-        const normalizedUsername = username.toLowerCase();
-
         // Find user by username (case-insensitive)
         const [user] = await db
           .select()
           .from(users)
-          .where(ilike(users.username, normalizedUsername))
+          .where(sql`lower(username) = lower(${username})`)
           .limit(1);
 
         if (!user) {
@@ -92,7 +89,6 @@ export function setupAuth(app: Express) {
         }
 
         console.log('User found, verifying password');
-        // Verify password
         const isMatch = await crypto.compare(password, user.password);
         console.log('Password match:', isMatch);
 
@@ -119,7 +115,7 @@ export function setupAuth(app: Express) {
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.id, id))
+        .where(sql`id = ${id}`)
         .limit(1);
 
       if (!user) {
@@ -139,10 +135,9 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Registration endpoint
+  // Registration endpoint with case-insensitive username handling
   app.post("/api/register", async (req, res, next) => {
     try {
-      // Validate input
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
         return res
@@ -152,54 +147,31 @@ export function setupAuth(app: Express) {
 
       const { username, password, email } = result.data;
 
-      // Convert username to lowercase for storage and comparison
-      const normalizedUsername = username.toLowerCase();
-      console.log('Registration attempt:', { 
-        originalUsername: username,
-        normalizedUsername,
-        hasEmail: !!email 
-      });
+      // Username conflict check is now handled by database trigger
+      try {
+        // Create new user with original username case
+        const hashedPassword = await crypto.hash(password);
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            username, // Keep original case
+            password: hashedPassword,
+            email,
+            language: "es",
+            role: "user",
+          })
+          .returning();
 
-      // Check if user exists (case-insensitive)
-      const [existingUser] = await db
-        .select()
-        .from(users)
-        .where(ilike(users.username, normalizedUsername))
-        .limit(1);
-
-      if (existingUser) {
-        console.log('Registration failed - username exists:', { 
-          attemptedUsername: username,
-          existingUsername: existingUser.username 
+        console.log('User registered successfully:', { 
+          id: newUser.id,
+          username: newUser.username
         });
-        return res.status(400).json({ error: "El usuario ya existe" });
-      }
 
-      // Create new user with hashed password and lowercase username
-      const hashedPassword = await crypto.hash(password);
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          username: normalizedUsername, // Store username in lowercase
-          password: hashedPassword,
-          email,
-          language: "es", // Default to Spanish
-          role: "user",
-        })
-        .returning();
-
-      console.log('User registered successfully:', { 
-        id: newUser.id,
-        username: newUser.username
-      });
-
-      // Log in after registration
-      return new Promise<void>((resolve, reject) => {
+        // Log in after registration
         req.login(newUser, (err) => {
           if (err) {
             console.error('Auto-login after registration failed:', err);
-            reject(err);
-            return;
+            return next(err);
           }
           res.json({
             message: "Registro exitoso",
@@ -211,9 +183,14 @@ export function setupAuth(app: Express) {
               role: newUser.role
             },
           });
-          resolve();
         });
-      });
+      } catch (err) {
+        // Handle unique constraint violation
+        if (err.message.includes('Username already exists')) {
+          return res.status(400).json({ error: "El usuario ya existe" });
+        }
+        throw err;
+      }
     } catch (error) {
       console.error('Registration error:', error);
       return next(error);
