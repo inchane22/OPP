@@ -4,7 +4,7 @@ import { Switch, Route, useLocation, Redirect } from "wouter";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
-import { Toaster } from "./components/ui";
+import { Toaster } from "@/components/ui/toaster";
 import { LanguageProvider } from "./hooks/use-language";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -85,7 +85,7 @@ function Router() {
               <Route path="/account">
                 <ProtectedRoute component={AccountPage} />
               </Route>
-
+            
               {/* Spanish routes */}
               <Route path="/foro">
                 <Redirect to="/forum" />

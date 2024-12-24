@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Button } from "./ui";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./ui";
-import { Sheet, SheetContent, SheetTrigger } from "./ui";
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useUser } from "../hooks/use-user";
 import LanguageToggle from "./LanguageToggle";
 import { User } from "@db/schema";

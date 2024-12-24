@@ -1,11 +1,10 @@
 import { pgTable, text, integer, timestamp, boolean, serial, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull(),  // Case-insensitive uniqueness handled by database index
+  username: text("username").unique().notNull(),
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
@@ -108,28 +107,13 @@ export type InsertCarouselItem = z.infer<typeof insertCarouselItemSchema>;
 export type CarouselItem = z.infer<typeof selectCarouselItemSchema>;
 
 
+
 export const insertCommentSchema = createInsertSchema(comments);
 export const selectCommentSchema = createSelectSchema(comments);
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = z.infer<typeof selectCommentSchema>;
 
-export const insertUserSchema = createInsertSchema(users, {
-  username: z.string()
-    .min(3, "El nombre de usuario debe tener al menos 3 caracteres")
-    .max(50, "El nombre de usuario no puede exceder 50 caracteres")
-    .regex(/^[a-zA-Z0-9_-]+$/, "El nombre de usuario solo puede contener letras, números, guiones y guiones bajos")
-    .transform(val => val.toLowerCase().trim()), // Always transform to lowercase for consistent handling
-  password: z.string()
-    .min(6, "La contraseña debe tener al menos 6 caracteres")
-    .max(100, "La contraseña no puede exceder 100 caracteres"),
-  email: z.string()
-    .email("Formato de correo electrónico inválido")
-    .optional()
-    .transform(val => val?.toLowerCase().trim()), // Transform email to lowercase if present
-  language: z.string().default("es"),
-  role: z.string().default("user"),
-});
-
+export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = z.infer<typeof selectUserSchema>;

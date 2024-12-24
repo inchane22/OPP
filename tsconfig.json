@@ -24,12 +24,9 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["client/src/*"],
+      "@/*": ["./client/src/*"],
       "@db/*": ["./db/*"],
-      "db/*": ["./db/*"],
-      "@components/*": ["client/src/components/*"],
-      "@hooks/*": ["client/src/hooks/*"],
-      "@lib/*": ["client/src/lib/*"]
+      "db/*": ["./db/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "useUnknownInCatchVariables": false

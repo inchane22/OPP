@@ -7,8 +7,6 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { isDatabaseError } from './db/types';
-import { setupAuth } from "./auth";
-import { testConnection } from "./db";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -23,15 +21,32 @@ function log(message: string, data: Record<string, any> = {}) {
   console.log(`[${formattedTime}] ${message}`, data);
 }
 
-// Server configuration with correct port for development
-const PORT = Number(process.env.PORT || 3001);
+// Server configuration
+const PORT = Number(process.env.PORT || 5000);
 const HOST = '0.0.0.0';
 
 // Create Express app instance at module scope
 const app = express();
 let server: ReturnType<typeof createServer> | null = null;
 
-// Initialize and start server with better error handling
+// Graceful shutdown handler
+async function shutdown() {
+  if (server) {
+    return new Promise<void>((resolve, reject) => {
+      server?.close((err) => {
+        if (err) {
+          log('Error during server shutdown:', { error: err.message });
+          reject(err);
+        } else {
+          log('Server shut down gracefully');
+          resolve();
+        }
+      });
+    });
+  }
+}
+
+// Initialize and start server
 async function init() {
   try {
     log('Starting server initialization...', {
@@ -40,11 +55,11 @@ async function init() {
       host: HOST
     });
 
-    // Basic middleware setup before auth
+    // Basic middleware setup
     app.use(cors({
       origin: process.env.NODE_ENV === 'production' 
         ? ['https://orange-pill-peru.com'] 
-        : true,
+        : ['http://localhost:3000', 'http://0.0.0.0:3000'],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
@@ -64,53 +79,97 @@ async function init() {
       next();
     });
 
-    // Test database connection first
+    // Initialize database
+    const { testConnection } = await import('./db/index.js');
     try {
       log('Testing database connection...');
-      await testConnection();
-      log('Database connection verified');
-    } catch (error) {
-      log('Database connection failed:', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+      const connected = await testConnection();
+      if (!connected) {
+        throw new Error('Database connection test failed');
+      }
+      log('Database connection established successfully');
+    } catch (dbError) {
+      log('Database connection error:', {
+        error: dbError instanceof Error ? dbError.message : 'Unknown error'
       });
-      throw error;
-    }
-
-    // Setup authentication with error handling
-    try {
-      log('Setting up authentication...');
-      await setupAuth(app);
-      log('Authentication setup completed');
-    } catch (error) {
-      log('Authentication setup failed:', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-
-    // Register API routes
-    try {
-      log('Registering API routes...');
-      await registerRoutes(app);
-      log('Routes registered successfully');
-    } catch (error) {
-      log('Route registration failed:', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
+      throw dbError;
     }
 
     // Create server instance
     server = createServer(app);
 
-    // Start listening
-    return new Promise<void>((resolve, reject) => {
-      if (!server) {
-        reject(new Error('Server was not properly initialized'));
-        return;
+    // Register API routes first
+    try {
+      log('Registering API routes...');
+      await registerRoutes(app);
+      log('Routes registered successfully');
+    } catch (routesError) {
+      log('Failed to register routes:', {
+        error: routesError instanceof Error ? routesError.message : 'Unknown error'
+      });
+      throw routesError;
+    }
+
+    // Setup environment-specific configuration
+    if (process.env.NODE_ENV === 'development') {
+      log('Setting up development server...');
+      try {
+        // Setup static file serving for development
+        const publicPath = join(process.cwd(), 'public');
+        app.use(express.static(publicPath, {
+          index: false // Let Vite handle index.html
+        }));
+
+        // Setup Vite for development
+        await setupVite(app, server);
+        log('Development server setup completed');
+      } catch (error) {
+        log('Development server setup failed:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        throw error;
+      }
+    } else {
+      log('Setting up production server...');
+      const { setupProduction } = await import('./production.js');
+      await setupProduction(app);
+      log('Production server setup completed');
+    }
+
+    // Handle client-side routing - this must come after all other routes
+    app.get('*', (req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api')) {
+        return next();
       }
 
-      server.listen(PORT, HOST, () => {
+      if (process.env.NODE_ENV === 'development') {
+        // In development, let Vite handle the rendering
+        next();
+      } else {
+        // In production, serve the built index.html
+        res.sendFile(join(process.cwd(), 'dist', 'public', 'index.html'));
+      }
+    });
+
+    // Error handling middleware
+    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      log('Error occurred:', {
+        error: err.message,
+        path: req.path,
+        method: req.method
+      });
+
+      res.status(500).json({
+        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
+        status: 500
+      });
+    });
+
+    // Start listening with port availability check
+    return new Promise<void>((resolve, reject) => {
+      server?.listen(PORT, HOST, () => {
         log(`Server listening on port ${PORT}`, {
           host: HOST,
           port: PORT,
@@ -119,14 +178,17 @@ async function init() {
         resolve();
       });
 
-      server.on('error', (error: NodeJS.ErrnoException) => {
+      server?.on('error', (error: NodeJS.ErrnoException) => {
         if (error.code === 'EADDRINUSE') {
           log(`Port ${PORT} is already in use. Shutting down...`);
-          process.exit(1);
+          shutdown().then(() => {
+            reject(new Error(`Port ${PORT} is already in use. Please try a different port.`));
+          });
         } else {
           log('Server error:', {
             code: error.code,
-            message: error.message
+            message: error.message,
+            stack: error.stack
           });
           reject(error);
         }
@@ -138,6 +200,7 @@ async function init() {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
+    await shutdown();
     process.exit(1);
   }
 }
@@ -155,26 +218,9 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Graceful shutdown handler
-async function shutdown() {
-  if (server) {
-    return new Promise<void>((resolve, reject) => {
-      server?.close((err) => {
-        if (err) {
-          log('Error during server shutdown:', { error: err.message });
-          reject(err);
-        } else {
-          log('Server shut down gracefully');
-          resolve();
-        }
-      });
-    });
-  }
-}
-
-// Start the server with proper error handling
-init().catch((error) => {
+init().catch(async (error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  await shutdown();
   process.exit(1);
 });
 

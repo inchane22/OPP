@@ -1,72 +1,10 @@
 import { type Express } from "express";
-import fetch from "node-fetch";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
-
-// Type definitions for Bitcoin price data
-interface BitcoinPriceResponse {
-  bitcoin: {
-    pen: number;
-    provider: string;
-    timestamp: number;
-  };
-}
-
-// Cache for Bitcoin price to avoid hitting rate limits
-interface PriceCache {
-  data: BitcoinPriceResponse | null;
-  timestamp: number;
-}
-
-let bitcoinPriceCache: PriceCache = {
-  data: null,
-  timestamp: 0
-};
-
-const CACHE_DURATION = 60000; // 1 minute cache
-
-async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
-  try {
-    // Check cache first
-    const now = Date.now();
-    if (bitcoinPriceCache.data && (now - bitcoinPriceCache.timestamp) < CACHE_DURATION) {
-      return bitcoinPriceCache.data;
-    }
-
-    const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,pen"
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-
-    const data = await response.json() as { bitcoin: { pen: number; usd: number } };
-
-    const priceData: BitcoinPriceResponse = {
-      bitcoin: {
-        pen: data.bitcoin.pen,
-        provider: "CoinGecko",
-        timestamp: now
-      }
-    };
-
-    // Update cache
-    bitcoinPriceCache = {
-      data: priceData,
-      timestamp: now
-    };
-
-    return priceData;
-  } catch (error) {
-    console.error("Failed to fetch Bitcoin price:", error);
-    throw new Error("Failed to fetch Bitcoin price");
-  }
-}
 
 export function registerRoutes(app: Express) {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
@@ -400,7 +338,7 @@ export function registerRoutes(app: Express) {
           }
         } catch (dateError) {
           console.error('Date parsing error:', dateError);
-          return res.status(400).json({
+          return res.status(400).json({ 
             error: "Invalid date format",
             details: dateError instanceof Error ? dateError.message : "Unknown date error"
           });
@@ -974,6 +912,269 @@ export function registerRoutes(app: Express) {
     }
   });
   // Carousel routes
+  // In-memory cache for Bitcoin price
+  interface PriceData {
+    bitcoin: {
+      pen: number;
+      provider: string;
+      timestamp: number;
+    }
+  }
+
+  interface PriceCache {
+    data: PriceData | null;
+    timestamp: number;
+    ttl: number;
+  }
+
+  let priceCache: PriceCache = {
+    data: null,
+    timestamp: 0,
+    ttl: 300000 // 5 minutes cache for better rate limit protection
+  };
+
+  async function fetchKrakenPrice(): Promise<number> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const [priceResponse, rateResponse] = await Promise.all([
+        fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSDT', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        }),
+        fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        })
+      ]);
+
+      if (!priceResponse.ok) {
+        throw new Error(`Kraken API error: ${priceResponse.status}`);
+      }
+      if (!rateResponse.ok) {
+        throw new Error(`Exchange rate API error: ${rateResponse.status}`);
+      }
+
+      const [priceData, rateData] = await Promise.all([
+        priceResponse.json(),
+        rateResponse.json()
+      ]);
+
+      if (!priceData?.result?.XBTUSDT?.c?.[0] || isNaN(parseFloat(priceData.result.XBTUSDT.c[0]))) {
+        throw new Error('Invalid price data from Kraken');
+      }
+      if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
+        throw new Error('Invalid exchange rate data');      }
+
+      const btcUsdPrice = parseFloat(priceData.result.XBTUSDT.c[0]);
+      const usdPenRate = rateData.rates.PEN;
+      const finalPrice = btcUsdPrice * usdPenRate;
+
+      if (finalPrice <= 0 || !isFinite(finalPrice)) {
+        throw new Error('Invalid price calculation result');
+      }
+
+      return finalPrice;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Kraken price fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function fetchBitsoPrice(): Promise<number> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://api.bitso.com/v3/ticker/?book=btc_pen', {
+        headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Bitso API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data?.payload?.last || isNaN(parseFloat(data.payload.last))) {
+        throw new Error('Invalid response structure from Bitso');
+      }
+
+      const price = parseFloat(data.payload.last);
+      if (price <= 0 || !isFinite(price)) {
+        throw new Error('Invalid price value from Bitso');
+      }
+
+      return price;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Bitso error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function fetchBlockchainPrice(): Promise<number> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const [priceResponse, rateResponse] = await Promise.all([
+        fetch('https://api.blockchain.com/v3/exchange/tickers/BTC-USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        }),
+        fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+          headers: { 'User-Agent': 'BitcoinPENTracker/1.0' },
+          signal: controller.signal
+        })
+      ]);
+
+      if (!priceResponse.ok) {
+        throw new Error(`Blockchain.com API error: ${priceResponse.status}`);
+      }
+      if (!rateResponse.ok) {
+        throw new Error(`Exchange rate API error: ${rateResponse.status}`);
+      }
+
+      const [priceData, rateData] = await Promise.all([
+        priceResponse.json(),
+        rateResponse.json()
+      ]);
+
+      if (!priceData?.last_trade_price || isNaN(priceData.last_trade_price)) {
+        throw new Error('Invalid price data from Blockchain.com');
+      }
+      if (!rateData?.rates?.PEN || isNaN(rateData.rates.PEN)) {
+        throw new Error('Invalid exchange rate data');
+      }
+
+      const btcUsdPrice = priceData.last_trade_price;
+      const usdPenRate = rateData.rates.PEN;
+      const finalPrice = btcUsdPrice * usdPenRate;
+
+      if (finalPrice <= 0 || !isFinite(finalPrice)) {
+        throw new Error('Invalid price calculation result');
+      }
+
+      return finalPrice;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`Blockchain.com error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function fetchCoinGeckoPrice(): Promise<number> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen',
+        {
+          headers: {
+            'User-Agent': 'BitcoinPENTracker/1.0',
+            'Accept': 'application/json'
+          },
+          signal: controller.signal
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded');
+        }
+        throw new Error(`CoinGecko API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
+        throw new Error('Invalid price data structure');
+      }
+
+      return data.bitcoin.pen;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      throw new Error(`CoinGecko error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  app.get("/api/bitcoin/price", async (_req, res) => {
+    try {
+      const now = Date.now();
+      if (priceCache.data && now - priceCache.timestamp < priceCache.ttl) {
+        return res.json(priceCache.data);
+      }
+
+      const providers = [
+        { name: 'Kraken', fn: fetchKrakenPrice },
+        { name: 'Blockchain.com', fn: fetchBlockchainPrice },
+        { name: 'CoinGecko', fn: fetchCoinGeckoPrice },
+        { name: 'Bitso', fn: fetchBitsoPrice }
+      ];
+
+      let lastError: Error | null = null;
+
+      for (const provider of providers) {
+        try {
+          console.log(`Attempting to fetch price from ${provider.name}...`);
+          const penPrice = await provider.fn();
+
+          const response: PriceData = {
+            bitcoin: {
+              pen: penPrice,
+              provider: provider.name,
+              timestamp: now
+            }
+          };
+
+          // Update cache
+          priceCache = {
+            data: response,
+            timestamp: now,
+            ttl: 30000
+          };
+
+          // Set cache headers
+          res.set('Cache-Control', 'public, max-age=30');
+          console.log(`Successfully fetched price from ${provider.name}`);
+          res.json(response);
+          return;
+        } catch (error) {
+          console.error(`${provider.name} error:`, error instanceof Error ? error.message : 'Unknown error');
+          lastError = error instanceof Error ? error : new Error('Unknown error');
+          continue;
+        }
+      }
+
+      // If we get here, all providers failed
+      throw new Error(`All providers failed. Last error: ${lastError?.message}`);
+    } catch (error) {
+      console.error('Bitcoin price fetch failed:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(503).json({
+        error: "Failed to fetch Bitcoin price",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return;
+    }
+  });
+
   app.get("/api/carousel", async (_req, res) => {
     try {
       const items = await db
@@ -999,7 +1200,7 @@ export function registerRoutes(app: Express) {
       console.log(`Successfully fetched ${items.length} carousel items`);
       return res.json(items);
     } catch (error) {
-      console.error("Failed to fetch carousel items:", error instanceof Error? error.message : 'Unknown error');
+      console.error("Failed to fetch carousel items:", error instanceof Error ? error.message : 'Unknown error');
       return res.status(500).json({
         error: "Failed to fetch carousel items",
         details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
@@ -1063,18 +1264,4 @@ export function registerRoutes(app: Express) {
       return res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
-  // Bitcoin price endpoint with proper typing
-  app.get("/api/bitcoin/price", async (_req, res) => {
-    try {
-      const priceData = await fetchBitcoinPrice();
-      res.json(priceData);
-    } catch (error) {
-      console.error("Bitcoin price endpoint error:", error);
-      res.status(503).json({
-        error: "Failed to fetch Bitcoin price",
-        details: error instanceof Error ? error.message : "Unknown error"
-      });
-    }
-  });
-
 }

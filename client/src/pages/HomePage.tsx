@@ -21,7 +21,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Hero />
-
+      
       {/* Featured Content Carousel */}
       <section className="w-full">
         <div className="container mx-auto">
@@ -58,7 +58,7 @@ export default function HomePage() {
             </h2>
             <div className="h-1 w-20 bg-primary mx-auto rounded-full mb-6" />
           </div>
-
+          
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             <Card className="group transition-all duration-300 hover:shadow-xl hover:border-primary/50 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
