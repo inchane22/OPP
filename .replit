@@ -60,11 +60,11 @@ args = "TypeScript Build Check"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Frontend Dev Server"
+args = "Backend Dev Server"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Backend Dev Server"
+args = "Frontend Dev Server"
 
 [[workflows.workflow]]
 name = "Create Admin"
@@ -154,21 +154,6 @@ task = "shell.exec"
 args = "npx tsc --noEmit"
 
 [[workflows.workflow]]
-name = "Frontend Dev Server"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "packager.installForAll"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "vite --port 3000 --host 0.0.0.0"
-waitForPort = 3000
-
-[[workflows.workflow]]
 name = "Backend Dev Server"
 author = "agent"
 
@@ -182,3 +167,18 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "NODE_ENV=development tsx watch --clear-screen=false server/index.ts"
 waitForPort = 3001
+
+[[workflows.workflow]]
+name = "Frontend Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development vite --port 3000 --host 0.0.0.0 --clearScreen false"
+waitForPort = 3000
