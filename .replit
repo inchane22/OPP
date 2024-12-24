@@ -181,4 +181,3 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd client && vite --port 3000 --host 0.0.0.0"
-waitForPort = 3000
