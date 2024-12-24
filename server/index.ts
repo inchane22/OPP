@@ -31,23 +31,6 @@ const HOST = '0.0.0.0';
 const app = express();
 let server: ReturnType<typeof createServer> | null = null;
 
-// Graceful shutdown handler
-async function shutdown() {
-  if (server) {
-    return new Promise<void>((resolve, reject) => {
-      server?.close((err) => {
-        if (err) {
-          log('Error during server shutdown:', { error: err.message });
-          reject(err);
-        } else {
-          log('Server shut down gracefully');
-          resolve();
-        }
-      });
-    });
-  }
-}
-
 // Initialize and start server with better error handling
 async function init() {
   try {
@@ -56,18 +39,6 @@ async function init() {
       port: PORT,
       host: HOST
     });
-
-    // Test database connection first
-    try {
-      log('Testing database connection...');
-      await testConnection();
-      log('Database connection verified');
-    } catch (error) {
-      log('Database connection failed:', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
 
     // Basic middleware setup before auth
     app.use(cors({
@@ -93,8 +64,17 @@ async function init() {
       next();
     });
 
-    // Create server instance
-    server = createServer(app);
+    // Test database connection first
+    try {
+      log('Testing database connection...');
+      await testConnection();
+      log('Database connection verified');
+    } catch (error) {
+      log('Database connection failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
 
     // Setup authentication with error handling
     try {
@@ -120,34 +100,8 @@ async function init() {
       throw error;
     }
 
-    // Setup environment-specific configuration
-    if (process.env.NODE_ENV === 'development') {
-      log('Setting up development server...');
-      try {
-        // Setup Vite for development
-        await setupVite(app, server);
-        log('Development server setup completed');
-      } catch (error) {
-        log('Development server setup failed:', {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        throw error;
-      }
-    }
-
-    // Error handling middleware
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-      log('Error occurred:', {
-        error: err.message,
-        path: req.path,
-        method: req.method
-      });
-
-      res.status(500).json({
-        error: process.env.NODE_ENV === 'development' ? err.message : 'Internal Server Error',
-        status: 500
-      });
-    });
+    // Create server instance
+    server = createServer(app);
 
     // Start listening
     return new Promise<void>((resolve, reject) => {
@@ -168,9 +122,7 @@ async function init() {
       server.on('error', (error: NodeJS.ErrnoException) => {
         if (error.code === 'EADDRINUSE') {
           log(`Port ${PORT} is already in use. Shutting down...`);
-          shutdown().then(() => {
-            reject(new Error(`Port ${PORT} is already in use. Please try a different port.`));
-          });
+          process.exit(1);
         } else {
           log('Server error:', {
             code: error.code,
@@ -186,8 +138,7 @@ async function init() {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
-    await shutdown();
-    throw error;
+    process.exit(1);
   }
 }
 
@@ -204,10 +155,26 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Graceful shutdown handler
+async function shutdown() {
+  if (server) {
+    return new Promise<void>((resolve, reject) => {
+      server?.close((err) => {
+        if (err) {
+          log('Error during server shutdown:', { error: err.message });
+          reject(err);
+        } else {
+          log('Server shut down gracefully');
+          resolve();
+        }
+      });
+    });
+  }
+}
+
 // Start the server with proper error handling
-init().catch(async (error) => {
+init().catch((error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  await shutdown();
   process.exit(1);
 });
 
