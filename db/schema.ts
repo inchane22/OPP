@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // Username is handled case-insensitively via database index and triggers
+  // Username is handled case-insensitively via database citext type and triggers
   username: text("username").notNull().$type<string>(),
   password: text("password").notNull(),
   email: text("email").unique(),
@@ -113,7 +113,17 @@ export const selectCommentSchema = createSelectSchema(comments);
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 export type Comment = z.infer<typeof selectCommentSchema>;
 
-export const insertUserSchema = createInsertSchema(users);
+export const insertUserSchema = createInsertSchema(users, {
+  username: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(50, "Username cannot exceed 50 characters")
+    .transform(val => val.trim()), // Trim whitespace before validation
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().email("Invalid email format").optional(),
+  language: z.string().default("es"),
+  role: z.string().default("user"),
+});
+
 export const selectUserSchema = createSelectSchema(users);
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = z.infer<typeof selectUserSchema>;

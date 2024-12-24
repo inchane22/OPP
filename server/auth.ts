@@ -1,13 +1,13 @@
 import passport from "passport";
 import { IVerifyOptions, Strategy as LocalStrategy } from "passport-local";
-import { type Express, type Request, type Response } from "express";
+import { type Express, type Request, type Response, NextFunction } from "express";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { users, insertUserSchema, type User as SelectUser } from "@db/schema";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql } from 'drizzle-orm';
 
 // Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
@@ -80,7 +80,7 @@ export function setupAuth(app: Express) {
         const [user] = await db
           .select()
           .from(users)
-          .where(sql`lower(username) = lower(${username})`)
+          .where(sql`LOWER(username) = LOWER(${username})`)
           .limit(1);
 
         if (!user) {
@@ -147,7 +147,6 @@ export function setupAuth(app: Express) {
 
       const { username, password, email } = result.data;
 
-      // Username conflict check is now handled by database trigger
       try {
         // Create new user with original username case
         const hashedPassword = await crypto.hash(password);
@@ -186,7 +185,7 @@ export function setupAuth(app: Express) {
         });
       } catch (err) {
         // Handle unique constraint violation
-        if (err.message.includes('Username already exists')) {
+        if (err.message.includes('duplicate key value violates unique constraint')) {
           return res.status(400).json({ error: "El usuario ya existe" });
         }
         throw err;
