@@ -2,10 +2,14 @@ import { pgTable, text, integer, timestamp, boolean, serial, decimal } from "dri
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define custom type for citext
+declare const citextBrand: unique symbol;
+type CiText = string & { readonly [citextBrand]: symbol };
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // Username is handled case-insensitively via database citext type and triggers
-  username: text("username").notNull().$type<string>(),
+  // Username is handled case-insensitively via database citext type
+  username: text("username").$type<CiText>().notNull(),
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
@@ -115,11 +119,15 @@ export type Comment = z.infer<typeof selectCommentSchema>;
 
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
-    .min(3, "Username must be at least 3 characters")
-    .max(50, "Username cannot exceed 50 characters")
+    .min(3, "El nombre de usuario debe tener al menos 3 caracteres")
+    .max(50, "El nombre de usuario no puede exceder 50 caracteres")
     .transform(val => val.trim()), // Trim whitespace before validation
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  email: z.string().email("Invalid email format").optional(),
+  password: z.string()
+    .min(6, "La contraseña debe tener al menos 6 caracteres")
+    .max(100, "La contraseña no puede exceder 100 caracteres"),
+  email: z.string()
+    .email("Formato de correo electrónico inválido")
+    .optional(),
   language: z.string().default("es"),
   role: z.string().default("user"),
 });

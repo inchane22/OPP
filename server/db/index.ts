@@ -8,7 +8,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set');
 }
 
-// Create the SQL connection with retries
+// Create the SQL connection with retries and proper error handling
 let retryCount = 0;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -24,6 +24,11 @@ async function createConnection() {
       console.log('Attempting to create database connection...');
       const sql_connection = neon(databaseUrl);
       console.log('Database connection created successfully');
+
+      // Test the connection immediately
+      const db = drizzle(sql_connection);
+      await db.execute(sql`SELECT 1`);
+
       return sql_connection;
     } catch (error) {
       retryCount++;
@@ -45,33 +50,32 @@ async function createConnection() {
 // Create the SQL connection
 const sql_connection = await createConnection();
 
-// Create the database instance
-export const db = drizzle(sql_connection);
+// Create the database instance with enhanced logging
+export const db = drizzle(sql_connection, {
+  logger: true
+});
 
-// Define the expected query result type that extends Record<string, unknown>
-interface TimeQueryResult extends Record<string, unknown> {
-  current_time: Date;
-}
-
-// Test database connection function with improved error handling
+// Test database connection function with improved error handling and logging
 export async function testConnection(): Promise<boolean> {
   try {
     console.log('Testing database connection...');
     const start = Date.now();
 
-    // Execute query with proper type handling using drizzle-orm's sql template literal
-    const queryResult = await db.execute(sql`SELECT NOW() as current_time`);
-    const duration = Date.now() - start;
+    // Test query with proper type handling
+    const result = await db.execute(sql`
+      SELECT 
+        current_timestamp as server_time,
+        current_database() as database_name,
+        version() as postgres_version
+    `);
 
-    // Safely access and type the result
-    const results = queryResult as unknown as TimeQueryResult[];
-    const firstResult = results[0];
+    const duration = Date.now() - start;
 
     console.log('Database connection successful', {
       responseTime: `${duration}ms`,
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
-      current_time: firstResult?.current_time
+      details: result.rows[0]
     });
 
     return true;
