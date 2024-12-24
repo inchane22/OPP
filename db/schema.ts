@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  username: text("username").notNull(),  // Unique constraint handled by database index
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
@@ -117,6 +117,7 @@ export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
     .min(3, "El nombre de usuario debe tener al menos 3 caracteres")
     .max(50, "El nombre de usuario no puede exceder 50 caracteres")
+    .regex(/^[a-zA-Z0-9_-]+$/, "El nombre de usuario solo puede contener letras, números, guiones y guiones bajos")
     .transform(val => val.toLowerCase().trim()), // Always transform to lowercase for consistent handling
   password: z.string()
     .min(6, "La contraseña debe tener al menos 6 caracteres")
