@@ -30,6 +30,20 @@ const crypto = {
   },
 };
 
+// Username sanitization utility
+const sanitizeUsername = (username: string): string => {
+  // Remove invalid characters and replace with underscore
+  let sanitized = username.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  // Ensure minimum length
+  if (sanitized.length < 3) {
+    sanitized = `user_${sanitized}`;
+  }
+
+  // Truncate if too long
+  return sanitized.substring(0, 50);
+};
+
 declare global {
   namespace Express {
     interface User extends SelectUser {}
@@ -65,11 +79,12 @@ export async function setupAuth(app: Express): Promise<void> {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        // Case-insensitive username lookup
+        // Case-insensitive username lookup with proper sanitization
+        const sanitizedUsername = sanitizeUsername(username.trim());
         const [user] = await db
           .select()
           .from(users)
-          .where(sql`LOWER(username) = LOWER(${username.trim()})`)
+          .where(sql`LOWER(username) = LOWER(${sanitizedUsername})`)
           .limit(1);
 
         if (!user) {
@@ -83,6 +98,7 @@ export async function setupAuth(app: Express): Promise<void> {
 
         return done(null, user);
       } catch (err) {
+        console.error('Login error:', err);
         return done(err);
       }
     })
@@ -102,11 +118,12 @@ export async function setupAuth(app: Express): Promise<void> {
 
       done(null, user);
     } catch (err) {
+      console.error('Deserialize error:', err);
       done(err);
     }
   });
 
-  // Registration endpoint with improved error handling
+  // Registration endpoint with improved error handling and username sanitization
   app.post("/api/register", async (req, res) => {
     try {
       const result = insertUserSchema.safeParse(req.body);
@@ -117,23 +134,26 @@ export async function setupAuth(app: Express): Promise<void> {
       }
 
       const { username, password, email } = result.data;
+      const sanitizedUsername = sanitizeUsername(username.trim());
 
       // Case-insensitive username check
       const [existingUser] = await db
         .select()
         .from(users)
-        .where(sql`LOWER(username) = LOWER(${username.trim()})`)
+        .where(sql`LOWER(username) = LOWER(${sanitizedUsername})`)
         .limit(1);
 
       if (existingUser) {
-        return res.status(400).json({ error: "El nombre de usuario ya existe" });
+        return res.status(400).json({ 
+          error: "El nombre de usuario ya está en uso" 
+        });
       }
 
       const hashedPassword = await crypto.hash(password);
       const [newUser] = await db
         .insert(users)
         .values({
-          username: username.trim(),
+          username: sanitizedUsername,
           password: hashedPassword,
           email: email?.toLowerCase().trim(),
           language: "es",
@@ -163,20 +183,34 @@ export async function setupAuth(app: Express): Promise<void> {
     } catch (error) {
       console.error('Registration error:', error);
       if (error instanceof Error && error.message.includes('username_exists')) {
-        return res.status(400).json({ error: "El nombre de usuario ya existe" });
+        return res.status(400).json({ 
+          error: "El nombre de usuario ya está en uso" 
+        });
       }
-      return res.status(500).json({ error: "Error en el registro" });
+      return res.status(500).json({ 
+        error: "Error en el registro. Por favor, inténtalo de nuevo." 
+      });
     }
   });
 
   // Login endpoint
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ error: info.message || "Error en el inicio de sesión" });
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
+      if (!user) {
+        return res.status(401).json({ 
+          error: info.message || "Error en el inicio de sesión" 
+        });
+      }
 
       req.login(user, (err) => {
-        if (err) return next(err);
+        if (err) {
+          console.error('Session creation error:', err);
+          return next(err);
+        }
         return res.json({
           message: "Inicio de sesión exitoso",
           user: {
@@ -195,9 +229,14 @@ export async function setupAuth(app: Express): Promise<void> {
   app.post("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
-        return res.status(500).json({ error: "Error al cerrar sesión" });
+        console.error('Logout error:', err);
+        return res.status(500).json({ 
+          error: "Error al cerrar sesión" 
+        });
       }
-      return res.json({ message: "Sesión cerrada exitosamente" });
+      return res.json({ 
+        message: "Sesión cerrada exitosamente" 
+      });
     });
   });
 
@@ -214,6 +253,8 @@ export async function setupAuth(app: Express): Promise<void> {
         avatar: user.avatar
       });
     }
-    return res.status(401).json({ error: "No has iniciado sesión" });
+    return res.status(401).json({ 
+      error: "No has iniciado sesión" 
+    });
   });
 }

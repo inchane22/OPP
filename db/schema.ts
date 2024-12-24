@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull(),  // Unique constraint handled by database index
+  username: text("username").notNull(),  // Case-insensitive uniqueness handled by database index
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
