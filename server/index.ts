@@ -48,7 +48,7 @@ async function shutdown() {
   }
 }
 
-// Initialize and start server
+// Initialize and start server with better error handling
 async function init() {
   try {
     log('Starting server initialization...', {
@@ -69,7 +69,7 @@ async function init() {
       throw error;
     }
 
-    // Basic middleware setup
+    // Basic middleware setup before auth
     app.use(cors({
       origin: process.env.NODE_ENV === 'production' 
         ? ['https://orange-pill-peru.com'] 
@@ -96,24 +96,34 @@ async function init() {
     // Create server instance
     server = createServer(app);
 
-    // Setup authentication
-    log('Setting up authentication...');
-    setupAuth(app);
-    log('Authentication setup completed');
+    // Setup authentication with error handling
+    try {
+      log('Setting up authentication...');
+      await setupAuth(app);
+      log('Authentication setup completed');
+    } catch (error) {
+      log('Authentication setup failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
 
     // Register API routes
-    log('Registering API routes...');
-    await registerRoutes(app);
-    log('Routes registered successfully');
+    try {
+      log('Registering API routes...');
+      await registerRoutes(app);
+      log('Routes registered successfully');
+    } catch (error) {
+      log('Route registration failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
 
     // Setup environment-specific configuration
     if (process.env.NODE_ENV === 'development') {
       log('Setting up development server...');
       try {
-        // Setup static file serving for development
-        const publicPath = join(process.cwd(), 'public');
-        app.use(express.static(publicPath));
-
         // Setup Vite for development
         await setupVite(app, server);
         log('Development server setup completed');
@@ -164,8 +174,7 @@ async function init() {
         } else {
           log('Server error:', {
             code: error.code,
-            message: error.message,
-            stack: error.stack
+            message: error.message
           });
           reject(error);
         }
@@ -195,7 +204,7 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start the server
+// Start the server with proper error handling
 init().catch(async (error) => {
   log(`Fatal error during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
   await shutdown();

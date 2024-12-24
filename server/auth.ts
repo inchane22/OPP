@@ -62,6 +62,7 @@ export function setupAuth(app: Express): void {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Update LocalStrategy to use case-insensitive username comparison
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
@@ -111,7 +112,7 @@ export function setupAuth(app: Express): void {
     }
   });
 
-  // Registration endpoint
+  // Registration endpoint with case-insensitive username handling
   app.post("/api/register", async (req, res) => {
     try {
       const result = insertUserSchema.safeParse(req.body);
@@ -168,6 +169,9 @@ export function setupAuth(app: Express): void {
 
     } catch (error) {
       console.error('Registration error:', error);
+      if (error instanceof Error && error.message === 'username_exists') {
+        return res.status(400).json({ error: "El nombre de usuario ya existe" });
+      }
       return res.status(500).json({ error: "Error en el registro" });
     }
   });

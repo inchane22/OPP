@@ -117,7 +117,7 @@ export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
     .min(3, "El nombre de usuario debe tener al menos 3 caracteres")
     .max(50, "El nombre de usuario no puede exceder 50 caracteres")
-    .transform(val => val.toLowerCase().trim()), // Transform to lowercase for consistent handling
+    .transform(val => val.toLowerCase().trim()), // Always transform to lowercase for consistent handling
   password: z.string()
     .min(6, "La contraseña debe tener al menos 6 caracteres")
     .max(100, "La contraseña no puede exceder 100 caracteres"),
