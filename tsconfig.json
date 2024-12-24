@@ -24,12 +24,12 @@
     "baseUrl": ".",
     "types": ["node", "vite/client"],
     "paths": {
-      "@/*": ["./client/src/*"],
+      "@/*": ["client/src/*"],
       "@db/*": ["./db/*"],
       "db/*": ["./db/*"],
-      "@components/*": ["./client/src/components/*"],
-      "@hooks/*": ["./client/src/hooks/*"],
-      "@lib/*": ["./client/src/lib/*"]
+      "@components/*": ["client/src/components/*"],
+      "@hooks/*": ["client/src/hooks/*"],
+      "@lib/*": ["client/src/lib/*"]
     },
     "forceConsistentCasingInFileNames": true,
     "useUnknownInCatchVariables": false
