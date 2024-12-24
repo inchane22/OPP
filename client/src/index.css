@@ -6,9 +6,9 @@
   html {
     scroll-behavior: smooth;
   }
-  
+
   * {
-    @apply border-border;
+    @apply border-border/50;
   }
 
   body {
