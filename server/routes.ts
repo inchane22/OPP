@@ -1,10 +1,72 @@
 import { type Express } from "express";
+import fetch from "node-fetch";
 import { db } from "../db";
 import { posts, events, resources, users, comments, businesses } from "@db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 import { carousel_items } from "@db/schema";
 import { setupAuth } from "./auth";
 import { geocodeAddress } from "./utils/geocoding";
+
+// Type definitions for Bitcoin price data
+interface BitcoinPriceResponse {
+  bitcoin: {
+    pen: number;
+    provider: string;
+    timestamp: number;
+  };
+}
+
+// Cache for Bitcoin price to avoid hitting rate limits
+interface PriceCache {
+  data: BitcoinPriceResponse | null;
+  timestamp: number;
+}
+
+let bitcoinPriceCache: PriceCache = {
+  data: null,
+  timestamp: 0
+};
+
+const CACHE_DURATION = 60000; // 1 minute cache
+
+async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
+  try {
+    // Check cache first
+    const now = Date.now();
+    if (bitcoinPriceCache.data && (now - bitcoinPriceCache.timestamp) < CACHE_DURATION) {
+      return bitcoinPriceCache.data;
+    }
+
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,pen"
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko API error: ${response.status}`);
+    }
+
+    const data = await response.json() as { bitcoin: { pen: number; usd: number } };
+
+    const priceData: BitcoinPriceResponse = {
+      bitcoin: {
+        pen: data.bitcoin.pen,
+        provider: "CoinGecko",
+        timestamp: now
+      }
+    };
+
+    // Update cache
+    bitcoinPriceCache = {
+      data: priceData,
+      timestamp: now
+    };
+
+    return priceData;
+  } catch (error) {
+    console.error("Failed to fetch Bitcoin price:", error);
+    throw new Error("Failed to fetch Bitcoin price");
+  }
+}
 
 export function registerRoutes(app: Express) {
   // Setup authentication routes (/api/register, /api/login, /api/logout, /api/user)
@@ -1001,29 +1063,17 @@ export function registerRoutes(app: Express) {
       return res.status(500).json({ error: "Failed to delete carousel item" });
     }
   });
-  // Bitcoin price endpoint with simplified implementation
+  // Bitcoin price endpoint with proper typing
   app.get("/api/bitcoin/price", async (_req, res) => {
     try {
-      const response = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=pen',
-        {
-          headers: {
-            'Accept': 'application/json',
-          }
-        }
-      );
-
-      const data = await response.json();
-      return res.json({
-        bitcoin: {
-          pen: data.bitcoin.pen,
-          provider: 'CoinGecko',
-          timestamp: Date.now()
-        }
-      });
+      const priceData = await fetchBitcoinPrice();
+      res.json(priceData);
     } catch (error) {
-      console.error('Bitcoin price fetch failed:', error);
-      return res.status(500).json({ error: 'Error al obtener el precio de Bitcoin' });
+      console.error("Bitcoin price endpoint error:", error);
+      res.status(503).json({
+        error: "Failed to fetch Bitcoin price",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

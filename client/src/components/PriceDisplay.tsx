@@ -1,20 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-
-interface BitcoinPrice {
-  bitcoin: {
-    pen: number;
-    provider: string;
-    timestamp: number;
-  };
-}
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import type { BitcoinPriceResponse, BitcoinPriceError } from "@/types/bitcoin";
 
 export default function PriceDisplay() {
-  const { data, error, isLoading } = useQuery<BitcoinPrice>({
+  const { data, error, isLoading } = useQuery<BitcoinPriceResponse, Error>({
     queryKey: ['bitcoin-price'],
-    queryFn: () => fetch('/api/bitcoin/price').then(res => res.json()),
-    refetchInterval: 60000
+    queryFn: async () => {
+      const response = await fetch('/api/bitcoin/price');
+      if (!response.ok) {
+        const errorData = await response.json() as BitcoinPriceError;
+        throw new Error(errorData.error || 'Failed to fetch Bitcoin price');
+      }
+      return response.json();
+    },
+    refetchInterval: 60000, // Refresh every minute
+    retry: 3
   });
 
   if (isLoading) {
@@ -30,8 +33,13 @@ export default function PriceDisplay() {
   if (error) {
     return (
       <Card>
-        <CardContent>
-          <p className="text-red-500">Error loading price</p>
+        <CardContent className="p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {error instanceof Error ? error.message : 'Error loading price'}
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
