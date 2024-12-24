@@ -19,56 +19,52 @@ interface BitcoinPriceError {
 type FetchBitcoinPriceResult = BitcoinPriceResponse | BitcoinPriceError;
 
 async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
-  const timeoutDuration = 15000; // 15 seconds timeout for multiple provider attempts
+  const timeoutDuration = 15000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
   try {
     console.log('Initiating Bitcoin price fetch...');
-    
+
     const response = await fetch('/api/bitcoin/price', {
       headers: {
         'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
       },
-      signal: controller.signal,
-      cache: 'no-cache' // Ensure fresh data
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);
 
+    const data = await response.json();
+
     if (!response.ok) {
-      if (response.status === 503) {
-        const errorData = await response.json();
-        throw new Error('Servicio temporalmente no disponible. Por favor, intente más tarde.');
-      }
-      throw new Error('Error al obtener el precio de Bitcoin. Por favor, intente más tarde.');
+      const errorMessage = data.error || 'Error al obtener el precio de Bitcoin';
+      throw new Error(errorMessage);
     }
 
-    const data = await response.json() as FetchBitcoinPriceResult;
-    console.log('Bitcoin price data:', data);
-    
     if ('error' in data) {
-      const errorDetails = data.details ? `: ${data.details}` : '';
-      throw new Error(`${data.error}${errorDetails}`);
+      throw new Error(data.error);
     }
 
+    // Validate the data structure
     if (!data?.bitcoin?.pen || typeof data.bitcoin.pen !== 'number' || data.bitcoin.pen <= 0) {
       console.error('Invalid data structure received:', data);
-      throw new Error('Datos de precio inválidos. Por favor, intente más tarde.');
+      throw new Error('Datos de precio inválidos');
     }
-    
+
     return data;
   } catch (error) {
     console.error('Error fetching Bitcoin price:', error);
-    
+
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error('La solicitud ha tardado demasiado. Por favor, intente más tarde.');
+        throw new Error('La solicitud ha tardado demasiado');
       }
-      throw error; // Re-throw the already formatted error
+      throw error;
     }
-    
-    throw new Error('Error desconocido al obtener el precio. Por favor, intente más tarde.');
+
+    throw new Error('Error desconocido al obtener el precio');
   } finally {
     clearTimeout(timeoutId);
   }
@@ -76,7 +72,7 @@ async function fetchBitcoinPrice(): Promise<BitcoinPriceResponse> {
 
 function PriceContent({ data }: { data: BitcoinPriceResponse }) {
   console.log('PriceContent data:', JSON.stringify(data, null, 2));
-  
+
   const btcInPen = Number(data?.bitcoin?.pen);
   if (isNaN(btcInPen) || btcInPen <= 0) {
     console.error('Invalid BTC price in PEN:', btcInPen);
@@ -91,14 +87,14 @@ function PriceContent({ data }: { data: BitcoinPriceResponse }) {
       </Card>
     );
   }
-  
+
   console.log('btcInPen:', btcInPen);
-  
+
   const penPrice = btcInPen.toLocaleString('es-PE', {
     style: 'currency',
     currency: 'PEN'
   });
-  
+
   // Calculate sats per 1 PEN
   const SATS_PER_BTC = 100_000_000; // 100 million sats in 1 BTC
   const satsPerPen = SATS_PER_BTC / btcInPen;
@@ -136,7 +132,7 @@ function PriceContent({ data }: { data: BitcoinPriceResponse }) {
 export default function PriceDisplay() {
   const [isPending, startTransition] = useTransition();
   const queryClient = useQueryClient();
-  
+
   const { data, error, isFetching, isLoading } = useQuery<BitcoinPriceResponse, Error>({
     queryKey: ['bitcoin-price'],
     queryFn: fetchBitcoinPrice,
@@ -170,11 +166,11 @@ export default function PriceDisplay() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-red-500">
-            {error instanceof Error 
+            {error instanceof Error
               ? error.message
               : 'Error fetching Bitcoin price. Please try again later.'}
           </p>
-          <button 
+          <button
             onClick={refreshPrice}
             className="mt-2 text-xs text-primary hover:underline"
           >
@@ -188,7 +184,7 @@ export default function PriceDisplay() {
   const isUpdating = isPending || isFetching;
 
   return (
-    <div 
+    <div
       className={`transition-opacity duration-200 ${isUpdating ? "opacity-50" : ""}`}
       onClick={refreshPrice}
     >
