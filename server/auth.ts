@@ -12,7 +12,6 @@ import { sql } from 'drizzle-orm';
 // Promisify scrypt for async usage
 const scryptAsync = promisify(scrypt);
 
-// Crypto utility functions
 const crypto = {
   hash: async (password: string) => {
     const salt = randomBytes(16).toString("hex");
@@ -66,23 +65,18 @@ export function setupAuth(app: Express): void {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        console.log(`Attempting login for user: ${username}`);
-
-        // citext handles case-insensitive comparison automatically
+        // Case-insensitive username lookup using SQL LOWER function
         const [user] = await db
           .select()
           .from(users)
-          .where(sql`username = ${username}`)
+          .where(sql`LOWER(username) = LOWER(${username.trim()})`)
           .limit(1);
 
         if (!user) {
-          console.log('User not found');
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
 
         const isMatch = await crypto.compare(password, user.password);
-        console.log('Password verification completed');
-
         if (!isMatch) {
           return done(null, false, { message: "Usuario o contraseña incorrectos" });
         }
@@ -122,29 +116,41 @@ export function setupAuth(app: Express): void {
     try {
       const result = insertUserSchema.safeParse(req.body);
       if (!result.success) {
-        return res
-          .status(400)
-          .json({ error: result.error.issues.map(i => i.message).join(", ") });
+        return res.status(400).json({ 
+          error: result.error.issues.map(i => i.message).join(", ") 
+        });
       }
 
       const { username, password, email } = result.data;
 
-      try {
-        const hashedPassword = await crypto.hash(password);
-        const [newUser] = await db
-          .insert(users)
-          .values({
-            username: username as any, // citext type casting
-            password: hashedPassword,
-            email,
-            language: "es",
-            role: "user",
-          })
-          .returning();
+      // Case-insensitive username check using SQL LOWER function
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(sql`LOWER(username) = LOWER(${username.trim()})`)
+        .limit(1);
 
+      if (existingUser) {
+        return res.status(400).json({ error: "El nombre de usuario ya existe" });
+      }
+
+      const hashedPassword = await crypto.hash(password);
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          username: username.toLowerCase(), // Store username in lowercase
+          password: hashedPassword,
+          email: email?.toLowerCase(), // Store email in lowercase if present
+          language: "es",
+          role: "user",
+        })
+        .returning();
+
+      return new Promise<void>((resolve, reject) => {
         req.login(newUser, (err) => {
           if (err) {
-            throw err;
+            reject(err);
+            return;
           }
           res.json({
             message: "Registro exitoso",
@@ -156,38 +162,41 @@ export function setupAuth(app: Express): void {
               role: newUser.role
             },
           });
+          resolve();
         });
-      } catch (err: any) {
-        if (err.code === '23505' && err.message.includes('username')) {
-          return res.status(400).json({ error: "El nombre de usuario ya existe" });
-        }
-        throw err;
-      }
+      });
+
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).json({ error: "Error en el registro" });
+      return res.status(500).json({ error: "Error en el registro" });
     }
   });
 
   // Login endpoint
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err: any, user: Express.User, info: IVerifyOptions) => {
+    passport.authenticate("local", (err: any, user: Express.User | false, info: IVerifyOptions) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ error: info.message || "Error en el inicio de sesión" });
       }
 
-      req.logIn(user, (err) => {
-        if (err) return next(err);
-        res.json({
-          message: "Inicio de sesión exitoso",
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            language: user.language,
-            role: user.role
-          },
+      return new Promise<void>((resolve, reject) => {
+        req.logIn(user, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          res.json({
+            message: "Inicio de sesión exitoso",
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              language: user.language,
+              role: user.role
+            },
+          });
+          resolve();
         });
       });
     })(req, res, next);
@@ -195,11 +204,15 @@ export function setupAuth(app: Express): void {
 
   // Logout endpoint
   app.post("/api/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ error: "Error al cerrar sesión" });
-      }
-      res.json({ message: "Sesión cerrada exitosamente" });
+    return new Promise<void>((resolve) => {
+      req.logout((err) => {
+        if (err) {
+          res.status(500).json({ error: "Error al cerrar sesión" });
+        } else {
+          res.json({ message: "Sesión cerrada exitosamente" });
+        }
+        resolve();
+      });
     });
   });
 

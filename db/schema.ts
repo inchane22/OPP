@@ -1,15 +1,11 @@
 import { pgTable, text, integer, timestamp, boolean, serial, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
-
-// Define custom type for citext
-declare const citextBrand: unique symbol;
-type CiText = string & { readonly [citextBrand]: symbol };
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // Username is handled case-insensitively via database citext type
-  username: text("username").$type<CiText>().notNull(),
+  username: text("username").notNull().unique(),
   password: text("password").notNull(),
   email: text("email").unique(),
   avatar: text("avatar"),
@@ -121,13 +117,14 @@ export const insertUserSchema = createInsertSchema(users, {
   username: z.string()
     .min(3, "El nombre de usuario debe tener al menos 3 caracteres")
     .max(50, "El nombre de usuario no puede exceder 50 caracteres")
-    .transform(val => val.trim()), // Trim whitespace before validation
+    .transform(val => val.toLowerCase().trim()), // Transform to lowercase for consistent handling
   password: z.string()
     .min(6, "La contraseña debe tener al menos 6 caracteres")
     .max(100, "La contraseña no puede exceder 100 caracteres"),
   email: z.string()
     .email("Formato de correo electrónico inválido")
-    .optional(),
+    .optional()
+    .transform(val => val?.toLowerCase().trim()), // Transform email to lowercase if present
   language: z.string().default("es"),
   role: z.string().default("user"),
 });
